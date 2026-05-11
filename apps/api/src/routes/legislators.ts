@@ -1,0 +1,190 @@
+import type { FastifyPluginAsync } from "fastify";
+import {
+  getLegislatorDetail,
+  listLegislatorBills,
+  listLegislatorVotes,
+  listLegislators,
+  type ListLevel,
+} from "../services/legislatorService.js";
+import type { BillResult, ProposerRole, VoteResult } from "@repo/shared";
+
+interface ListQuery {
+  nationalDistrictId?: string;
+  provincialDistrictId?: string;
+  level?: ListLevel;
+}
+
+interface IdParams {
+  id: string;
+}
+
+interface BillsQuery {
+  role?: ProposerRole;
+  result?: BillResult;
+  limit?: number;
+  offset?: number;
+}
+
+interface VotesQuery {
+  result?: VoteResult;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+}
+
+const legislatorRoutes: FastifyPluginAsync = async (fastify) => {
+  // GET /legislators
+  fastify.get<{ Querystring: ListQuery }>(
+    "/",
+    {
+      schema: {
+        querystring: {
+          type: "object",
+          properties: {
+            nationalDistrictId: { type: "string" },
+            provincialDistrictId: { type: "string" },
+            level: { type: "string", enum: ["NATIONAL", "PROVINCIAL", "ALL"] },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { nationalDistrictId, provincialDistrictId, level } = request.query;
+      if (!nationalDistrictId && !provincialDistrictId) {
+        return reply.status(400).send({
+          error: "MISSING_DISTRICT",
+          message:
+            "At least one of nationalDistrictId or provincialDistrictId is required",
+        });
+      }
+      const legislators = await listLegislators({
+        nationalDistrictId,
+        provincialDistrictId,
+        level,
+      });
+      return reply.send({ legislators, total: legislators.length });
+    },
+  );
+
+  // GET /legislators/:id
+  fastify.get<{ Params: IdParams }>(
+    "/:id",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", minLength: 1 } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const detail = await getLegislatorDetail(request.params.id);
+      if (!detail) {
+        return reply.status(404).send({
+          error: "LEGISLATOR_NOT_FOUND",
+          message: `Legislator ${request.params.id} not found`,
+        });
+      }
+      return reply.send(detail);
+    },
+  );
+
+  // GET /legislators/:id/bills
+  fastify.get<{ Params: IdParams; Querystring: BillsQuery }>(
+    "/:id/bills",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", minLength: 1 } },
+        },
+        querystring: {
+          type: "object",
+          properties: {
+            role: { type: "string", enum: ["PRIMARY", "CO"] },
+            result: {
+              type: "string",
+              enum: [
+                "PASSED",
+                "PASSED_AMENDED",
+                "REJECTED",
+                "WITHDRAWN",
+                "SUPERSEDED",
+                "PENDING",
+              ],
+            },
+            limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+            offset: { type: "integer", minimum: 0, default: 0 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { role, result, limit, offset } = request.query;
+      const data = await listLegislatorBills(request.params.id, {
+        role,
+        result,
+        limit,
+        offset,
+      });
+      return reply.send(data);
+    },
+  );
+
+  // GET /legislators/:id/votes
+  fastify.get<{ Params: IdParams; Querystring: VotesQuery }>(
+    "/:id/votes",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", minLength: 1 } },
+        },
+        querystring: {
+          type: "object",
+          properties: {
+            result: {
+              type: "string",
+              enum: ["YES", "NO", "ABSTAIN", "ABSENT"],
+            },
+            from: { type: "string", format: "date-time" },
+            to: { type: "string", format: "date-time" },
+            limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+            offset: { type: "integer", minimum: 0, default: 0 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { result, from, to, limit, offset } = request.query;
+      const fromDate = from ? new Date(from) : undefined;
+      const toDate = to ? new Date(to) : undefined;
+      if (fromDate && Number.isNaN(fromDate.getTime())) {
+        return reply.status(400).send({
+          error: "INVALID_DATE",
+          message: "from is not a valid date",
+        });
+      }
+      if (toDate && Number.isNaN(toDate.getTime())) {
+        return reply.status(400).send({
+          error: "INVALID_DATE",
+          message: "to is not a valid date",
+        });
+      }
+      const data = await listLegislatorVotes(request.params.id, {
+        result,
+        from: fromDate,
+        to: toDate,
+        limit,
+        offset,
+      });
+      return reply.send(data);
+    },
+  );
+};
+
+export default legislatorRoutes;

@@ -1,0 +1,205 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LegislatorLevel {
+  NATIONAL
+  PROVINCIAL
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  UNKNOWN
+}
+
+enum VoteResult {
+  YES
+  NO
+  ABSTAIN
+  ABSENT
+}
+
+enum BillResult {
+  PASSED
+  PASSED_AMENDED
+  REJECTED
+  WITHDRAWN
+  SUPERSEDED
+  PENDING
+}
+
+enum ProposerRole {
+  PRIMARY
+  CO
+}
+
+enum DistrictLevel {
+  NATIONAL
+  PROVINCIAL
+}
+
+model ElectoralDistrict {
+  id          String        @id @default(cuid())
+  level       DistrictLevel
+  name        String
+  sido        String?
+  sigungu     String?
+  sggCode     String?
+  assemblyAge Int
+  geojson     Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  legislators                Legislator[]
+  districtMappingsNational   DistrictMapping[] @relation("NationalDistrict")
+  districtMappingsProvincial DistrictMapping[] @relation("ProvincialDistrict")
+
+  @@unique([level, name, assemblyAge])
+  @@index([level])
+  @@index([sggCode])
+  @@index([sido])
+}
+
+model HangjeongDong {
+  admCd2       String   @id
+  name         String
+  sido         String
+  sigungu      String
+  eupmyeondong String
+  lat          Float?
+  lng          Float?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  districtMappings DistrictMapping[]
+
+  @@index([sido])
+  @@index([sigungu])
+}
+
+model DistrictMapping {
+  id                   String             @id @default(cuid())
+  hangjeongDongCode    String
+  hangjeongDong        HangjeongDong      @relation(fields: [hangjeongDongCode], references: [admCd2])
+  nationalDistrictId   String?
+  nationalDistrict     ElectoralDistrict? @relation("NationalDistrict", fields: [nationalDistrictId], references: [id])
+  provincialDistrictId String?
+  provincialDistrict   ElectoralDistrict? @relation("ProvincialDistrict", fields: [provincialDistrictId], references: [id])
+  assemblyAge          Int
+  source               String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@unique([hangjeongDongCode, assemblyAge])
+  @@index([nationalDistrictId])
+  @@index([provincialDistrictId])
+}
+
+model Legislator {
+  id                    String             @id
+  level                 LegislatorLevel
+  name                  String
+  party                 String?
+  gender                Gender             @default(UNKNOWN)
+  birthDate             String?
+  electoralDistrictId   String?
+  electoralDistrict     ElectoralDistrict? @relation(fields: [electoralDistrictId], references: [id])
+  electoralDistrictName String?
+  assemblyAge           Int?
+  termCount             String?
+  committee             String?
+  phoneNumber           String?
+  email                 String?
+  homepage              String?
+  officeAddress         String?
+  titleDescription      String?
+  memo                  String?
+  photoUrl              String?
+  councilName           String?
+  region                String?
+  rawSourceJson         Json?
+  lastSyncedAt          DateTime?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  billProposers BillProposer[]
+  votes         Vote[]
+
+  @@index([level])
+  @@index([party])
+  @@index([name])
+  @@index([electoralDistrictId])
+  @@index([assemblyAge])
+}
+
+model Bill {
+  id                  String      @id
+  billNo              String
+  name                String
+  proposerText        String?
+  primaryProposerName String?
+  coProposerNamesRaw  String?
+  proposedDate        DateTime?
+  committee           String?
+  result              BillResult?
+  linkUrl             String?
+  assemblyAge         Int?
+  rawSourceJson       Json?
+  proposerMatchStatus String?
+  lastSyncedAt        DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  proposers BillProposer[]
+  votes     Vote[]
+
+  @@index([assemblyAge])
+  @@index([primaryProposerName])
+  @@index([proposedDate])
+  @@index([result])
+  @@index([committee])
+}
+
+model BillProposer {
+  id              String       @id @default(cuid())
+  billId          String
+  bill            Bill         @relation(fields: [billId], references: [id])
+  legislatorId    String
+  legislator      Legislator   @relation(fields: [legislatorId], references: [id])
+  role            ProposerRole
+  matchConfidence Float        @default(1.0)
+  createdAt       DateTime     @default(now())
+
+  @@unique([billId, legislatorId, role])
+  @@index([billId])
+  @@index([legislatorId])
+  @@index([role])
+}
+
+model Vote {
+  id           String     @id @default(cuid())
+  billNo       String
+  billName     String?
+  billId       String?
+  bill         Bill?      @relation(fields: [billId], references: [id])
+  legislatorId String
+  legislator   Legislator @relation(fields: [legislatorId], references: [id])
+  result       VoteResult
+  voteDate     DateTime
+  assemblyAge  Int?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([billNo, legislatorId, voteDate])
+  @@index([legislatorId])
+  @@index([billId])
+  @@index([voteDate])
+  @@index([result])
+  @@index([assemblyAge])
+}

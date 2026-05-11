@@ -1,0 +1,27 @@
+# =============================================================================
+# CRON SERVICE (데이터 갱신)
+# -----------------------------------------------------------------------------
+# Railway에서 두 번째 서비스를 생성하여 매일 갱신 작업을 실행하려면:
+#
+# 1. Railway 대시보드에서 프로젝트 열기
+# 2. "+ New" → "Empty Service" 선택
+# 3. 같은 GitHub 저장소 연결, Root Directory = apps/api
+# 4. Deploy Command: pnpm --filter @repo/api ingest:all
+# 5. Settings → Cron Schedule: 0 17 * * *  (= 매일 02:00 KST, UTC+9)
+# 6. 동일한 환경변수(DATABASE_URL, ASSEMBLY_API_KEY 등) 추가
+#
+# 수동 실행이 필요할 때는 아래 스크립트를 사용:
+#   pnpm --filter @repo/api ingest:all
+# =============================================================================
+
+[build]
+builder = "RAILPACK"
+buildCommand = "pnpm --filter @repo/api build"
+
+[deploy]
+startCommand = "node dist/server.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+
+[[deploy.preDeploy]]
+command = "pnpm --filter @repo/api exec prisma migrate deploy"
