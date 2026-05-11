@@ -6,6 +6,7 @@ import { fetchAllPages } from "./utils/apiClient.js";
 // ---------- Raw row types ----------
 interface LegislatorRow {
   MONA_CD: string;
+  HG_NM?: string;
   HJ_NM?: string;
   POLY_NM?: string;
   ORIG_NM?: string;
@@ -40,6 +41,7 @@ interface VoteRow {
   BILL_NO: string;
   BILL_NAME?: string;
   MONA_CD: string;
+  HG_NM?: string;
   HJ_NM?: string;
   POLY_NM?: string;
   RESULT_VOTE_MOD?: string;
@@ -132,7 +134,7 @@ export async function ingestLegislators(assemblyAge: number): Promise<void> {
     const gender = mapGender(row.SEX_GBN_NM);
     const data = {
       level: "NATIONAL" as const,
-      name: emptyToNull(row.HJ_NM) ?? row.MONA_CD,
+      name: emptyToNull(row.HG_NM) ?? emptyToNull(row.HJ_NM) ?? row.MONA_CD,
       party: emptyToNull(row.POLY_NM),
       gender,
       birthDate,
