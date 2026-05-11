@@ -19,10 +19,8 @@ builder = "RAILPACK"
 buildCommand = "pnpm --filter @repo/api build"
 
 [deploy]
-startCommand = "node dist/server.js"
+# MVP: prisma db push를 start 명령에 포함 — 모든 출력이 runtime logs에 보임
+# 추후 운영 안정화되면 preDeployCommand + prisma migrate deploy로 분리 권장
+startCommand = "pnpm --filter @repo/api exec prisma db push --accept-data-loss --skip-generate && pnpm --filter @repo/api start"
 healthcheckPath = "/api/health"
-healthcheckTimeout = 60
-# MVP: prisma db push 사용 — 마이그레이션 파일 없이 스키마 직접 적용
-# 추후 운영 안정화되면 prisma migrate dev로 마이그레이션 만들고
-# 이 명령을 "prisma migrate deploy"로 교체하는 것을 권장
-preDeployCommand = "pnpm --filter @repo/api exec prisma db push --accept-data-loss"
+healthcheckTimeout = 90
