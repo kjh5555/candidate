@@ -121,11 +121,21 @@ export async function fetchAllPages<T>(
   params: Record<string, string>,
   opts: FetchAllPagesOptions = {},
 ): Promise<T[]> {
-  const apiKey = process.env.ASSEMBLY_API_KEY;
-  if (!apiKey) {
+  const rawKey = process.env.ASSEMBLY_API_KEY;
+  if (!rawKey) {
     throw new Error(
       "ASSEMBLY_API_KEY is not set. Get one from https://open.assembly.go.kr and export it.",
     );
+  }
+  // 공공데이터포털 keys are often distributed URL-encoded (%2B, %3D). Decode once so
+  // URLSearchParams doesn't double-encode.
+  let apiKey = rawKey;
+  if (rawKey.includes("%")) {
+    try {
+      apiKey = decodeURIComponent(rawKey);
+    } catch {
+      apiKey = rawKey;
+    }
   }
 
   const pageSize = opts.pageSize ?? 100;
