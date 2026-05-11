@@ -5,6 +5,7 @@ const ConfigSchema = z.object({
   KAKAO_REST_API_KEY: z.string().min(1, "KAKAO_REST_API_KEY is required"),
   ASSEMBLY_API_KEY: z.string().optional(),
   CLIK_API_KEY: z.string().optional(),
+  NEC_API_KEY: z.string().optional(),
   PORT: z
     .string()
     .optional()

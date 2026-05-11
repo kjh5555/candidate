@@ -6,6 +6,10 @@ import type {
   VotesResponseDTO,
   BillDetailDTO,
   DistrictsResponseDTO,
+  CandidatesResponseDTO,
+  CandidateDetailDTO,
+  CandidateRegionsResponseDTO,
+  CandidatePositionType,
 } from "@repo/shared";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -91,5 +95,37 @@ export function getDistricts(
 ): Promise<DistrictsResponseDTO> {
   return apiFetch<DistrictsResponseDTO>(
     `/api/districts?level=${encodeURIComponent(level)}`
+  );
+}
+
+// ── Candidates (2026 지방선거) ─────────────────────────────────
+
+export function getCandidateRegions(
+  electionId: string = "20260603"
+): Promise<CandidateRegionsResponseDTO> {
+  return apiFetch<CandidateRegionsResponseDTO>(
+    `/api/candidates/regions?electionId=${encodeURIComponent(electionId)}`
+  );
+}
+
+export function getCandidates(params: {
+  electionId?: string;
+  positionType?: CandidatePositionType | "ALL";
+  sido?: string;
+  wiwName?: string;
+}): Promise<CandidatesResponseDTO> {
+  const query = new URLSearchParams();
+  query.set("electionId", params.electionId ?? "20260603");
+  if (params.positionType) query.set("positionType", params.positionType);
+  if (params.sido) query.set("sido", params.sido);
+  if (params.wiwName) query.set("wiwName", params.wiwName);
+  return apiFetch<CandidatesResponseDTO>(
+    `/api/candidates?${query.toString()}`
+  );
+}
+
+export function getCandidateDetail(id: string): Promise<CandidateDetailDTO> {
+  return apiFetch<CandidateDetailDTO>(
+    `/api/candidates/${encodeURIComponent(id)}`
   );
 }

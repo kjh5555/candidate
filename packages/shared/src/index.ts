@@ -164,6 +164,61 @@ export interface VotesResponseDTO {
   offset: number;
 }
 
+// ── Candidate (2026 지방선거) ──────────────────────────────────
+
+export type CandidatePositionType = "GOVERNOR" | "MAYOR";
+export type CandidateStatus =
+  | "REGISTERED"
+  | "WITHDRAWN"
+  | "CANCELLED"
+  | "UNKNOWN";
+
+export interface CandidatePledgeDTO {
+  ord: number;
+  category: string | null;
+  title: string;
+  content: string | null;
+}
+
+export interface CandidateSummaryDTO {
+  id: string;
+  name: string;
+  party: string | null;
+  positionType: CandidatePositionType;
+  sido: string | null;
+  wiwName: string | null;
+  districtName: string | null;
+  age: number | null;
+  occupation: string | null;
+  status: CandidateStatus;
+}
+
+export interface CandidateDetailDTO extends CandidateSummaryDTO {
+  hanjaName: string | null;
+  gender: string | null;
+  birthDate: string | null;
+  education: string | null;
+  career1: string | null;
+  career2: string | null;
+  address: string | null;
+  registeredAt: string | null;
+  pledges: CandidatePledgeDTO[];
+}
+
+export interface CandidatesResponseDTO {
+  candidates: CandidateSummaryDTO[];
+  total: number;
+}
+
+export interface CandidateRegionDTO {
+  sido: string;
+  wiwName: string | null; // null for GOVERNOR (only sido-level)
+}
+
+export interface CandidateRegionsResponseDTO {
+  regions: CandidateRegionDTO[];
+}
+
 // ── Misc ──────────────────────────────────────────────────────
 
 export interface ApiErrorDTO {

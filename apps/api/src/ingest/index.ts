@@ -9,6 +9,7 @@
 //   tsx src/ingest/index.ts link-districts [assemblyAge]
 //   tsx src/ingest/index.ts provincial
 //   tsx src/ingest/index.ts resolve 22
+//   tsx src/ingest/index.ts local-candidates [electionId]
 
 import { prisma } from "../db.js";
 import { ingestBills, ingestLegislators, ingestVotes } from "./nationalAssembly.js";
@@ -16,6 +17,7 @@ import { ingestProvincialLegislators } from "./provincialCouncil.js";
 import { seedDistrictMapping } from "./districtMapping.js";
 import { resolveBillProposers } from "./billProposerResolver.js";
 import { linkLegislatorDistricts } from "./linkDistricts.js";
+import { ingestLocalCandidates } from "./localElection.js";
 
 type Step =
   | "all"
@@ -25,7 +27,8 @@ type Step =
   | "districts"
   | "link-districts"
   | "provincial"
-  | "resolve";
+  | "resolve"
+  | "local-candidates";
 
 const VALID_STEPS: Step[] = [
   "all",
@@ -36,6 +39,7 @@ const VALID_STEPS: Step[] = [
   "link-districts",
   "provincial",
   "resolve",
+  "local-candidates",
 ];
 
 function printUsageAndExit(code = 1): never {
@@ -48,7 +52,8 @@ function printUsageAndExit(code = 1): never {
       "  tsx src/ingest/index.ts districts [csvPath]\n" +
       "  tsx src/ingest/index.ts link-districts [assemblyAge]\n" +
       "  tsx src/ingest/index.ts provincial\n" +
-      "  tsx src/ingest/index.ts resolve <assemblyAge>",
+      "  tsx src/ingest/index.ts resolve <assemblyAge>\n" +
+      "  tsx src/ingest/index.ts local-candidates [electionId]",
   );
   process.exit(code);
 }
@@ -102,6 +107,11 @@ async function runStep(step: Exclude<Step, "all">, args: string[]): Promise<void
       await resolveBillProposers(parseAge(args[0]));
       return;
     }
+    case "local-candidates": {
+      const electionId = args[0] && args[0].trim() !== "" ? args[0] : "20260603";
+      await ingestLocalCandidates(electionId);
+      return;
+    }
   }
 }
 
@@ -110,6 +120,7 @@ async function runAll(assemblyAge: number): Promise<void> {
     "districts",
     "legislators",
     "link-districts",
+    "local-candidates",
     "provincial",
     "bills",
     "votes",
@@ -118,7 +129,11 @@ async function runAll(assemblyAge: number): Promise<void> {
   for (const step of order) {
     console.log(`\n=== Step: ${step} ===`);
     try {
-      if (step === "districts" || step === "provincial") {
+      if (
+        step === "districts" ||
+        step === "provincial" ||
+        step === "local-candidates"
+      ) {
         await runStep(step, []);
       } else {
         await runStep(step, [String(assemblyAge)]);

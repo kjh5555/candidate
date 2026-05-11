@@ -44,6 +44,18 @@ enum DistrictLevel {
   PROVINCIAL
 }
 
+enum CandidatePositionType {
+  GOVERNOR // 시·도지사
+  MAYOR // 시장·군수·구청장
+}
+
+enum CandidateStatus {
+  REGISTERED // 등록
+  WITHDRAWN // 사퇴
+  CANCELLED // 무효/취소
+  UNKNOWN
+}
+
 model ElectoralDistrict {
   id          String        @id @default(cuid())
   level       DistrictLevel
@@ -202,4 +214,51 @@ model Vote {
   @@index([voteDate])
   @@index([result])
   @@index([assemblyAge])
+}
+
+model Candidate {
+  id            String                @id // huboid from NEC API
+  electionId    String // "20260603"
+  positionType  CandidatePositionType
+  name          String
+  hanjaName     String?
+  party         String?
+  gender        String?
+  birthDate     String? // "YYYY-MM-DD"
+  age           Int?
+  occupation    String?
+  education     String?
+  career1       String?
+  career2       String?
+  address       String?
+  sido          String? // sdName
+  wiwName       String? // 시·군·구 (null for GOVERNOR)
+  districtName  String? // sggName
+  status        CandidateStatus       @default(UNKNOWN)
+  registeredAt  DateTime?
+  rawSourceJson Json?
+  lastSyncedAt  DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  pledges CandidatePledge[]
+
+  @@index([electionId, positionType])
+  @@index([sido])
+  @@index([wiwName])
+  @@index([party])
+}
+
+model CandidatePledge {
+  id          String    @id @default(cuid())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id])
+  ord         Int // 1..N
+  category    String?
+  title       String
+  content     String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([candidateId, ord])
+  @@index([candidateId])
 }
