@@ -129,7 +129,9 @@ export async function ingestLegislators(assemblyAge: number): Promise<void> {
   let success = 0;
   for (const row of rows) {
     if (!row.MONA_CD) continue;
-    const photoUrl = `https://www.assembly.go.kr/photo/${row.MONA_CD}.jpg`;
+    // assembly.go.kr photo URLs no longer follow the /photo/{MONA_CD}.jpg pattern.
+    // Frontend renders a silhouette fallback when photoUrl is null.
+    const photoUrl = null;
     const birthDate = parseBirthDate(row.BTH_DATE);
     const gender = mapGender(row.SEX_GBN_NM);
     const data = {
