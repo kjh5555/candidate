@@ -38,6 +38,18 @@ export interface RegionMatchResponseDTO {
   coordinates: { lat: number; lng: number };
 }
 
+export interface DistrictListItemDTO {
+  id: string;
+  name: string;
+  sido: string | null;
+  sigungu: string | null;
+}
+
+export interface DistrictsResponseDTO {
+  districts: DistrictListItemDTO[];
+  total: number;
+}
+
 // ── Legislator ────────────────────────────────────────────────
 
 export interface LegislatorSummaryDTO {

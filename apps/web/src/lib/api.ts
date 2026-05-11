@@ -5,6 +5,7 @@ import type {
   BillsResponseDTO,
   VotesResponseDTO,
   BillDetailDTO,
+  DistrictsResponseDTO,
 } from "@repo/shared";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -83,4 +84,12 @@ export function getLegislatorVotes(
 
 export function getBillDetail(billId: string): Promise<BillDetailDTO> {
   return apiFetch<BillDetailDTO>(`/api/bills/${billId}`);
+}
+
+export function getDistricts(
+  level: "NATIONAL" | "PROVINCIAL" = "NATIONAL"
+): Promise<DistrictsResponseDTO> {
+  return apiFetch<DistrictsResponseDTO>(
+    `/api/districts?level=${encodeURIComponent(level)}`
+  );
 }

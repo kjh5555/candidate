@@ -1,4 +1,4 @@
-import { AddressSearchBar } from "@/components/AddressSearchBar";
+import { DistrictPicker } from "@/components/DistrictPicker";
 import { MapPin } from "lucide-react";
 
 export default function HomePage() {
@@ -12,12 +12,11 @@ export default function HomePage() {
           내 지역구 의원 보기
         </h1>
         <p className="text-slate-500 text-base sm:text-lg max-w-md mx-auto">
-          주소를 입력하면 해당 지역의 국회의원과 광역의회 의원 정보를 조회할 수
-          있습니다.
+          지역구를 선택하면 해당 국회의원의 정보를 확인할 수 있습니다.
         </p>
       </div>
 
-      <AddressSearchBar />
+      <DistrictPicker />
 
       <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-2xl text-left">
         {[

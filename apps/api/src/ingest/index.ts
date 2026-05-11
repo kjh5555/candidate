@@ -6,6 +6,7 @@
 //   tsx src/ingest/index.ts bills 22
 //   tsx src/ingest/index.ts votes 22
 //   tsx src/ingest/index.ts districts [csvPath]
+//   tsx src/ingest/index.ts link-districts [assemblyAge]
 //   tsx src/ingest/index.ts provincial
 //   tsx src/ingest/index.ts resolve 22
 
@@ -14,6 +15,7 @@ import { ingestBills, ingestLegislators, ingestVotes } from "./nationalAssembly.
 import { ingestProvincialLegislators } from "./provincialCouncil.js";
 import { seedDistrictMapping } from "./districtMapping.js";
 import { resolveBillProposers } from "./billProposerResolver.js";
+import { linkLegislatorDistricts } from "./linkDistricts.js";
 
 type Step =
   | "all"
@@ -21,6 +23,7 @@ type Step =
   | "bills"
   | "votes"
   | "districts"
+  | "link-districts"
   | "provincial"
   | "resolve";
 
@@ -30,6 +33,7 @@ const VALID_STEPS: Step[] = [
   "bills",
   "votes",
   "districts",
+  "link-districts",
   "provincial",
   "resolve",
 ];
@@ -42,6 +46,7 @@ function printUsageAndExit(code = 1): never {
       "  tsx src/ingest/index.ts bills <assemblyAge>\n" +
       "  tsx src/ingest/index.ts votes <assemblyAge>\n" +
       "  tsx src/ingest/index.ts districts [csvPath]\n" +
+      "  tsx src/ingest/index.ts link-districts [assemblyAge]\n" +
       "  tsx src/ingest/index.ts provincial\n" +
       "  tsx src/ingest/index.ts resolve <assemblyAge>",
   );
@@ -84,6 +89,11 @@ async function runStep(step: Exclude<Step, "all">, args: string[]): Promise<void
       }
       return;
     }
+    case "link-districts": {
+      const age = args[0] ? parseAge(args[0]) : 22;
+      await linkLegislatorDistricts(age);
+      return;
+    }
     case "provincial": {
       await ingestProvincialLegislators();
       return;
@@ -99,6 +109,7 @@ async function runAll(assemblyAge: number): Promise<void> {
   const order: Array<Exclude<Step, "all">> = [
     "districts",
     "legislators",
+    "link-districts",
     "provincial",
     "bills",
     "votes",
