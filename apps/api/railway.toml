@@ -20,8 +20,8 @@ buildCommand = "pnpm --filter @repo/api build"
 
 [deploy]
 startCommand = "node dist/server.js"
-healthcheckPath = "/health"
-healthcheckTimeout = 30
+healthcheckPath = "/api/health"
+healthcheckTimeout = 60
 
 [[deploy.preDeploy]]
 command = "pnpm --filter @repo/api exec prisma migrate deploy"
