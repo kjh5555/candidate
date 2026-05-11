@@ -22,9 +22,7 @@ buildCommand = "pnpm --filter @repo/api build"
 startCommand = "node dist/server.js"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 60
-
-[[deploy.preDeploy]]
 # MVP: prisma db push 사용 — 마이그레이션 파일 없이 스키마 직접 적용
 # 추후 운영 안정화되면 prisma migrate dev로 마이그레이션 만들고
 # 이 명령을 "prisma migrate deploy"로 교체하는 것을 권장
-command = "pnpm --filter @repo/api exec prisma db push --accept-data-loss"
+preDeployCommand = "pnpm --filter @repo/api exec prisma db push --accept-data-loss"
