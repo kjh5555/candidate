@@ -238,8 +238,28 @@ model Candidate {
   registeredAt  DateTime?
   rawSourceJson Json?
   lastSyncedAt  DateTime?
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+
+  // Background data — PDF references and presence flags
+  hasCriminalRecord     Boolean? @default(false)
+  criminalRecordPdfUrl  String?
+  hasAssetDisclosure    Boolean? @default(false)
+  assetDisclosurePdfUrl String?
+  hasMilitaryRecord     Boolean? @default(false)
+  militaryRecordPdfUrl  String?
+  hasTaxRecord          Boolean? @default(false)
+  taxRecordPdfUrl       String?
+
+  // Free-form summary fields parsed if available
+  criminalRecordCount  Int? // from 통합검색 if present
+  assetTotalManwon     BigInt? // 재산 (만원)
+  militaryStatus       String? // 병역 상태
+  taxPaidManwon        BigInt? // 납세액 (만원)
+  taxOutstandingManwon BigInt? // 체납액 (만원)
+
+  backgroundLastSyncedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   pledges CandidatePledge[]
 

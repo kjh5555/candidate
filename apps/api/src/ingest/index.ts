@@ -10,6 +10,7 @@
 //   tsx src/ingest/index.ts provincial
 //   tsx src/ingest/index.ts resolve 22
 //   tsx src/ingest/index.ts local-candidates [electionId]
+//   tsx src/ingest/index.ts candidate-backgrounds [electionId]
 
 import { prisma } from "../db.js";
 import { ingestBills, ingestLegislators, ingestVotes } from "./nationalAssembly.js";
@@ -18,6 +19,7 @@ import { seedDistrictMapping } from "./districtMapping.js";
 import { resolveBillProposers } from "./billProposerResolver.js";
 import { linkLegislatorDistricts } from "./linkDistricts.js";
 import { ingestLocalCandidates } from "./localElection.js";
+import { ingestCandidateBackgrounds } from "./candidateBackground.js";
 
 type Step =
   | "all"
@@ -28,7 +30,9 @@ type Step =
   | "link-districts"
   | "provincial"
   | "resolve"
-  | "local-candidates";
+  | "local-candidates"
+  | "candidate-backgrounds"
+  | "backgrounds";
 
 const VALID_STEPS: Step[] = [
   "all",
@@ -40,6 +44,8 @@ const VALID_STEPS: Step[] = [
   "provincial",
   "resolve",
   "local-candidates",
+  "candidate-backgrounds",
+  "backgrounds",
 ];
 
 function printUsageAndExit(code = 1): never {
@@ -53,7 +59,8 @@ function printUsageAndExit(code = 1): never {
       "  tsx src/ingest/index.ts link-districts [assemblyAge]\n" +
       "  tsx src/ingest/index.ts provincial\n" +
       "  tsx src/ingest/index.ts resolve <assemblyAge>\n" +
-      "  tsx src/ingest/index.ts local-candidates [electionId]",
+      "  tsx src/ingest/index.ts local-candidates [electionId]\n" +
+      "  tsx src/ingest/index.ts candidate-backgrounds [electionId]",
   );
   process.exit(code);
 }
@@ -112,6 +119,12 @@ async function runStep(step: Exclude<Step, "all">, args: string[]): Promise<void
       await ingestLocalCandidates(electionId);
       return;
     }
+    case "candidate-backgrounds":
+    case "backgrounds": {
+      const electionId = args[0] && args[0].trim() !== "" ? args[0] : "20260603";
+      await ingestCandidateBackgrounds(electionId);
+      return;
+    }
   }
 }
 
@@ -121,6 +134,7 @@ async function runAll(assemblyAge: number): Promise<void> {
     "legislators",
     "link-districts",
     "local-candidates",
+    "candidate-backgrounds",
     "provincial",
     "bills",
     "votes",
@@ -132,7 +146,9 @@ async function runAll(assemblyAge: number): Promise<void> {
       if (
         step === "districts" ||
         step === "provincial" ||
-        step === "local-candidates"
+        step === "local-candidates" ||
+        step === "candidate-backgrounds" ||
+        step === "backgrounds"
       ) {
         await runStep(step, []);
       } else {

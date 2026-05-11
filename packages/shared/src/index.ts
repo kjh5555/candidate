@@ -203,6 +203,21 @@ export interface CandidateDetailDTO extends CandidateSummaryDTO {
   address: string | null;
   registeredAt: string | null;
   pledges: CandidatePledgeDTO[];
+
+  // ── Background disclosures (전과/재산/병역/세금) ──
+  hasCriminalRecord: boolean;
+  criminalRecordPdfUrl: string | null;
+  hasAssetDisclosure: boolean;
+  assetDisclosurePdfUrl: string | null;
+  hasMilitaryRecord: boolean;
+  militaryRecordPdfUrl: string | null;
+  hasTaxRecord: boolean;
+  taxRecordPdfUrl: string | null;
+  criminalRecordCount: number | null;
+  assetTotalManwon: string | null; // BigInt serialized as string
+  militaryStatus: string | null;
+  taxPaidManwon: string | null; // BigInt serialized as string
+  taxOutstandingManwon: string | null; // BigInt serialized as string
 }
 
 export interface CandidatesResponseDTO {

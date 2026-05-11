@@ -11,6 +11,11 @@ import {
   Briefcase,
   GraduationCap,
   FileText,
+  Scale,
+  Wallet,
+  Shield,
+  Receipt,
+  ExternalLink,
 } from "lucide-react";
 import { getCandidateDetail } from "@/lib/api";
 import { PartyBadge } from "@/components/PartyBadge";
@@ -43,6 +48,85 @@ function statusBadgeClass(status: CandidateStatus): string {
     default:
       return "bg-slate-50 text-slate-500 border-slate-200";
   }
+}
+
+/**
+ * Format an amount in 만원 (man-won) as a human-readable Korean currency
+ * string. E.g. `129800` → `₩12억 9,800만원`, `350` → `₩350만원`.
+ * Accepts a string (from BigInt JSON serialization) or null.
+ */
+function formatManwon(raw: string | null): string | null {
+  if (!raw) return null;
+  let n: number;
+  try {
+    n = Number(raw);
+  } catch {
+    return null;
+  }
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const eok = Math.floor(n / 10000);
+  const man = n % 10000;
+  if (eok > 0 && man > 0) {
+    return `₩${eok}억 ${man.toLocaleString("ko-KR")}만원`;
+  }
+  if (eok > 0) {
+    return `₩${eok}억원`;
+  }
+  return `₩${man.toLocaleString("ko-KR")}만원`;
+}
+
+interface BackgroundCardProps {
+  icon: React.ReactNode;
+  title: string;
+  status: string;
+  statusTone: "neutral" | "warn" | "ok" | "info";
+  pdfUrl: string | null;
+}
+
+function backgroundStatusToneClass(tone: BackgroundCardProps["statusTone"]): string {
+  switch (tone) {
+    case "warn":
+      return "text-red-600";
+    case "ok":
+      return "text-green-700";
+    case "info":
+      return "text-blue-700";
+    default:
+      return "text-slate-500";
+  }
+}
+
+function BackgroundCard({
+  icon,
+  title,
+  status,
+  statusTone,
+  pdfUrl,
+}: BackgroundCardProps) {
+  return (
+    <div className="border border-slate-200 rounded-xl p-4 bg-white hover:border-slate-300 hover:shadow-sm transition-all flex flex-col gap-2">
+      <div className="flex items-center gap-2 text-slate-600">
+        {icon}
+        <span className="text-sm font-medium">{title}</span>
+      </div>
+      <p className={`text-base font-semibold ${backgroundStatusToneClass(statusTone)}`}>
+        {status}
+      </p>
+      {pdfUrl ? (
+        <a
+          href={pdfUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline mt-auto"
+        >
+          원본 PDF 보기
+          <ExternalLink className="w-3 h-3" />
+        </a>
+      ) : (
+        <span className="text-xs text-slate-300 mt-auto">PDF 없음</span>
+      )}
+    </div>
+  );
 }
 
 export const dynamic = "force-dynamic";
@@ -218,6 +302,75 @@ export default function CandidateDetailPage() {
             </div>
           )}
         </dl>
+      </div>
+
+      {/* 공직 후보자 공개 정보 section */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
+        <h2 className="font-semibold text-slate-700 mb-1">
+          공직 후보자 공개 정보
+        </h2>
+        <p className="text-xs text-slate-400 mb-4">
+          중앙선거관리위원회 후보자 정보 공개 자료 기준
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <BackgroundCard
+            icon={<Scale className="w-4 h-4 text-slate-400" />}
+            title="전과"
+            status={
+              candidate.criminalRecordCount !== null &&
+              candidate.criminalRecordCount > 0
+                ? `${candidate.criminalRecordCount}건`
+                : candidate.hasCriminalRecord
+                  ? "있음"
+                  : "없음"
+            }
+            statusTone={candidate.hasCriminalRecord ? "warn" : "neutral"}
+            pdfUrl={candidate.criminalRecordPdfUrl}
+          />
+          <BackgroundCard
+            icon={<Wallet className="w-4 h-4 text-slate-400" />}
+            title="재산"
+            status={
+              formatManwon(candidate.assetTotalManwon) ??
+              (candidate.hasAssetDisclosure ? "신고" : "없음")
+            }
+            statusTone={candidate.hasAssetDisclosure ? "info" : "neutral"}
+            pdfUrl={candidate.assetDisclosurePdfUrl}
+          />
+          <BackgroundCard
+            icon={<Shield className="w-4 h-4 text-slate-400" />}
+            title="병역"
+            status={
+              candidate.militaryStatus ??
+              (candidate.hasMilitaryRecord ? "신고" : "해당없음")
+            }
+            statusTone={candidate.hasMilitaryRecord ? "ok" : "neutral"}
+            pdfUrl={candidate.militaryRecordPdfUrl}
+          />
+          <BackgroundCard
+            icon={<Receipt className="w-4 h-4 text-slate-400" />}
+            title="납세/체납"
+            status={(() => {
+              const paid = formatManwon(candidate.taxPaidManwon);
+              const outstanding = formatManwon(candidate.taxOutstandingManwon);
+              if (paid && outstanding) {
+                return `납세 ${paid} / 체납 ${outstanding}`;
+              }
+              if (paid) return `납세 ${paid}`;
+              if (outstanding) return `체납 ${outstanding}`;
+              return candidate.hasTaxRecord ? "신고" : "없음";
+            })()}
+            statusTone={
+              candidate.taxOutstandingManwon &&
+              Number(candidate.taxOutstandingManwon) > 0
+                ? "warn"
+                : candidate.hasTaxRecord
+                  ? "info"
+                  : "neutral"
+            }
+            pdfUrl={candidate.taxRecordPdfUrl}
+          />
+        </div>
       </div>
 
       {/* 공약 section */}

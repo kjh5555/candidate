@@ -113,7 +113,27 @@ export async function getCandidateDetail(
     address: row.address,
     registeredAt: row.registeredAt ? row.registeredAt.toISOString() : null,
     pledges,
+    // Background disclosure fields (전과/재산/병역/세금).
+    // BigInt fields must be serialized to string for JSON.
+    hasCriminalRecord: row.hasCriminalRecord ?? false,
+    criminalRecordPdfUrl: row.criminalRecordPdfUrl,
+    hasAssetDisclosure: row.hasAssetDisclosure ?? false,
+    assetDisclosurePdfUrl: row.assetDisclosurePdfUrl,
+    hasMilitaryRecord: row.hasMilitaryRecord ?? false,
+    militaryRecordPdfUrl: row.militaryRecordPdfUrl,
+    hasTaxRecord: row.hasTaxRecord ?? false,
+    taxRecordPdfUrl: row.taxRecordPdfUrl,
+    criminalRecordCount: row.criminalRecordCount,
+    assetTotalManwon: bigintToString(row.assetTotalManwon),
+    militaryStatus: row.militaryStatus,
+    taxPaidManwon: bigintToString(row.taxPaidManwon),
+    taxOutstandingManwon: bigintToString(row.taxOutstandingManwon),
   };
+}
+
+function bigintToString(v: bigint | null | undefined): string | null {
+  if (v === null || v === undefined) return null;
+  return v.toString();
 }
 
 export interface ListCandidateRegionsParams {
