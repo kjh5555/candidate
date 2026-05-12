@@ -1,165 +1,163 @@
-// Ingest 예산 정보 from two data.go.kr endpoints:
+// Ingest 예산 정보 from 열린재정포털 (openfiscaldata.go.kr).
 //
-//   NATIONAL — 기획재정부 세부사업 예산편성 (data.go.kr 15076058)
-//   METROPOLITAN — 지방재정365 기능별 단체별 세출 (data.go.kr 15058011)
+// Service ID: ExpenditureBudgetInit5 (세출/지출 세부사업 예산편성현황(총액))
+//   - Provides 4-level hierarchy: 소관(OFFC_NM) → 분야(FLD_NM) → 부문(SECT_NM)
+//                                → 프로그램(PGM_NM) → 단위사업(ACTV_NM)
+//                                → 세부사업(SACTV_NM)
+//   - Amounts: Y_YY_DFN_MEDI_KCUR_AMT = 국회확정금액 (단위: 원)
 //
-// IMPORTANT: At the time this code was written, the user had just applied for
-// both API keys and they had not yet activated (30 min ~ 2 h activation lag at
-// data.go.kr). Exact endpoint URLs and field names below are BEST-GUESS based
-// on the standard data.go.kr `apis.data.go.kr/<provider-id>/<service>/<method>`
-// pattern. They MUST be re-verified once keys are live. Each unverified piece
-// is tagged with `TODO: confirm endpoint URL` comments.
-//
-// Defensive parsing:
-//   - We accept arbitrary field names in the response rows and try multiple
-//     candidate keys (e.g. "fldNm", "fldName", "field").
-//   - Unknown shapes are logged but do not throw.
-//   - Empty / Unauthorized responses are caught and turned into no-ops with
-//     warnings.
+// Env: FISCAL_API_KEY (열린재정포털 key issued via SNS login).
+// Metropolitan budget ingest is currently disabled — 지방재정365 기능별 단체별
+// 세출결산 is only available as SHEET download, not OpenAPI.
 
 import type { Prisma } from "@prisma/client";
-import { BudgetLevel, Prisma as PrismaNS } from "@prisma/client";
 import { prisma } from "../db.js";
-import { fetchAllNecPages } from "./utils/necClient.js";
 
-// ── Endpoint configuration (CONFIRM AT RUNTIME) ───────────────────────────
+const BUDGET_BASE = "https://www.openfiscaldata.go.kr/openApi";
+const NATIONAL_SERVICE = "ExpenditureBudgetInit5";
 
-// TODO: confirm endpoint URL — 기획재정부 세부사업 예산편성 (15076058).
-// data.go.kr listing references "openfiscaldata.go.kr" as the canonical host;
-// the apis.data.go.kr proxy is assumed under provider 1051000 (기획재정부).
-const NATIONAL_BUDGET_BASE_URL = "http://apis.data.go.kr/1051000";
-const NATIONAL_BUDGET_SERVICE = "UOPKOSDA01"; // TODO: confirm endpoint URL
-const NATIONAL_BUDGET_METHOD = "getUOPKOSDA01"; // TODO: confirm endpoint URL
+const PAGE_SIZE = 1000; // openfiscaldata max per call
+const PAGE_DELAY_MS = 250;
 
-// TODO: confirm endpoint URL — 지방재정365 기능별 단체별 세출 (15058011).
-// Provider ID 1741000 is행정안전부 / 지방재정365. Service name is best-guess.
-const METRO_BUDGET_BASE_URL = "http://apis.data.go.kr/1741000";
-const METRO_BUDGET_SERVICE = "LocalFinanceFunctionExp"; // TODO: confirm endpoint URL
-const METRO_BUDGET_METHOD = "getLocalFinanceFunctionExp"; // TODO: confirm endpoint URL
+// ── Raw row from API ───────────────────────────────────────────────────────
 
-// ── Defensive raw row shapes ──────────────────────────────────────────────
-
-interface NationalBudgetRow {
-  // Candidates seen across various 기획재정부 OpenAPI flavors:
-  fyr?: string | number; // 회계연도
-  fy?: string | number;
-  fiscalYear?: string | number;
-  acntYr?: string | number;
-  mnstNm?: string; // 부처명
-  mnstryNm?: string;
-  ministry?: string;
-  fldNm?: string; // 분야
-  fldName?: string;
-  field?: string;
-  sectNm?: string; // 부문
-  sectName?: string;
-  sector?: string;
-  prgmNm?: string; // 프로그램
-  prgmName?: string;
-  program?: string;
-  prjNm?: string; // 세부사업
-  prjName?: string;
-  subProject?: string;
-  amt?: string | number; // 예산액
-  amount?: string | number;
-  budgAmt?: string | number;
-  prjAmt?: string | number;
-}
-
-interface MetroBudgetRow {
-  fyr?: string | number;
-  fiscalYear?: string | number;
-  actrYr?: string | number;
-  laAdNm?: string; // 자치단체명 / 시·도
-  sidoNm?: string;
-  sido?: string;
-  fnctnCdNm?: string; // 분야 (기능별)
-  fnctnNm?: string;
-  field?: string;
-  budgAmt?: string | number; // 세출 예산
-  amt?: string | number;
-  amount?: string | number;
-  expnAmt?: string | number;
+interface ExpenditureRow {
+  FSCL_YY?: string | number;
+  OFFC_NM?: string;
+  FSCL_NM?: string;
+  ACCT_NM?: string;
+  FLD_NM?: string;
+  SECT_NM?: string;
+  PGM_NM?: string;
+  ACTV_NM?: string;
+  SACTV_NM?: string;
+  BZ_CLS_NM?: string;
+  FIN_DE_EP_NM?: string;
+  Y_YY_MEDI_KCUR_AMT?: string | number;     // 정부안금액
+  Y_YY_DFN_MEDI_KCUR_AMT?: string | number; // 국회확정금액 (use this as canonical)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
-function firstNonEmpty(...values: Array<string | number | undefined | null>): string | null {
-  for (const v of values) {
-    if (v === undefined || v === null) continue;
-    const t = String(v).trim();
-    if (t !== "") return t;
-  }
-  return null;
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
-function pickAmount(...values: Array<string | number | undefined | null>): bigint {
-  for (const v of values) {
-    if (v === undefined || v === null) continue;
-    if (typeof v === "number" && Number.isFinite(v)) {
-      try {
-        return BigInt(Math.trunc(v));
-      } catch {
-        // fall through
+function nonEmpty(v: string | undefined | null): string | null {
+  if (v === undefined || v === null) return null;
+  const t = String(v).trim();
+  return t === "" ? null : t;
+}
+
+function toBigInt(v: string | number | undefined | null): bigint {
+  if (v === undefined || v === null) return 0n;
+  if (typeof v === "number") {
+    return Number.isFinite(v) ? BigInt(Math.trunc(v)) : 0n;
+  }
+  const t = String(v).trim().replace(/[, ]+/g, "");
+  if (t === "") return 0n;
+  if (!/^-?\d+(\.\d+)?$/.test(t)) return 0n;
+  const intPart = t.split(".")[0]!;
+  try {
+    return BigInt(intPart);
+  } catch {
+    return 0n;
+  }
+}
+
+async function fetchExpenditurePage(
+  apiKey: string,
+  fiscalYear: number,
+  pageIndex: number,
+): Promise<{ rows: ExpenditureRow[]; total: number; resultCode: string | null }> {
+  const params = new URLSearchParams({
+    Key: apiKey,
+    Type: "json",
+    pIndex: String(pageIndex),
+    pSize: String(PAGE_SIZE),
+    FSCL_YY: String(fiscalYear),
+  });
+  const url = `${BUDGET_BASE}/${NATIONAL_SERVICE}?${params.toString()}`;
+  const res = await fetch(url);
+  const text = await res.text();
+  // The endpoint returns the JSON as a string-wrapped value sometimes.
+  // First try parsing as-is; if that yields a string, parse again.
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+    if (typeof data === "string") data = JSON.parse(data);
+  } catch {
+    throw new Error(`Non-JSON response from openfiscaldata: ${text.slice(0, 200)}`);
+  }
+
+  const block = (data as Record<string, unknown>)[NATIONAL_SERVICE];
+  if (!Array.isArray(block)) {
+    // Top-level RESULT object on errors
+    const result = (data as Record<string, unknown>).RESULT as
+      | { CODE?: string; MESSAGE?: string }
+      | undefined;
+    return { rows: [], total: 0, resultCode: result?.CODE ?? null };
+  }
+
+  let total = 0;
+  let resultCode: string | null = null;
+  let rows: ExpenditureRow[] = [];
+  for (const entry of block) {
+    if (entry && typeof entry === "object" && "head" in entry) {
+      const head = (entry as { head: Array<Record<string, unknown>> }).head;
+      for (const h of head) {
+        if (typeof h.list_total_count === "number") total = h.list_total_count;
+        const r = h.RESULT as { CODE?: string } | undefined;
+        if (r?.CODE) resultCode = r.CODE;
       }
     }
-    const t = String(v).trim().replace(/[, ]+/g, "");
-    if (t === "") continue;
-    if (!/^-?\d+(\.\d+)?$/.test(t)) continue;
-    try {
-      // Strip decimals, treat amounts as whole 원.
-      const intPart = t.split(".")[0]!;
-      return BigInt(intPart);
-    } catch {
-      continue;
+    if (entry && typeof entry === "object" && "row" in entry) {
+      rows = (entry as { row: ExpenditureRow[] }).row ?? [];
     }
   }
-  return 0n;
+  return { rows, total, resultCode };
 }
 
-function pickYear(...values: Array<string | number | undefined | null>): number | null {
-  for (const v of values) {
-    if (v === undefined || v === null) continue;
-    const t = String(v).trim();
-    if (t === "") continue;
-    const n = parseInt(t, 10);
-    if (Number.isFinite(n) && n >= 1900 && n <= 9999) return n;
-  }
-  return null;
-}
-
-function resolveServiceKey(): string | undefined {
-  const fiscal = process.env.FISCAL_API_KEY;
-  if (fiscal && fiscal.trim() !== "") return fiscal;
-  return process.env.NEC_API_KEY;
-}
-
-// ── National budget ingestion ─────────────────────────────────────────────
-
-interface IngestStats {
-  total: number;
-  inserted: number;
-}
-
-async function deleteExistingCategories(
-  level: BudgetLevel,
+async function fetchAllExpenditureRows(
+  apiKey: string,
   fiscalYear: number,
-): Promise<void> {
-  await prisma.budgetCategory.deleteMany({
-    where: { level, fiscalYear },
-  });
-  await prisma.budgetSummary.deleteMany({
-    where: { level, fiscalYear },
-  });
+): Promise<ExpenditureRow[]> {
+  const collected: ExpenditureRow[] = [];
+  let pageIndex = 1;
+  let total = Infinity;
+  while (collected.length < total && pageIndex <= 100) {
+    const { rows, total: pageTotal, resultCode } = await fetchExpenditurePage(
+      apiKey,
+      fiscalYear,
+      pageIndex,
+    );
+    if (resultCode && resultCode !== "INFO-000") {
+      if (resultCode === "INFO-200") break; // no more data
+      throw new Error(`API error code ${resultCode}`);
+    }
+    if (pageTotal > 0) total = pageTotal;
+    if (rows.length === 0) break;
+    collected.push(...rows);
+    pageIndex += 1;
+    if (collected.length < total) await sleep(PAGE_DELAY_MS);
+  }
+  return collected;
+}
+
+// ── DB helpers ───────────────────────────────────────────────────────────
+
+async function clearYear(level: "NATIONAL" | "METROPOLITAN", year: number) {
+  await prisma.budgetCategory.deleteMany({ where: { level, fiscalYear: year } });
+  await prisma.budgetSummary.deleteMany({ where: { level, fiscalYear: year } });
 }
 
 async function upsertSummary(
-  level: BudgetLevel,
+  level: "NATIONAL" | "METROPOLITAN",
   fiscalYear: number,
   groupKey: string,
   groupValue: string,
   totalAmount: bigint,
-): Promise<void> {
+) {
   await prisma.budgetSummary.upsert({
     where: {
       level_fiscalYear_groupKey_groupValue: {
@@ -174,80 +172,55 @@ async function upsertSummary(
   });
 }
 
-export async function ingestNationalBudget(
-  fiscalYear: number,
-): Promise<IngestStats> {
-  console.log(
-    `[budget-national] Starting ingest for fiscalYear=${fiscalYear}.`,
-  );
+// ── National budget ingestion ─────────────────────────────────────────────
 
-  const serviceKey = resolveServiceKey();
-  if (!serviceKey) {
-    console.warn(
-      "[budget-national] No FISCAL_API_KEY or NEC_API_KEY set. Skipping.",
-    );
+interface IngestStats {
+  total: number;
+  inserted: number;
+}
+
+export async function ingestNationalBudget(fiscalYear: number): Promise<IngestStats> {
+  console.log(`[budget-national] Starting fiscalYear=${fiscalYear}`);
+  const apiKey = process.env.FISCAL_API_KEY;
+  if (!apiKey) {
+    console.warn("[budget-national] FISCAL_API_KEY not set. Skipping.");
     return { total: 0, inserted: 0 };
   }
 
-  let rows: NationalBudgetRow[] = [];
+  let rows: ExpenditureRow[];
   try {
-    rows = await fetchAllNecPages<NationalBudgetRow>(
-      NATIONAL_BUDGET_SERVICE,
-      NATIONAL_BUDGET_METHOD,
-      {
-        // TODO: confirm endpoint URL — official param name may be FY, acntYr,
-        // or fyr depending on the service.
-        FY: String(fiscalYear),
-        fiscalYear: String(fiscalYear),
-        acntYr: String(fiscalYear),
-      },
-      {
-        baseUrl: NATIONAL_BUDGET_BASE_URL,
-        serviceKey,
-      },
-    );
+    rows = await fetchAllExpenditureRows(apiKey, fiscalYear);
   } catch (err) {
-    console.error(
-      `[budget-national] Fetch failed (likely endpoint not yet active or key not yet enabled): ${(err as Error).message}`,
-    );
+    console.error(`[budget-national] Fetch failed: ${(err as Error).message}`);
     return { total: 0, inserted: 0 };
   }
 
-  console.log(`[budget-national] Got ${rows.length} rows.`);
+  console.log(`[budget-national] Got ${rows.length} rows. Inserting...`);
+  await clearYear("NATIONAL", fiscalYear);
 
-  // Reset rows for this fiscalYear to keep upsert semantics simple.
-  await deleteExistingCategories("NATIONAL", fiscalYear);
-
-  // Accumulators for summary rollups.
   const byMinistry = new Map<string, bigint>();
   const byField = new Map<string, bigint>();
   const byMinistryField = new Map<string, bigint>();
 
+  // Batch inserts for speed
+  const BATCH_SIZE = 500;
   let inserted = 0;
-  for (const row of rows) {
-    const rowYear =
-      pickYear(row.fyr, row.fy, row.fiscalYear, row.acntYr) ?? fiscalYear;
-    const ministry = firstNonEmpty(row.mnstNm, row.mnstryNm, row.ministry);
-    const field = firstNonEmpty(row.fldNm, row.fldName, row.field);
-    const sector = firstNonEmpty(row.sectNm, row.sectName, row.sector);
-    const program = firstNonEmpty(row.prgmNm, row.prgmName, row.program);
-    const subProject = firstNonEmpty(row.prjNm, row.prjName, row.subProject);
-    const amount = pickAmount(row.amt, row.amount, row.budgAmt, row.prjAmt);
-
-    if (!field) {
-      // 분야 is required for our schema. Log and skip otherwise.
-      console.warn(
-        "[budget-national] Skipping row with no 분야:",
-        JSON.stringify(row).slice(0, 200),
-      );
-      continue;
-    }
-
-    try {
-      await prisma.budgetCategory.create({
-        data: {
-          level: "NATIONAL",
-          fiscalYear: rowYear,
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    const slice = rows.slice(i, i + BATCH_SIZE);
+    const data = slice
+      .map((row) => {
+        const ministry = nonEmpty(row.OFFC_NM);
+        const field = nonEmpty(row.FLD_NM);
+        const sector = nonEmpty(row.SECT_NM);
+        const program = nonEmpty(row.PGM_NM);
+        const subProject = nonEmpty(row.SACTV_NM) ?? nonEmpty(row.ACTV_NM);
+        const amount = toBigInt(
+          row.Y_YY_DFN_MEDI_KCUR_AMT ?? row.Y_YY_MEDI_KCUR_AMT,
+        );
+        if (!field) return null;
+        return {
+          level: "NATIONAL" as const,
+          fiscalYear,
           ministry,
           sido: null,
           field,
@@ -255,153 +228,59 @@ export async function ingestNationalBudget(
           program,
           subProject,
           amount,
-          // rawSourceJson not in schema; if needed, add a Json column later.
-        } as Prisma.BudgetCategoryUncheckedCreateInput,
+        };
+      })
+      .filter((d): d is NonNullable<typeof d> => d !== null);
+
+    if (data.length > 0) {
+      await prisma.budgetCategory.createMany({
+        data: data as Prisma.BudgetCategoryUncheckedCreateInput[],
       });
-      inserted += 1;
-    } catch (err) {
-      console.error("[budget-national] Insert failed:", err);
-      continue;
+      inserted += data.length;
     }
 
-    if (ministry) {
-      byMinistry.set(ministry, (byMinistry.get(ministry) ?? 0n) + amount);
-      const key = `${ministry}|${field}`;
-      byMinistryField.set(key, (byMinistryField.get(key) ?? 0n) + amount);
+    // Accumulate rollups
+    for (const d of data) {
+      if (d.ministry) {
+        byMinistry.set(d.ministry, (byMinistry.get(d.ministry) ?? 0n) + d.amount);
+        const key = `${d.ministry}|${d.field}`;
+        byMinistryField.set(key, (byMinistryField.get(key) ?? 0n) + d.amount);
+      }
+      byField.set(d.field, (byField.get(d.field) ?? 0n) + d.amount);
     }
-    byField.set(field, (byField.get(field) ?? 0n) + amount);
+    console.log(`[budget-national] Inserted ${inserted}/${rows.length}`);
   }
 
-  // Persist rollups.
-  for (const [ministry, total] of byMinistry) {
-    await upsertSummary("NATIONAL", fiscalYear, "ministry", ministry, total);
+  // Persist rollups
+  for (const [k, v] of byMinistry) {
+    await upsertSummary("NATIONAL", fiscalYear, "ministry", k, v);
   }
-  for (const [field, total] of byField) {
-    await upsertSummary("NATIONAL", fiscalYear, "field", field, total);
+  for (const [k, v] of byField) {
+    await upsertSummary("NATIONAL", fiscalYear, "field", k, v);
   }
-  for (const [key, total] of byMinistryField) {
-    await upsertSummary("NATIONAL", fiscalYear, "ministry-field", key, total);
+  for (const [k, v] of byMinistryField) {
+    await upsertSummary("NATIONAL", fiscalYear, "ministry-field", k, v);
   }
 
   console.log(
-    `[budget-national] Done. Inserted ${inserted}/${rows.length} categories; ` +
+    `[budget-national] Done. Inserted ${inserted}/${rows.length}; ` +
       `${byMinistry.size} ministry rollups, ${byField.size} field rollups, ` +
-      `${byMinistryField.size} ministry+field rollups.`,
+      `${byMinistryField.size} ministry-field rollups.`,
   );
   return { total: rows.length, inserted };
 }
 
-// ── Metropolitan budget ingestion ─────────────────────────────────────────
+// ── Metropolitan budget ingestion (stub) ──────────────────────────────────
 
 export async function ingestMetropolitanBudget(
   fiscalYear: number,
 ): Promise<IngestStats> {
-  console.log(
-    `[budget-metro] Starting ingest for fiscalYear=${fiscalYear}.`,
+  console.warn(
+    `[budget-metro] Skipped — 지방재정365 기능별 단체별 세출결산은 ` +
+      `현재 SHEET 다운로드만 제공됩니다 (OpenAPI 없음). ` +
+      `fiscalYear=${fiscalYear} 무시.`,
   );
-
-  const serviceKey = resolveServiceKey();
-  if (!serviceKey) {
-    console.warn(
-      "[budget-metro] No FISCAL_API_KEY or NEC_API_KEY set. Skipping.",
-    );
-    return { total: 0, inserted: 0 };
-  }
-
-  let rows: MetroBudgetRow[] = [];
-  try {
-    rows = await fetchAllNecPages<MetroBudgetRow>(
-      METRO_BUDGET_SERVICE,
-      METRO_BUDGET_METHOD,
-      {
-        // TODO: confirm endpoint URL — official param name may be actrYr or
-        // FYR or just YEAR. We send several candidates; data.go.kr typically
-        // ignores unknown extras.
-        actrYr: String(fiscalYear),
-        fiscalYear: String(fiscalYear),
-      },
-      {
-        baseUrl: METRO_BUDGET_BASE_URL,
-        serviceKey,
-      },
-    );
-  } catch (err) {
-    console.error(
-      `[budget-metro] Fetch failed (likely endpoint not yet active or key not yet enabled): ${(err as Error).message}`,
-    );
-    return { total: 0, inserted: 0 };
-  }
-
-  console.log(`[budget-metro] Got ${rows.length} rows.`);
-
-  await deleteExistingCategories("METROPOLITAN", fiscalYear);
-
-  const bySido = new Map<string, bigint>();
-  const byField = new Map<string, bigint>();
-  const bySidoField = new Map<string, bigint>();
-
-  let inserted = 0;
-  for (const row of rows) {
-    const rowYear =
-      pickYear(row.fyr, row.fiscalYear, row.actrYr) ?? fiscalYear;
-    const sido = firstNonEmpty(row.laAdNm, row.sidoNm, row.sido);
-    const field = firstNonEmpty(row.fnctnCdNm, row.fnctnNm, row.field);
-    const amount = pickAmount(row.budgAmt, row.amt, row.amount, row.expnAmt);
-
-    if (!sido || !field) {
-      console.warn(
-        "[budget-metro] Skipping row with missing 시·도 or 분야:",
-        JSON.stringify(row).slice(0, 200),
-      );
-      continue;
-    }
-
-    try {
-      await prisma.budgetCategory.create({
-        data: {
-          level: "METROPOLITAN",
-          fiscalYear: rowYear,
-          ministry: null,
-          sido,
-          field,
-          sector: null,
-          program: null,
-          subProject: null,
-          amount,
-        } as Prisma.BudgetCategoryUncheckedCreateInput,
-      });
-      inserted += 1;
-    } catch (err) {
-      console.error("[budget-metro] Insert failed:", err);
-      continue;
-    }
-
-    bySido.set(sido, (bySido.get(sido) ?? 0n) + amount);
-    byField.set(field, (byField.get(field) ?? 0n) + amount);
-    const key = `${sido}|${field}`;
-    bySidoField.set(key, (bySidoField.get(key) ?? 0n) + amount);
-  }
-
-  for (const [sido, total] of bySido) {
-    await upsertSummary("METROPOLITAN", fiscalYear, "sido", sido, total);
-  }
-  for (const [field, total] of byField) {
-    await upsertSummary("METROPOLITAN", fiscalYear, "field", field, total);
-  }
-  for (const [key, total] of bySidoField) {
-    await upsertSummary("METROPOLITAN", fiscalYear, "sido-field", key, total);
-  }
-
-  console.log(
-    `[budget-metro] Done. Inserted ${inserted}/${rows.length} categories; ` +
-      `${bySido.size} sido rollups, ${byField.size} field rollups, ` +
-      `${bySidoField.size} sido+field rollups.`,
-  );
-  return { total: rows.length, inserted };
+  return { total: 0, inserted: 0 };
 }
 
-// Re-export the enum so callers can reference BudgetLevel without importing
-// from @prisma/client directly.
 export { BudgetLevel } from "@prisma/client";
-// (PrismaNS re-export kept available for future extensions.)
-export type _PrismaExt = typeof PrismaNS;
