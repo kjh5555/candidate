@@ -15,7 +15,12 @@
     "ingest:bills": "tsx src/ingest/index.ts bills 22",
     "ingest:votes": "tsx src/ingest/index.ts votes 22",
     "ingest:districts": "tsx src/ingest/index.ts districts",
-    "ingest:resolve": "tsx src/ingest/index.ts resolve 22"
+    "ingest:resolve": "tsx src/ingest/index.ts resolve 22",
+    "ingest:local-candidates": "tsx src/ingest/index.ts local-candidates 20260603",
+    "ingest:candidate-backgrounds": "tsx src/ingest/index.ts candidate-backgrounds 20260603",
+    "ingest:link-districts": "tsx src/ingest/index.ts link-districts 22",
+    "cron:daily": "tsx src/ingest/index.ts local-candidates 20260603 && tsx src/ingest/index.ts candidate-backgrounds 20260603",
+    "cron:weekly": "tsx src/ingest/index.ts legislators 22 && tsx src/ingest/index.ts link-districts 22"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.0",

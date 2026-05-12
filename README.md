@@ -92,19 +92,43 @@ pnpm build
 
 > ⚠️ **필수**: `NEXT_PUBLIC_API_URL` 환경변수를 반드시 Railway API URL로 설정하세요 (예: `https://my-api.up.railway.app`). 이 값이 없으면 웹앱이 API에 연결되지 않습니다.
 
-### Cron (데이터 갱신)
+### Cron (자동 데이터 갱신)
 
-Railway에서 **두 번째 서비스**를 생성하여 매일 자동 갱신:
+Railway에서 **별도의 cron 서비스**를 생성해서 매일 새벽에 후보 데이터를 자동 갱신할 수 있습니다. config는 `apps/api/railway-cron.toml`에 미리 준비되어 있습니다.
 
-1. Railway 대시보드 → "+ New" → "Empty Service"
-2. 같은 GitHub 저장소 연결, Root Directory = `apps/api`
-3. Deploy Command: `pnpm --filter @repo/api ingest:all`
-4. Settings → **Cron Schedule**: `0 17 * * *` (매일 02:00 KST)
-5. 동일한 환경변수 추가
+**설정 순서:**
 
-수동 실행:
+1. Railway 프로젝트 대시보드 → **"+ Create"** → **"GitHub Repo"** → `kjh5555/candidate` 선택 (같은 레포 재연결)
+2. 새 서비스 이름을 `cron-daily` 등으로 변경
+3. **Settings → Source**
+   - Root Directory: **비워두기** (`/`, 모노레포 루트 사용)
+   - Watch Paths: `apps/api/**`, `packages/shared/**`
+4. **Settings → Build**
+   - Config-as-code Path: `/apps/api/railway-cron.toml`
+5. **Settings → Deploy → Cron Schedule**: `0 18 * * *` (UTC 18:00 = KST 03:00 매일 새벽)
+6. **Variables 탭**에 main 서비스와 같은 변수 추가:
+   ```
+   DATABASE_URL=${{Postgres.DATABASE_URL}}
+   NEC_API_KEY=<your-data.go.kr-key>
+   ASSEMBLY_API_KEY=<your-open.assembly.go.kr-key>
+   ```
+
+저장하면 자동으로 첫 실행되고, 그다음부터는 매일 KST 03:00에 후보 + 배경 disclosure 데이터를 새로 가져옵니다.
+
+**Cron 명령어:**
+- `cron:daily` — 지방선거 후보 + 배경 정보 (전과·재산·병역·세금) 갱신 (5~10분)
+- `cron:weekly` — 국회의원 + 선거구 연결 갱신 (주 1회 권장)
+
+**수동 실행:**
 ```bash
+# 모두 한 번에
 pnpm --filter @repo/api ingest:all
+
+# 후보만 빠르게
+pnpm --filter @repo/api cron:daily
+
+# 의원만
+pnpm --filter @repo/api cron:weekly
 ```
 
 ## 환경변수

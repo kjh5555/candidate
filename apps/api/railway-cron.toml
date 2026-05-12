@@ -1,0 +1,23 @@
+# Railway Cron Service config — runs daily candidate refresh
+#
+# 사용법:
+# 1. Railway 프로젝트 대시보드에서 "+ New" → "Empty Service" → GitHub Repo 선택
+# 2. 같은 kjh5555/candidate 레포 연결
+# 3. Settings → Build → Config-as-code Path: /apps/api/railway-cron.toml
+# 4. Settings → Source → Root Directory: 비워두기 (모노레포 루트 사용)
+# 5. Settings → Source → Watch Paths: apps/api/**, packages/shared/**
+# 6. Variables 탭에 다음 추가:
+#       DATABASE_URL=${{Postgres.DATABASE_URL}}
+#       NEC_API_KEY=PLZjZxY5KZYaq%2Bk9luBEDEMlytkHPBkiIoqiDtKHznaBpgskFptYpWzTPYSRVk3NyJYRG7pLhGOmuhSnqe9xXA%3D%3D
+#       ASSEMBLY_API_KEY=b64fb3c1cbb94f37b0bf10fcd5358f38
+# 7. Settings → Cron Schedule: 0 18 * * *  (= UTC 18:00 = KST 03:00 매일 새벽)
+
+[build]
+builder = "RAILPACK"
+buildCommand = "pnpm --filter @repo/api build"
+
+[deploy]
+# Cron 명령: 후보 정보 + 배경 disclosure 새로고침
+# DB 스키마는 main service의 preDeploy에서 이미 sync 되므로 여기선 generate만
+startCommand = "pnpm --filter @repo/api exec prisma generate && pnpm --filter @repo/api cron:daily"
+restartPolicyType = "NEVER"
