@@ -6,6 +6,10 @@ const ConfigSchema = z.object({
   ASSEMBLY_API_KEY: z.string().optional(),
   CLIK_API_KEY: z.string().optional(),
   NEC_API_KEY: z.string().optional(),
+  // data.go.kr key used for budget endpoints (기획재정부 15076058 +
+  // 지방재정365 15058011). Falls back to NEC_API_KEY at runtime when missing,
+  // since the same 일반인증키 typically works across providers.
+  FISCAL_API_KEY: z.string().optional(),
   PORT: z
     .string()
     .optional()

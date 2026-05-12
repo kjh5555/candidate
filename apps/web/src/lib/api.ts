@@ -10,6 +10,9 @@ import type {
   CandidateDetailDTO,
   CandidateRegionsResponseDTO,
   CandidatePositionType,
+  BudgetLevel,
+  BudgetBreakdownDTO,
+  BudgetYearsResponseDTO,
 } from "@repo/shared";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -53,10 +56,14 @@ export function getRegionMatch(address: string): Promise<RegionMatchResponseDTO>
 export function getLegislators(params: {
   nationalDistrictId?: string;
   provincialDistrictId?: string;
+  level?: "NATIONAL" | "PROVINCIAL" | "ALL";
+  region?: string;
 }): Promise<LegislatorsResponseDTO> {
   const query = new URLSearchParams();
   if (params.nationalDistrictId) query.set("nationalDistrictId", params.nationalDistrictId);
   if (params.provincialDistrictId) query.set("provincialDistrictId", params.provincialDistrictId);
+  if (params.level) query.set("level", params.level);
+  if (params.region) query.set("region", params.region);
   return apiFetch<LegislatorsResponseDTO>(`/api/legislators?${query.toString()}`);
 }
 
@@ -127,5 +134,53 @@ export function getCandidates(params: {
 export function getCandidateDetail(id: string): Promise<CandidateDetailDTO> {
   return apiFetch<CandidateDetailDTO>(
     `/api/candidates/${encodeURIComponent(id)}`
+  );
+}
+
+// ── Budget (예산 정보) ────────────────────────────────────────
+
+export function getBudgetYears(
+  level: BudgetLevel
+): Promise<BudgetYearsResponseDTO> {
+  return apiFetch<BudgetYearsResponseDTO>(
+    `/api/budget/years?level=${encodeURIComponent(level)}`
+  );
+}
+
+export function getBudgetByField(year: number): Promise<BudgetBreakdownDTO> {
+  return apiFetch<BudgetBreakdownDTO>(
+    `/api/budget/national/by-field?year=${encodeURIComponent(String(year))}`
+  );
+}
+
+export function getBudgetByMinistry(
+  year: number
+): Promise<BudgetBreakdownDTO> {
+  return apiFetch<BudgetBreakdownDTO>(
+    `/api/budget/national/by-ministry?year=${encodeURIComponent(String(year))}`
+  );
+}
+
+export function getBudgetMinistryDetail(
+  ministry: string,
+  year: number
+): Promise<BudgetBreakdownDTO> {
+  return apiFetch<BudgetBreakdownDTO>(
+    `/api/budget/national/ministry/${encodeURIComponent(ministry)}?year=${encodeURIComponent(String(year))}`
+  );
+}
+
+export function getBudgetBySido(year: number): Promise<BudgetBreakdownDTO> {
+  return apiFetch<BudgetBreakdownDTO>(
+    `/api/budget/metropolitan/by-sido?year=${encodeURIComponent(String(year))}`
+  );
+}
+
+export function getBudgetSidoDetail(
+  sido: string,
+  year: number
+): Promise<BudgetBreakdownDTO> {
+  return apiFetch<BudgetBreakdownDTO>(
+    `/api/budget/metropolitan/sido/${encodeURIComponent(sido)}?year=${encodeURIComponent(String(year))}`
   );
 }

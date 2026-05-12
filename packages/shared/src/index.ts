@@ -234,6 +234,28 @@ export interface CandidateRegionsResponseDTO {
   regions: CandidateRegionDTO[];
 }
 
+// ── Budget (예산 정보) ─────────────────────────────────────────
+
+export type BudgetLevel = "NATIONAL" | "METROPOLITAN";
+
+export interface BudgetItemDTO {
+  key: string; // ministry name OR field name OR sido name
+  amount: string; // BigInt serialized as string
+  percent: number; // 0-100, 2 decimals
+}
+
+export interface BudgetBreakdownDTO {
+  fiscalYear: number;
+  level: BudgetLevel;
+  groupBy: "field" | "ministry" | "sido" | "ministry-field" | "sido-field";
+  items: BudgetItemDTO[];
+  totalAmount: string; // BigInt serialized as string
+}
+
+export interface BudgetYearsResponseDTO {
+  years: number[];
+}
+
 // ── Misc ──────────────────────────────────────────────────────
 
 export interface ApiErrorDTO {

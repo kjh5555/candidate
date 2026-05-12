@@ -56,6 +56,11 @@ enum CandidateStatus {
   UNKNOWN
 }
 
+enum BudgetLevel {
+  NATIONAL // 중앙정부
+  METROPOLITAN // 광역 (시·도)
+}
+
 model ElectoralDistrict {
   id          String        @id @default(cuid())
   level       DistrictLevel
@@ -281,4 +286,48 @@ model CandidatePledge {
 
   @@unique([candidateId, ord])
   @@index([candidateId])
+}
+
+// ─── Budget (예산 정보) ─────────────────────────────────────────
+//
+// Hierarchical line items.
+//
+// NATIONAL (기획재정부 세부사업 예산편성, data.go.kr 15076058):
+//   분야 (field) → 부문 (sector) → 프로그램 (program) → 세부사업 (subProject)
+//
+// METROPOLITAN (지방재정365 기능별 단체별 세출, data.go.kr 15058011):
+//   17 시·도 × 14 분야. Typically only field-level granularity; sector/program/
+//   subProject may be null.
+
+model BudgetCategory {
+  id         String      @id @default(cuid())
+  level      BudgetLevel
+  fiscalYear Int
+  ministry   String? // 부처 — NATIONAL only
+  sido       String? // 시·도 — METROPOLITAN only
+  field      String // 분야
+  sector     String? // 부문
+  program    String? // 프로그램
+  subProject String? // 세부사업
+  amount     BigInt // 예산액 (원)
+  createdAt  DateTime    @default(now())
+
+  @@index([level, fiscalYear])
+  @@index([ministry])
+  @@index([sido])
+  @@index([field])
+}
+
+model BudgetSummary {
+  id          String      @id @default(cuid())
+  level       BudgetLevel
+  fiscalYear  Int
+  groupKey    String // 'ministry' | 'field' | 'sido' | 'ministry-field' | 'sido-field'
+  groupValue  String // actual value, e.g. "교육부" or "보건복지" or "서울특별시|보건"
+  totalAmount BigInt
+  createdAt   DateTime    @default(now())
+
+  @@unique([level, fiscalYear, groupKey, groupValue])
+  @@index([level, fiscalYear])
+  @@index([groupKey])
 }

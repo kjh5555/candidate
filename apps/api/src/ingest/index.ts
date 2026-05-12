@@ -20,49 +20,77 @@ import { resolveBillProposers } from "./billProposerResolver.js";
 import { linkLegislatorDistricts } from "./linkDistricts.js";
 import { ingestLocalCandidates } from "./localElection.js";
 import { ingestCandidateBackgrounds } from "./candidateBackground.js";
+import {
+  ingestMetropolitanBudget,
+  ingestNationalBudget,
+} from "./budget.js";
 
 type Step =
   | "all"
+  | "all-budget"
   | "legislators"
   | "bills"
   | "votes"
   | "districts"
   | "link-districts"
   | "provincial"
+  | "provincial-assembly"
   | "resolve"
   | "local-candidates"
   | "candidate-backgrounds"
-  | "backgrounds";
+  | "backgrounds"
+  | "budget"
+  | "budget-national"
+  | "budget-metropolitan";
 
 const VALID_STEPS: Step[] = [
   "all",
+  "all-budget",
   "legislators",
   "bills",
   "votes",
   "districts",
   "link-districts",
   "provincial",
+  "provincial-assembly",
   "resolve",
   "local-candidates",
   "candidate-backgrounds",
   "backgrounds",
+  "budget",
+  "budget-national",
+  "budget-metropolitan",
 ];
 
 function printUsageAndExit(code = 1): never {
   console.error(
     "Usage:\n" +
       "  tsx src/ingest/index.ts all <assemblyAge>\n" +
+      "  tsx src/ingest/index.ts all-budget [fiscalYear]\n" +
       "  tsx src/ingest/index.ts legislators <assemblyAge>\n" +
       "  tsx src/ingest/index.ts bills <assemblyAge>\n" +
       "  tsx src/ingest/index.ts votes <assemblyAge>\n" +
       "  tsx src/ingest/index.ts districts [csvPath]\n" +
       "  tsx src/ingest/index.ts link-districts [assemblyAge]\n" +
       "  tsx src/ingest/index.ts provincial\n" +
+      "  tsx src/ingest/index.ts provincial-assembly [sgId]\n" +
       "  tsx src/ingest/index.ts resolve <assemblyAge>\n" +
       "  tsx src/ingest/index.ts local-candidates [electionId]\n" +
-      "  tsx src/ingest/index.ts candidate-backgrounds [electionId]",
+      "  tsx src/ingest/index.ts candidate-backgrounds [electionId]\n" +
+      "  tsx src/ingest/index.ts budget [fiscalYear]\n" +
+      "  tsx src/ingest/index.ts budget-national [fiscalYear]\n" +
+      "  tsx src/ingest/index.ts budget-metropolitan [fiscalYear]",
   );
   process.exit(code);
+}
+
+function parseFiscalYear(raw: string | undefined): number {
+  if (raw && raw.trim() !== "") {
+    const n = parseInt(raw, 10);
+    if (Number.isFinite(n) && n >= 1900 && n <= 9999) return n;
+  }
+  // Default to current calendar year.
+  return new Date().getFullYear();
 }
 
 function parseAge(raw: string | undefined): number {
@@ -110,6 +138,22 @@ async function runStep(step: Exclude<Step, "all">, args: string[]): Promise<void
       await ingestProvincialLegislators();
       return;
     }
+    case "provincial-assembly": {
+      const sgId = args[0] && args[0].trim() !== "" ? args[0] : "20220601";
+      await ingestProvincialLegislators(sgId);
+      return;
+    }
+    case "budget":
+    case "budget-national": {
+      const year = parseFiscalYear(args[0]);
+      await ingestNationalBudget(year);
+      return;
+    }
+    case "budget-metropolitan": {
+      const year = parseFiscalYear(args[0]);
+      await ingestMetropolitanBudget(year);
+      return;
+    }
     case "resolve": {
       await resolveBillProposers(parseAge(args[0]));
       return;
@@ -129,10 +173,11 @@ async function runStep(step: Exclude<Step, "all">, args: string[]): Promise<void
 }
 
 async function runAll(assemblyAge: number): Promise<void> {
-  const order: Array<Exclude<Step, "all">> = [
+  const order: Array<Exclude<Step, "all" | "all-budget">> = [
     "districts",
     "legislators",
     "link-districts",
+    "provincial-assembly",
     "local-candidates",
     "candidate-backgrounds",
     "provincial",
@@ -146,6 +191,7 @@ async function runAll(assemblyAge: number): Promise<void> {
       if (
         step === "districts" ||
         step === "provincial" ||
+        step === "provincial-assembly" ||
         step === "local-candidates" ||
         step === "candidate-backgrounds" ||
         step === "backgrounds"
@@ -156,6 +202,21 @@ async function runAll(assemblyAge: number): Promise<void> {
       }
     } catch (err) {
       console.error(`[all] Step "${step}" failed; continuing.`, err);
+    }
+  }
+}
+
+async function runAllBudget(fiscalYear: number): Promise<void> {
+  const order: Array<"budget-national" | "budget-metropolitan"> = [
+    "budget-national",
+    "budget-metropolitan",
+  ];
+  for (const step of order) {
+    console.log(`\n=== Step: ${step} (fiscalYear=${fiscalYear}) ===`);
+    try {
+      await runStep(step, [String(fiscalYear)]);
+    } catch (err) {
+      console.error(`[all-budget] Step "${step}" failed; continuing.`, err);
     }
   }
 }
@@ -173,6 +234,9 @@ async function main(): Promise<void> {
   if (step === "all") {
     const age = parseAge(rest[0]);
     await runAll(age);
+  } else if (step === "all-budget") {
+    const year = parseFiscalYear(rest[0]);
+    await runAllBudget(year);
   } else {
     await runStep(step, rest);
   }

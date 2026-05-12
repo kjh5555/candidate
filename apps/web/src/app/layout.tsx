@@ -31,7 +31,10 @@ export default function RootLayout({
             </Link>
             <nav className="flex items-center gap-4 text-sm text-slate-600">
               <Link href="/" className="hover:text-blue-600 transition-colors">
-                지역구 검색
+                의원·후보
+              </Link>
+              <Link href="/budget" className="hover:text-blue-600 transition-colors">
+                예산
               </Link>
             </nav>
           </div>

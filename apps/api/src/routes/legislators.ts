@@ -12,6 +12,7 @@ interface ListQuery {
   nationalDistrictId?: string;
   provincialDistrictId?: string;
   level?: ListLevel;
+  region?: string;
 }
 
 interface IdParams {
@@ -45,23 +46,31 @@ const legislatorRoutes: FastifyPluginAsync = async (fastify) => {
             nationalDistrictId: { type: "string" },
             provincialDistrictId: { type: "string" },
             level: { type: "string", enum: ["NATIONAL", "PROVINCIAL", "ALL"] },
+            region: { type: "string" },
           },
         },
       },
     },
     async (request, reply) => {
-      const { nationalDistrictId, provincialDistrictId, level } = request.query;
-      if (!nationalDistrictId && !provincialDistrictId) {
+      const { nationalDistrictId, provincialDistrictId, level, region } =
+        request.query;
+      // Require at least one of: a district filter, OR a (level + region)
+      // tuple — the latter enables 광역의회 시·도 listings without a district.
+      const hasDistrict = !!nationalDistrictId || !!provincialDistrictId;
+      const hasRegionScope = !!region && level && level !== "ALL";
+      if (!hasDistrict && !hasRegionScope) {
         return reply.status(400).send({
-          error: "MISSING_DISTRICT",
+          error: "MISSING_FILTER",
           message:
-            "At least one of nationalDistrictId or provincialDistrictId is required",
+            "Provide at least one of nationalDistrictId / provincialDistrictId, " +
+            "or (level + region).",
         });
       }
       const legislators = await listLegislators({
         nationalDistrictId,
         provincialDistrictId,
         level,
+        region,
       });
       return reply.send({ legislators, total: legislators.length });
     },

@@ -16,6 +16,11 @@ export interface ListLegislatorsParams {
   nationalDistrictId?: string;
   provincialDistrictId?: string;
   level?: ListLevel;
+  /**
+   * 시·도 (region/sdName) filter, mainly used to scope 광역의회 의원 listings
+   * (e.g. region="서울특별시"). Applies as Legislator.region exact match.
+   */
+  region?: string;
 }
 
 const summarySelect = {
@@ -53,7 +58,12 @@ function rowToSummary(
 export async function listLegislators(
   params: ListLegislatorsParams,
 ): Promise<LegislatorSummaryDTO[]> {
-  const { nationalDistrictId, provincialDistrictId, level = "ALL" } = params;
+  const {
+    nationalDistrictId,
+    provincialDistrictId,
+    level = "ALL",
+    region,
+  } = params;
 
   const orConditions: Prisma.LegislatorWhereInput[] = [];
 
@@ -74,12 +84,33 @@ export async function listLegislators(
     }
   }
 
-  const where: Prisma.LegislatorWhereInput =
+  // Build the base where clause from the district filters above.
+  const baseWhere: Prisma.LegislatorWhereInput =
     orConditions.length === 0
       ? {}
       : orConditions.length === 1
         ? orConditions[0]!
         : { OR: orConditions };
+
+  // Layer additional filters: region (Legislator.region) and level-only listing.
+  const extraConditions: Prisma.LegislatorWhereInput[] = [];
+  if (region && region.trim() !== "") {
+    extraConditions.push({ region });
+  }
+  // If no district filter was supplied but the caller passed a `level`, still
+  // narrow on level so the frontend can do "all PROVINCIAL in 서울특별시".
+  if (orConditions.length === 0 && level !== "ALL") {
+    extraConditions.push({ level });
+  }
+
+  const where: Prisma.LegislatorWhereInput =
+    extraConditions.length === 0
+      ? baseWhere
+      : Object.keys(baseWhere).length === 0
+        ? extraConditions.length === 1
+          ? extraConditions[0]!
+          : { AND: extraConditions }
+        : { AND: [baseWhere, ...extraConditions] };
 
   const rows = await prisma.legislator.findMany({
     where,

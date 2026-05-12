@@ -21,7 +21,7 @@
 // Error responses are sometimes XML (`<OpenAPI_ServiceResponse>...`) or plain
 // text like "Unauthorized" — we detect those and throw with a useful message.
 
-const BASE_URL = "http://apis.data.go.kr/9760000";
+const DEFAULT_BASE_URL = "http://apis.data.go.kr/9760000";
 const DEFAULT_PAGE_SIZE = 100;
 const DEFAULT_DELAY_MS = 500;
 
@@ -29,6 +29,19 @@ export interface FetchAllNecPagesOptions {
   pageSize?: number;
   maxPages?: number;
   delayMs?: number;
+  /**
+   * Override the data.go.kr base URL (default "http://apis.data.go.kr/9760000").
+   * Set this when calling endpoints under different provider IDs, e.g.
+   * "http://apis.data.go.kr/1051000" for 기획재정부 or
+   * "http://apis.data.go.kr/1741000" for 행정안전부/지방재정365.
+   */
+  baseUrl?: string;
+  /**
+   * Override the service key. Defaults to process.env.NEC_API_KEY.
+   * Useful for budget endpoints that may use FISCAL_API_KEY but accept the
+   * same data.go.kr 일반인증키 format.
+   */
+  serviceKey?: string;
 }
 
 interface NecResponseEnvelope<T> {
@@ -155,14 +168,19 @@ export async function fetchAllNecPages<T>(
   params: Record<string, string>,
   opts: FetchAllNecPagesOptions = {},
 ): Promise<T[]> {
-  const rawKey = process.env.NEC_API_KEY;
+  const rawKey =
+    opts.serviceKey && opts.serviceKey.trim() !== ""
+      ? opts.serviceKey
+      : process.env.NEC_API_KEY;
   if (!rawKey || rawKey.trim() === "") {
     throw new Error(
-      "NEC_API_KEY is not set. Register an 일반인증키 at https://data.go.kr " +
-        "and export it (URL-encoded form, e.g. with %2B / %3D).",
+      "NEC_API_KEY (or override serviceKey) is not set. Register an " +
+        "일반인증키 at https://data.go.kr and export it (URL-encoded form, " +
+        "e.g. with %2B / %3D).",
     );
   }
 
+  const baseUrl = (opts.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
   const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
   const maxPages = opts.maxPages ?? 1000;
   const delayMs = opts.delayMs ?? DEFAULT_DELAY_MS;
@@ -178,7 +196,7 @@ export async function fetchAllNecPages<T>(
       numOfRows: String(pageSize),
       ...params,
     });
-    const url = `${BASE_URL}/${servicePath}/${serviceMethod}?${query}`;
+    const url = `${baseUrl}/${servicePath}/${serviceMethod}?${query}`;
 
     const envelope = await fetchPage<T>(url);
     const { items, totalCount: pageTotal, resultCode, resultMsg } =

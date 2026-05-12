@@ -5,6 +5,7 @@ import legislatorRoutes from "./legislators.js";
 import billRoutes from "./bills.js";
 import districtRoutes from "./districts.js";
 import candidateRoutes from "./candidates.js";
+import budgetRoutes from "./budget.js";
 
 const apiRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(healthRoute);
@@ -13,6 +14,7 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(billRoutes, { prefix: "/bills" });
   await fastify.register(districtRoutes, { prefix: "/districts" });
   await fastify.register(candidateRoutes, { prefix: "/candidates" });
+  await fastify.register(budgetRoutes, { prefix: "/budget" });
 };
 
 export default apiRoutes;
