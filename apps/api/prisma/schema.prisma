@@ -159,6 +159,17 @@ model Legislator {
   taxRecordPdfUrl        String?
   backgroundLastSyncedAt DateTime?
 
+  // 재산공개 (공직자윤리위원회 정기공개 — opengirok / newstapa 정제 데이터)
+  assetTotalManwon       BigInt?   // 재산 총액 (만원)
+  assetRealEstateManwon  BigInt?   // 부동산 (만원)
+  assetSecuritiesManwon  BigInt?   // 증권 (만원)
+  assetCashManwon        BigInt?   // 예금 (만원)
+  assetDebtManwon        BigInt?   // 채무 (음수, 만원)
+  assetReportYear        Int?      // 신고 연도 (e.g. 2025)
+  assetSourceUrl         String?   // 출처 URL
+  assetSourceName        String?   // "opengirok", "newstapa", "peti.go.kr"
+  assetLastSyncedAt      DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

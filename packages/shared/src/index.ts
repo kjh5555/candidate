@@ -96,6 +96,17 @@ export interface LegislatorDetailDTO extends LegislatorSummaryDTO {
   hasTaxRecord: boolean;
   taxRecordPdfUrl: string | null;
   disclosureElectionId: string | null;
+
+  // ── 재산공개 (공직자윤리위원회 정기공개 — opengirok / newstapa 정제 데이터) ──
+  assetTotalManwon: string | null;       // BigInt serialized as string (만원)
+  assetRealEstateManwon: string | null;  // 부동산 (만원)
+  assetSecuritiesManwon: string | null;  // 증권 (만원)
+  assetCashManwon: string | null;        // 예금 (만원)
+  assetDebtManwon: string | null;        // 채무 (만원, 음수 가능)
+  assetReportYear: number | null;        // 신고 연도
+  assetSourceUrl: string | null;         // 출처 URL
+  assetSourceName: string | null;        // "opengirok", "newstapa", "peti.go.kr"
+  assetLastSyncedAt: string | null;      // ISO timestamp
 }
 
 export interface LegislatorsResponseDTO {

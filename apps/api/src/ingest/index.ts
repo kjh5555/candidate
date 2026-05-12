@@ -22,6 +22,7 @@ import { ingestLocalCandidates } from "./localElection.js";
 import { ingestCandidateBackgrounds } from "./candidateBackground.js";
 import { linkAllLegislatorHuboids } from "./legislatorHuboids.js";
 import { ingestLegislatorBackgrounds } from "./legislatorBackgrounds.js";
+import { ingestNationalLegislatorAssets } from "./legislatorAssets.js";
 import {
   ingestMetropolitanBudget,
   ingestNationalBudget,
@@ -44,6 +45,8 @@ type Step =
   | "backgrounds"
   | "legislator-huboids"
   | "legislator-backgrounds"
+  | "legislator-assets"
+  | "assets"
   | "budget"
   | "budget-national"
   | "budget-metropolitan";
@@ -65,6 +68,8 @@ const VALID_STEPS: Step[] = [
   "backgrounds",
   "legislator-huboids",
   "legislator-backgrounds",
+  "legislator-assets",
+  "assets",
   "budget",
   "budget-national",
   "budget-metropolitan",
@@ -88,6 +93,8 @@ function printUsageAndExit(code = 1): never {
       "  tsx src/ingest/index.ts candidate-backgrounds [electionId]\n" +
       "  tsx src/ingest/index.ts legislator-huboids\n" +
       "  tsx src/ingest/index.ts legislator-backgrounds\n" +
+      "  tsx src/ingest/index.ts legislator-assets [csvPath]\n" +
+      "  tsx src/ingest/index.ts assets [csvPath]\n" +
       "  tsx src/ingest/index.ts budget [fiscalYear]\n" +
       "  tsx src/ingest/index.ts budget-national [fiscalYear]\n" +
       "  tsx src/ingest/index.ts budget-metropolitan [fiscalYear]",
@@ -191,6 +198,12 @@ async function runStep(step: Exclude<Step, "all">, args: string[]): Promise<void
     }
     case "legislator-backgrounds": {
       await ingestLegislatorBackgrounds();
+      return;
+    }
+    case "legislator-assets":
+    case "assets": {
+      const csvPath = args[0] && args[0].trim() !== "" ? args[0] : undefined;
+      await ingestNationalLegislatorAssets(csvPath);
       return;
     }
   }

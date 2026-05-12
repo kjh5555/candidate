@@ -23,6 +23,46 @@ import {
   ExternalLink,
 } from "lucide-react";
 
+// ─── 재산 포맷 헬퍼 ──────────────────────────────────────────
+
+/** 만원 단위 BigInt(string) → 읽기 좋은 표시 (예: 52억 3,065만원) */
+function formatManwon(manwonStr: string): string {
+  const n = BigInt(manwonStr);
+  const abs = n < 0n ? -n : n;
+  const prefix = n < 0n ? "-" : "";
+  const eok = abs / 10000n;
+  const man = abs % 10000n;
+  if (eok > 0n && man > 0n) {
+    return `${prefix}${eok.toLocaleString()}억 ${man.toLocaleString()}만원`;
+  } else if (eok > 0n) {
+    return `${prefix}${eok.toLocaleString()}억원`;
+  } else {
+    return `${prefix}${man.toLocaleString()}만원`;
+  }
+}
+
+function AssetCell({
+  label,
+  value,
+  accent = false,
+  debt = false,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+  debt?: boolean;
+}) {
+  const formatted = formatManwon(value);
+  return (
+    <div className={`rounded-xl border p-4 ${accent ? "border-blue-200 bg-blue-50" : "border-slate-200 bg-white"}`}>
+      <p className="text-xs text-slate-500 font-medium mb-1">{label}</p>
+      <p className={`text-sm font-bold ${debt ? "text-red-600" : accent ? "text-blue-800" : "text-slate-800"}`}>
+        {formatted}
+      </p>
+    </div>
+  );
+}
+
 type DisclosureTone = "neutral" | "warn" | "ok" | "info";
 
 function toneClass(tone: DisclosureTone): string {
@@ -287,8 +327,18 @@ export default function LegislatorPage() {
             <DisclosureCard
               icon={<Wallet className="w-3.5 h-3.5" />}
               title="재산"
-              status={legislator.hasAssetDisclosure ? "신고됨" : "없음"}
-              statusTone={legislator.hasAssetDisclosure ? "info" : "neutral"}
+              status={
+                legislator.assetTotalManwon != null
+                  ? `신고됨 (총 ${formatManwon(legislator.assetTotalManwon)})`
+                  : legislator.hasAssetDisclosure
+                    ? "신고됨"
+                    : "없음"
+              }
+              statusTone={
+                legislator.assetTotalManwon != null || legislator.hasAssetDisclosure
+                  ? "info"
+                  : "neutral"
+              }
               pdfUrl={legislator.assetDisclosurePdfUrl}
             />
             <DisclosureCard
@@ -305,6 +355,52 @@ export default function LegislatorPage() {
               statusTone={legislator.hasTaxRecord ? "info" : "neutral"}
               pdfUrl={legislator.taxRecordPdfUrl}
             />
+          </div>
+        </div>
+      )}
+
+      {/* 재산공개 상세 (opengirok 정제 데이터) */}
+      {legislator.assetTotalManwon != null && (
+        <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <div className="flex items-baseline gap-3 mb-4">
+            <h2 className="text-xl font-semibold text-slate-900">재산 신고 내역</h2>
+            <span className="text-xs text-slate-400">
+              {legislator.assetReportYear}년 정기공개
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+            <AssetCell label="재산 총액" value={legislator.assetTotalManwon} accent />
+            {legislator.assetRealEstateManwon != null && (
+              <AssetCell label="부동산" value={legislator.assetRealEstateManwon} />
+            )}
+            {legislator.assetSecuritiesManwon != null && (
+              <AssetCell label="증권" value={legislator.assetSecuritiesManwon} />
+            )}
+            {legislator.assetCashManwon != null && (
+              <AssetCell label="예금" value={legislator.assetCashManwon} />
+            )}
+            {legislator.assetDebtManwon != null && (
+              <AssetCell label="채무" value={legislator.assetDebtManwon} debt />
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+            <span>출처:</span>
+            {legislator.assetSourceUrl ? (
+              <a
+                href={legislator.assetSourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:text-blue-700 hover:underline inline-flex items-center gap-0.5"
+              >
+                {legislator.assetSourceName ?? "opengirok"}
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            ) : (
+              <span>{legislator.assetSourceName ?? "opengirok"}</span>
+            )}
+            {legislator.assetReportYear && (
+              <span>({legislator.assetReportYear}년 기준)</span>
+            )}
           </div>
         </div>
       )}

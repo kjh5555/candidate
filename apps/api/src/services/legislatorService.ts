@@ -223,6 +223,16 @@ export async function getLegislatorDetail(
     taxRecordPdfUrl: row.taxRecordPdfUrl,
     disclosureElectionId: row.disclosureElectionId,
     _counts: counts,
+    // 재산공개 — BigInt 직렬화 (JSON은 BigInt 미지원)
+    assetTotalManwon:      row.assetTotalManwon      != null ? String(row.assetTotalManwon)      : null,
+    assetRealEstateManwon: row.assetRealEstateManwon != null ? String(row.assetRealEstateManwon) : null,
+    assetSecuritiesManwon: row.assetSecuritiesManwon != null ? String(row.assetSecuritiesManwon) : null,
+    assetCashManwon:       row.assetCashManwon       != null ? String(row.assetCashManwon)       : null,
+    assetDebtManwon:       row.assetDebtManwon       != null ? String(row.assetDebtManwon)       : null,
+    assetReportYear:       row.assetReportYear       ?? null,
+    assetSourceUrl:        row.assetSourceUrl        ?? null,
+    assetSourceName:       row.assetSourceName       ?? null,
+    assetLastSyncedAt:     row.assetLastSyncedAt     ? row.assetLastSyncedAt.toISOString() : null,
   };
 }
 
