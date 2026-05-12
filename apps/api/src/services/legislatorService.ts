@@ -10,7 +10,33 @@ import type {
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db.js";
 
-export type ListLevel = "NATIONAL" | "PROVINCIAL" | "ALL";
+export type ListLevel = "NATIONAL" | "PROVINCIAL" | "BASIC" | "ALL";
+
+// ── Basic regions ─────────────────────────────────────────────
+
+export interface BasicRegionRow {
+  sido: string;
+  wiwName: string;
+}
+
+/**
+ * Returns distinct (sido, wiwName) pairs for all BASIC legislators,
+ * ordered by sido then wiwName.
+ * sdName is extracted from rawSourceJson (stored at ingest time).
+ */
+export async function listBasicRegions(): Promise<BasicRegionRow[]> {
+  const rows = await prisma.$queryRaw<{ sido: string; wiwName: string }[]>`
+    SELECT DISTINCT
+      raw_source_json->>'sdName' AS sido,
+      "region"                   AS "wiwName"
+    FROM "Legislator"
+    WHERE level = 'BASIC'
+      AND raw_source_json->>'sdName' IS NOT NULL
+      AND "region" IS NOT NULL
+    ORDER BY sido, "wiwName"
+  `;
+  return rows.map((r) => ({ sido: r.sido, wiwName: r.wiwName }));
+}
 
 export interface ListLegislatorsParams {
   nationalDistrictId?: string;
@@ -83,6 +109,7 @@ export async function listLegislators(
       });
     }
   }
+  // BASIC level uses region filter only (no district IDs)
 
   // Build the base where clause from the district filters above.
   const baseWhere: Prisma.LegislatorWhereInput =
@@ -186,6 +213,15 @@ export async function getLegislatorDetail(
     officeAddress: row.officeAddress,
     titleDescription: row.titleDescription,
     region: row.region,
+    hasCriminalRecord: row.hasCriminalRecord ?? false,
+    criminalRecordPdfUrl: row.criminalRecordPdfUrl,
+    hasAssetDisclosure: row.hasAssetDisclosure ?? false,
+    assetDisclosurePdfUrl: row.assetDisclosurePdfUrl,
+    hasMilitaryRecord: row.hasMilitaryRecord ?? false,
+    militaryRecordPdfUrl: row.militaryRecordPdfUrl,
+    hasTaxRecord: row.hasTaxRecord ?? false,
+    taxRecordPdfUrl: row.taxRecordPdfUrl,
+    disclosureElectionId: row.disclosureElectionId,
     _counts: counts,
   };
 }

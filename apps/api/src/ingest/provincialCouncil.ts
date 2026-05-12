@@ -27,10 +27,10 @@ import { fetchAllNecPages } from "./utils/necClient.js";
 const SERVICE_PATH = "WinnerInfoInqireService2";
 const QUERY_METHOD = "getWinnerInfoInqire";
 
-const SG_TYPECODE_PROVINCIAL_LOCAL = "4"; // 광역의원 지역구
-const SG_TYPECODE_PROVINCIAL_PROP = "5"; // 광역의원 비례
-const SG_TYPECODE_BASIC_LOCAL = "7"; // 기초의원 지역구
-const SG_TYPECODE_BASIC_PROP = "8"; // 기초의원 비례
+const SG_TYPECODE_PROVINCIAL_LOCAL = "5"; // 광역의원 지역구 (779명)
+const SG_TYPECODE_PROVINCIAL_PROP = "8"; // 광역의원 비례 (93명)
+const SG_TYPECODE_BASIC_LOCAL = "6"; // 기초의원 지역구 (2,601명)
+const SG_TYPECODE_BASIC_PROP = "9"; // 기초의원 비례 (386명)
 
 const DEFAULT_SG_ID = "20220601"; // 제8회 지방선거
 const PROVINCIAL_ASSEMBLY_AGE = 11; // 제11대 광역의회

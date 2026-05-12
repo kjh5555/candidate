@@ -13,6 +13,7 @@ import type {
   BudgetLevel,
   BudgetBreakdownDTO,
   BudgetYearsResponseDTO,
+  BasicRegionsResponseDTO,
 } from "@repo/shared";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -53,10 +54,14 @@ export function getRegionMatch(address: string): Promise<RegionMatchResponseDTO>
   );
 }
 
+export function getBasicRegions(): Promise<BasicRegionsResponseDTO> {
+  return apiFetch<BasicRegionsResponseDTO>("/api/legislators/basic-regions");
+}
+
 export function getLegislators(params: {
   nationalDistrictId?: string;
   provincialDistrictId?: string;
-  level?: "NATIONAL" | "PROVINCIAL" | "ALL";
+  level?: "NATIONAL" | "PROVINCIAL" | "BASIC" | "ALL";
   region?: string;
 }): Promise<LegislatorsResponseDTO> {
   const query = new URLSearchParams();

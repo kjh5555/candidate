@@ -16,7 +16,60 @@ import {
   Mail,
   Globe,
   CalendarDays,
+  Scale,
+  Wallet,
+  Shield,
+  Receipt,
+  ExternalLink,
 } from "lucide-react";
+
+type DisclosureTone = "neutral" | "warn" | "ok" | "info";
+
+function toneClass(tone: DisclosureTone): string {
+  switch (tone) {
+    case "warn": return "text-red-600";
+    case "ok": return "text-green-700";
+    case "info": return "text-blue-700";
+    default: return "text-slate-600";
+  }
+}
+
+function DisclosureCard({
+  icon,
+  title,
+  status,
+  statusTone,
+  pdfUrl,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  status: string;
+  statusTone: DisclosureTone;
+  pdfUrl: string | null;
+}) {
+  return (
+    <div className="border border-slate-200 rounded-xl p-4 bg-white hover:border-slate-300 hover:shadow-sm transition-all flex flex-col gap-2">
+      <div className="flex items-center gap-2 text-slate-500">
+        {icon}
+        <span className="text-xs font-semibold uppercase tracking-wide">{title}</span>
+      </div>
+      <p className={`text-base font-semibold ${toneClass(statusTone)}`}>{status}</p>
+      {pdfUrl ? (
+        <a
+          href={pdfUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline mt-auto"
+        >
+          원본 PDF
+          <ExternalLink className="w-3 h-3" />
+        </a>
+      ) : (
+        <span className="text-xs text-slate-300 mt-auto">PDF 없음</span>
+      )}
+    </div>
+  );
+}
 
 export default function LegislatorPage() {
   const { id } = useParams<{ id: string }>();
@@ -71,6 +124,7 @@ export default function LegislatorPage() {
 
   const levelLabel = legislator.level === "NATIONAL" ? "국회의원" : "광역의회 의원";
   const counts = legislator._counts;
+  const hasDisclosureData = !!legislator.disclosureElectionId;
 
   return (
     <div className="flex flex-col gap-6">
@@ -214,6 +268,46 @@ export default function LegislatorPage() {
           )}
         </dl>
       </div>
+
+      {/* 공직 후보자 공개 정보 */}
+      {hasDisclosureData && (
+        <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <div className="flex items-baseline gap-3 mb-4">
+            <h2 className="text-xl font-semibold text-slate-900">공직 후보자 공개 정보</h2>
+            <span className="text-xs text-slate-400">중앙선거관리위원회 기준</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <DisclosureCard
+              icon={<Scale className="w-3.5 h-3.5" />}
+              title="전과"
+              status={legislator.hasCriminalRecord ? "신고됨" : "없음"}
+              statusTone={legislator.hasCriminalRecord ? "warn" : "neutral"}
+              pdfUrl={legislator.criminalRecordPdfUrl}
+            />
+            <DisclosureCard
+              icon={<Wallet className="w-3.5 h-3.5" />}
+              title="재산"
+              status={legislator.hasAssetDisclosure ? "신고됨" : "없음"}
+              statusTone={legislator.hasAssetDisclosure ? "info" : "neutral"}
+              pdfUrl={legislator.assetDisclosurePdfUrl}
+            />
+            <DisclosureCard
+              icon={<Shield className="w-3.5 h-3.5" />}
+              title="병역"
+              status={legislator.hasMilitaryRecord ? "신고됨" : "해당없음"}
+              statusTone={legislator.hasMilitaryRecord ? "ok" : "neutral"}
+              pdfUrl={legislator.militaryRecordPdfUrl}
+            />
+            <DisclosureCard
+              icon={<Receipt className="w-3.5 h-3.5" />}
+              title="납세"
+              status={legislator.hasTaxRecord ? "신고됨" : "없음"}
+              statusTone={legislator.hasTaxRecord ? "info" : "neutral"}
+              pdfUrl={legislator.taxRecordPdfUrl}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Bills / Votes tabs */}
       <div className="bg-white rounded-xl border border-slate-200 p-6">

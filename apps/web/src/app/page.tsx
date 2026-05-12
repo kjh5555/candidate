@@ -5,9 +5,10 @@ import Link from "next/link";
 import { DistrictPicker } from "@/components/DistrictPicker";
 import { CandidatePicker } from "@/components/CandidatePicker";
 import { ProvincialPicker } from "@/components/ProvincialPicker";
-import { Users, Vote, PieChart, ChevronRight } from "lucide-react";
+import { BasicPicker } from "@/components/BasicPicker";
+import { Users, Vote, PieChart, ChevronRight, Building2 } from "lucide-react";
 
-type Tab = "national" | "provincial" | "local";
+type Tab = "national" | "provincial" | "basic" | "local";
 
 const FEATURE_CARDS = [
   {
@@ -25,6 +26,14 @@ const FEATURE_CARDS = [
     desc: "시·도별 광역의회 의원 현황과 프로필을 한눈에 봅니다.",
     cta: "광역의원 조회",
     accent: "indigo",
+  },
+  {
+    tab: "basic" as Tab,
+    icon: Building2,
+    title: "기초의회 의원",
+    desc: "시·군·구의회 의원 약 3,000명의 프로필을 확인하세요.",
+    cta: "기초의원 조회",
+    accent: "teal",
   },
   {
     tab: "local" as Tab,
@@ -47,6 +56,11 @@ const ACCENT_STYLES = {
     border: "border-indigo-500",
     cta: "text-indigo-700",
   },
+  teal: {
+    icon: "bg-teal-100 text-teal-700",
+    border: "border-teal-500",
+    cta: "text-teal-700",
+  },
   violet: {
     icon: "bg-violet-100 text-violet-700",
     border: "border-violet-500",
@@ -57,6 +71,7 @@ const ACCENT_STYLES = {
 const TAB_LABEL: Record<Tab, string> = {
   national: "내 지역구 국회의원 바로 찾기",
   provincial: "광역의회 의원 바로 찾기",
+  basic: "기초의회 의원 바로 찾기",
   local: "지방선거 후보 바로 찾기",
 };
 
@@ -82,7 +97,7 @@ export default function HomePage() {
 
       {/* Feature cards */}
       <section>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {FEATURE_CARDS.map((card) => {
             const Icon = card.icon;
             const styles = ACCENT_STYLES[card.accent];
@@ -130,6 +145,8 @@ export default function HomePage() {
           <DistrictPicker />
         ) : activeTab === "provincial" ? (
           <ProvincialPicker />
+        ) : activeTab === "basic" ? (
+          <BasicPicker />
         ) : (
           <CandidatePicker />
         )}

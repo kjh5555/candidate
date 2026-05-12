@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import {
   getLegislatorDetail,
+  listBasicRegions,
   listLegislatorBills,
   listLegislatorVotes,
   listLegislators,
@@ -45,7 +46,7 @@ const legislatorRoutes: FastifyPluginAsync = async (fastify) => {
           properties: {
             nationalDistrictId: { type: "string" },
             provincialDistrictId: { type: "string" },
-            level: { type: "string", enum: ["NATIONAL", "PROVINCIAL", "ALL"] },
+            level: { type: "string", enum: ["NATIONAL", "PROVINCIAL", "BASIC", "ALL"] },
             region: { type: "string" },
           },
         },
@@ -75,6 +76,12 @@ const legislatorRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.send({ legislators, total: legislators.length });
     },
   );
+
+  // GET /legislators/basic-regions
+  fastify.get("/basic-regions", async (_request, reply) => {
+    const regions = await listBasicRegions();
+    return reply.send({ regions });
+  });
 
   // GET /legislators/:id
   fastify.get<{ Params: IdParams }>(

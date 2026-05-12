@@ -8,9 +8,9 @@ datasource db {
 }
 
 enum LegislatorLevel {
-  NATIONAL    // 국회의원
-  PROVINCIAL  // 광역의원 (시·도의회)
-  BASIC       // 기초의원 (시·군·구의회)
+  NATIONAL // 국회의원
+  PROVINCIAL // 광역의원 (시·도의회)
+  BASIC // 기초의원 (시·군·구의회)
 }
 
 enum Gender {
@@ -143,8 +143,24 @@ model Legislator {
   region                String?
   rawSourceJson         Json?
   lastSyncedAt          DateTime?
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
+
+  // NEC 후보자 ID (for cross-referencing info.nec.go.kr disclosures)
+  huboid String?
+
+  // 공직 후보자 공개 정보 (출마 시점 disclosure)
+  disclosureElectionId   String? // e.g. "0020240410" or "0020220601"
+  hasCriminalRecord      Boolean?  @default(false)
+  criminalRecordPdfUrl   String?
+  hasAssetDisclosure     Boolean?  @default(false)
+  assetDisclosurePdfUrl  String?
+  hasMilitaryRecord      Boolean?  @default(false)
+  militaryRecordPdfUrl   String?
+  hasTaxRecord           Boolean?  @default(false)
+  taxRecordPdfUrl        String?
+  backgroundLastSyncedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   billProposers BillProposer[]
   votes         Vote[]
@@ -154,6 +170,7 @@ model Legislator {
   @@index([name])
   @@index([electoralDistrictId])
   @@index([assemblyAge])
+  @@index([huboid])
 }
 
 model Bill {

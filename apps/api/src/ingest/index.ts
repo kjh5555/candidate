@@ -20,6 +20,8 @@ import { resolveBillProposers } from "./billProposerResolver.js";
 import { linkLegislatorDistricts } from "./linkDistricts.js";
 import { ingestLocalCandidates } from "./localElection.js";
 import { ingestCandidateBackgrounds } from "./candidateBackground.js";
+import { linkAllLegislatorHuboids } from "./legislatorHuboids.js";
+import { ingestLegislatorBackgrounds } from "./legislatorBackgrounds.js";
 import {
   ingestMetropolitanBudget,
   ingestNationalBudget,
@@ -40,6 +42,8 @@ type Step =
   | "local-candidates"
   | "candidate-backgrounds"
   | "backgrounds"
+  | "legislator-huboids"
+  | "legislator-backgrounds"
   | "budget"
   | "budget-national"
   | "budget-metropolitan";
@@ -59,6 +63,8 @@ const VALID_STEPS: Step[] = [
   "local-candidates",
   "candidate-backgrounds",
   "backgrounds",
+  "legislator-huboids",
+  "legislator-backgrounds",
   "budget",
   "budget-national",
   "budget-metropolitan",
@@ -80,6 +86,8 @@ function printUsageAndExit(code = 1): never {
       "  tsx src/ingest/index.ts resolve <assemblyAge>\n" +
       "  tsx src/ingest/index.ts local-candidates [electionId]\n" +
       "  tsx src/ingest/index.ts candidate-backgrounds [electionId]\n" +
+      "  tsx src/ingest/index.ts legislator-huboids\n" +
+      "  tsx src/ingest/index.ts legislator-backgrounds\n" +
       "  tsx src/ingest/index.ts budget [fiscalYear]\n" +
       "  tsx src/ingest/index.ts budget-national [fiscalYear]\n" +
       "  tsx src/ingest/index.ts budget-metropolitan [fiscalYear]",
@@ -177,6 +185,14 @@ async function runStep(step: Exclude<Step, "all">, args: string[]): Promise<void
       await ingestCandidateBackgrounds(electionId);
       return;
     }
+    case "legislator-huboids": {
+      await linkAllLegislatorHuboids();
+      return;
+    }
+    case "legislator-backgrounds": {
+      await ingestLegislatorBackgrounds();
+      return;
+    }
   }
 }
 
@@ -186,6 +202,8 @@ async function runAll(assemblyAge: number): Promise<void> {
     "legislators",
     "link-districts",
     "provincial-assembly",
+    "legislator-huboids",
+    "legislator-backgrounds",
     "local-candidates",
     "candidate-backgrounds",
     "provincial",
@@ -202,7 +220,9 @@ async function runAll(assemblyAge: number): Promise<void> {
         step === "provincial-assembly" ||
         step === "local-candidates" ||
         step === "candidate-backgrounds" ||
-        step === "backgrounds"
+        step === "backgrounds" ||
+        step === "legislator-huboids" ||
+        step === "legislator-backgrounds"
       ) {
         await runStep(step, []);
       } else {

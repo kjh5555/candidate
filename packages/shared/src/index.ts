@@ -85,6 +85,17 @@ export interface LegislatorDetailDTO extends LegislatorSummaryDTO {
   titleDescription: string | null;
   region: string | null;
   _counts: LegislatorCountsDTO;
+
+  // ── 공직 후보자 공개 정보 (출마 시점 disclosure) ──
+  hasCriminalRecord: boolean;
+  criminalRecordPdfUrl: string | null;
+  hasAssetDisclosure: boolean;
+  assetDisclosurePdfUrl: string | null;
+  hasMilitaryRecord: boolean;
+  militaryRecordPdfUrl: string | null;
+  hasTaxRecord: boolean;
+  taxRecordPdfUrl: string | null;
+  disclosureElectionId: string | null;
 }
 
 export interface LegislatorsResponseDTO {
@@ -232,6 +243,17 @@ export interface CandidateRegionDTO {
 
 export interface CandidateRegionsResponseDTO {
   regions: CandidateRegionDTO[];
+}
+
+// ── Basic council regions ──────────────────────────────────────
+
+export interface BasicRegionDTO {
+  sido: string;
+  wiwName: string;
+}
+
+export interface BasicRegionsResponseDTO {
+  regions: BasicRegionDTO[];
 }
 
 // ── Budget (예산 정보) ─────────────────────────────────────────
