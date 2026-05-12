@@ -152,6 +152,27 @@ export default function HomePage() {
         )}
       </section>
 
+      {/* About / civic education shortcut */}
+      <section>
+        <Link
+          href="/about"
+          className="group flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl p-5 hover:border-blue-400 hover:shadow-sm transition-all"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+              <Vote className="w-5 h-5 text-blue-700" />
+            </div>
+            <div>
+              <p className="font-semibold text-slate-900">정치 제도가 궁금하다면?</p>
+              <p className="text-sm text-slate-500 mt-0.5">
+                국회의원·광역의원·기초의원이 무엇을 하는지, 지방선거에서 무엇을 뽑는지 알아보세요
+              </p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-blue-600 transition-colors shrink-0 ml-4" />
+        </Link>
+      </section>
+
       {/* Budget shortcut */}
       <section>
         <Link

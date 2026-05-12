@@ -107,6 +107,16 @@ export interface LegislatorDetailDTO extends LegislatorSummaryDTO {
   assetSourceUrl: string | null;         // 출처 URL
   assetSourceName: string | null;        // "opengirok", "newstapa", "peti.go.kr"
   assetLastSyncedAt: string | null;      // ISO timestamp
+
+  // ── 병역 (행안부 관보 공직자 병역사항 공개 — data.go.kr 15110207) ──
+  militaryStatus: string | null;         // e.g. "복무를 마침", "미필", "면제"
+  militaryRank: string | null;           // e.g. "병장", "중사"
+  militaryEnteredAt: string | null;      // YYYY-MM-DD
+  militaryDischargedAt: string | null;   // YYYY-MM-DD
+  militaryReason: string | null;         // 면제/면접 사유
+  militaryReportYear: number | null;     // 관보 공개 연도
+  militarySourceUrl: string | null;      // 출처 URL
+  militaryLastSyncedAt: string | null;   // ISO timestamp
 }
 
 export interface LegislatorsResponseDTO {

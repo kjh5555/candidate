@@ -1,5 +1,5 @@
 /**
- * 광역의원 재산공개 데이터 수집 (뉴스타파 jaesan.newstapa.org)
+ * 광역의원 / 기초의원 재산공개 데이터 수집 (뉴스타파 jaesan.newstapa.org)
  *
  * 출처: 뉴스타파 "공직자 재산정보"  https://jaesan.newstapa.org
  *
@@ -11,6 +11,7 @@
  *     - 50개 / page
  *     - q는 belong / name / position 부분일치
  *     - 'belong' 예: "서울특별시 의회사무처", "경기도 의회사무처", "전북특별자치도 의회사무처"
+ *     - 기초의회: "서울특별시 강남구의회", "경기도 안양시의회" 등
  *
  *   GET https://jaesan.newstapa.org/people/{uniqueId}
  *     → Next.js 서버 컴포넌트 HTML. 데이터는 `self.__next_f.push(...)` 청크에
@@ -18,13 +19,17 @@
  *       카테고리별 `value_now` 추출.  단위는 **천원** (× 0.001 = 만원 / 10).
  *       채무는 `value_now` 가 음수.
  *
- * 매칭: prisma.legislator 의 PROVINCIAL × {name, region(시·도)} → Newstapa person
+ * 매칭:
+ *   PROVINCIAL: prisma.legislator × {name, region(시·도)} → Newstapa person
+ *   BASIC:      prisma.legislator × {name, region(시·군·구)} → Newstapa person
  *
  * 단위 변환: 천원 → 만원  (÷ 10)
  *
  * CLI:
  *   pnpm --filter @repo/api ingest provincial-assets
  *   pnpm --filter @repo/api ingest newstapa-provincial
+ *   pnpm --filter @repo/api ingest basic-assets
+ *   pnpm --filter @repo/api ingest newstapa-basic
  */
 
 import { prisma } from "../db.js";
@@ -135,6 +140,39 @@ async function* enumerateProvincialMembers(): AsyncGenerator<NewstapaSearchHit> 
     await sleep(300); // gentle pacing on the search API
     const data = await fetchJson<NewstapaSearchResponse>(`${BASE}/api/search?q=${q}&page=${page}`);
     for (const h of data.results) yield h;
+  }
+}
+
+/**
+ * Iterate every page of a single basic council query (e.g. "강남구의회").
+ * Yields all search hits without position filtering — caller handles that.
+ */
+async function* enumerateBasicCouncilMembers(
+  councilQuery: string,
+): AsyncGenerator<NewstapaSearchHit> {
+  const q = encodeURIComponent(councilQuery);
+  let first: NewstapaSearchResponse;
+  try {
+    first = await fetchJson<NewstapaSearchResponse>(`${BASE}/api/search?q=${q}&page=1`);
+  } catch (err) {
+    console.warn(`[basic-assets] 검색 실패 (q="${councilQuery}"): ${(err as Error).message}`);
+    return;
+  }
+  const total = first.totalLength;
+  if (total === 0) return;
+  for (const h of first.results) yield h;
+  const pageSize = first.results.length || 50;
+  const lastPage = Math.ceil(total / pageSize);
+  for (let page = 2; page <= lastPage; page++) {
+    await sleep(300);
+    try {
+      const data = await fetchJson<NewstapaSearchResponse>(`${BASE}/api/search?q=${q}&page=${page}`);
+      for (const h of data.results) yield h;
+    } catch (err) {
+      console.warn(
+        `[basic-assets] 페이지 fetch 실패 (q="${councilQuery}" page=${page}): ${(err as Error).message}`,
+      );
+    }
   }
 }
 
@@ -500,6 +538,198 @@ export async function ingestProvincialAssetsFromNewstapa(): Promise<void> {
   if (samples.length > 0) {
     console.log("[provincial-assets] 매칭 샘플 (참고):");
     for (const s of samples) {
+      console.log(`    - ${s.name} (${s.region}) ${s.year}년 총액 ${s.total.toString()}만원`);
+    }
+  }
+}
+
+// ─── Basic (기초의원) ingest ──────────────────────────────────
+
+/**
+ * Newstapa belong 문자열에서 시·군·구 의회 이름을 추출한다.
+ *
+ * Newstapa 기초의회 belong 형식:
+ *   "서울특별시 강남구의회"     → councilName="강남구의회", region="강남구"
+ *   "경기도 안양시의회"          → councilName="안양시의회", region="안양시"
+ *   "강원특별자치도 영월군의회"  → councilName="영월군의회", region="영월군"
+ *
+ * DB의 BASIC legislator.region = 시·군·구 이름 (예: "강남구").
+ * DB의 BASIC legislator.councilName = 의회 이름 (예: "강남구의회").
+ *
+ * 매칭 키: name + councilName (가장 정밀; councilName 이 전국 유니크함)
+ */
+
+interface BasicCouncilKey {
+  /** DB councilName 값 (예: "강남구의회") — 검색 쿼리로 직접 사용 */
+  councilName: string;
+  /** DB region 값 = 시·군·구 이름 (예: "강남구") */
+  region: string;
+}
+
+/**
+ * DB에서 BASIC 의원의 모든 distinct (region, councilName) 조합을 읽어
+ * Newstapa 검색 쿼리 목록을 생성한다.
+ */
+async function buildBasicCouncilList(): Promise<BasicCouncilKey[]> {
+  const rows = await prisma.legislator.findMany({
+    where: { level: "BASIC" },
+    select: { region: true, councilName: true },
+    distinct: ["region", "councilName"],
+  });
+
+  const seen = new Set<string>();
+  const list: BasicCouncilKey[] = [];
+
+  for (const row of rows) {
+    if (!row.councilName || !row.region) continue;
+    const key = `${row.region}|${row.councilName}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    list.push({ councilName: row.councilName, region: row.region });
+  }
+  return list;
+}
+
+/**
+ * Newstapa belong 문자열에서 시·군·구 의회 이름을 추출한다.
+ * 형식: "<시·도> <시·군·구>의회"
+ * Returns the council name portion (e.g. "강남구의회"), or null.
+ */
+function parseBelongBasicCouncilName(belong: string): string | null {
+  const trimmed = belong.trim();
+  if (!trimmed.endsWith("의회")) return null;
+  const spaceIdx = trimmed.indexOf(" ");
+  if (spaceIdx === -1) return null;
+  const rest = trimmed.slice(spaceIdx + 1); // e.g. "강남구의회"
+  if (!rest.endsWith("의회")) return null;
+  return rest;
+}
+
+export async function ingestBasicAssetsFromNewstapa(): Promise<void> {
+  console.log("[basic-assets] 기초의원 재산 데이터 수집 시작 (뉴스타파)");
+  console.log("[basic-assets] 1단계: DB에서 기초의회 목록 구성 중…");
+
+  const councils = await buildBasicCouncilList();
+  console.log(`[basic-assets] 기초의회 수: ${councils.length}`);
+
+  const NOW = new Date();
+  let totalMatched = 0;
+  let totalUnmatched = 0;
+  let totalParseFailed = 0;
+  let totalFetched = 0;
+  let totalProcessed = 0;
+
+  const unmatchedSamples: Array<{ name: string; region: string; councilName: string }> = [];
+  const matchedSamples: Array<{ name: string; region: string; year: number; total: bigint }> = [];
+
+  for (let ci = 0; ci < councils.length; ci++) {
+    const council = councils[ci]!;
+    const { councilName, region } = council;
+
+    // Enumerate all Newstapa search hits for this council
+    const hits: NewstapaSearchHit[] = [];
+    for await (const hit of enumerateBasicCouncilMembers(councilName)) {
+      hits.push(hit);
+    }
+    await sleep(400); // gentle pacing between council queries
+
+    // Filter: position ∈ {의원, 의장} AND belong's council name matches this council
+    const eligible = hits.filter((h) => {
+      if (!ALLOWED_POSITIONS.has(h.position)) return false;
+      const hitCouncil = parseBelongBasicCouncilName(h.belong);
+      return hitCouncil === councilName;
+    });
+
+    for (const hit of eligible) {
+      const name = hit.name.trim();
+
+      // DB lookup — match by level=BASIC, name, region (= 시·군·구), councilName
+      const candidates = await prisma.legislator.findMany({
+        where: { level: "BASIC", name, region, councilName },
+        select: { id: true },
+      });
+
+      if (candidates.length === 0) {
+        totalUnmatched++;
+        if (unmatchedSamples.length < 10) unmatchedSamples.push({ name, region, councilName });
+        continue;
+      }
+      if (candidates.length > 1) {
+        console.warn(
+          `[basic-assets] 동명이인 다중 매칭: ${name} (${region} ${councilName}) — ${candidates.length}건. 모두 업데이트.`,
+        );
+      }
+
+      // Detail fetch
+      totalFetched++;
+      let breakdown: Awaited<ReturnType<typeof fetchPersonBreakdown>> = null;
+      try {
+        breakdown = await fetchPersonBreakdown(hit.uniqueId);
+      } catch (err) {
+        console.warn(
+          `[basic-assets] 상세 페이지 fetch 실패: ${name} (${hit.uniqueId}) — ${(err as Error).message}`,
+        );
+      }
+
+      if (!breakdown) {
+        totalParseFailed++;
+        await sleep(DETAIL_DELAY_MS);
+        continue;
+      }
+
+      const totalManwon = cheonwonToManwon(breakdown.priceNowCheonwon);
+      const url = `${BASE}/people/${hit.uniqueId}`;
+
+      for (const leg of candidates) {
+        await prisma.legislator.update({
+          where: { id: leg.id },
+          data: {
+            assetTotalManwon: totalManwon,
+            assetRealEstateManwon: cheonwonToManwon(breakdown.totals.realEstate),
+            assetCashManwon: cheonwonToManwon(breakdown.totals.cash),
+            assetSecuritiesManwon: cheonwonToManwon(breakdown.totals.securities),
+            assetDebtManwon: cheonwonToManwon(breakdown.totals.debt),
+            assetReportYear: breakdown.year,
+            assetSourceName: SOURCE_NAME,
+            assetSourceUrl: url,
+            assetLastSyncedAt: NOW,
+          },
+        });
+      }
+      totalMatched++;
+      if (matchedSamples.length < 3) {
+        matchedSamples.push({ name, region, year: breakdown.year, total: totalManwon });
+      }
+
+      totalProcessed++;
+      if (totalProcessed % 100 === 0) {
+        console.log(
+          `[basic-assets] 진행: ${totalProcessed}명 처리 완료 ` +
+            `(matched=${totalMatched}, parseFail=${totalParseFailed}, unmatched=${totalUnmatched}) ` +
+            `[의회 ${ci + 1}/${councils.length}]`,
+        );
+      }
+
+      await sleep(DETAIL_DELAY_MS);
+    }
+  }
+
+  console.log("\n[basic-assets] 완료");
+  console.log(`  - 기초의회 수:                     ${councils.length}`);
+  console.log(`  - 상세 페이지 fetch 시도:          ${totalFetched}`);
+  console.log(`  - 매칭 성공 (DB 업데이트):         ${totalMatched}`);
+  console.log(`  - 파싱/네트워크 실패:              ${totalParseFailed}`);
+  console.log(`  - DB 미매칭 (이름+region+council): ${totalUnmatched}`);
+
+  if (unmatchedSamples.length > 0) {
+    console.log("[basic-assets] 미매칭 샘플 (최대 10):");
+    for (const u of unmatchedSamples) {
+      console.log(`    - ${u.name} (${u.region} / ${u.councilName})`);
+    }
+  }
+  if (matchedSamples.length > 0) {
+    console.log("[basic-assets] 매칭 샘플 (참고):");
+    for (const s of matchedSamples) {
       console.log(`    - ${s.name} (${s.region}) ${s.year}년 총액 ${s.total.toString()}만원`);
     }
   }

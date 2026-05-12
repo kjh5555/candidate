@@ -19,6 +19,7 @@ const NAV_LINKS = [
   { href: "/?tab=national", label: "의원", matcher: /^\/(region|legislator|provincial)/ },
   { href: "/?tab=local", label: "후보", matcher: /^\/(candidate)/ },
   { href: "/budget", label: "예산" },
+  { href: "/about", label: "제도 알아보기" },
 ] as const;
 
 function NavLink({

@@ -233,6 +233,15 @@ export async function getLegislatorDetail(
     assetSourceUrl:        row.assetSourceUrl        ?? null,
     assetSourceName:       row.assetSourceName       ?? null,
     assetLastSyncedAt:     row.assetLastSyncedAt     ? row.assetLastSyncedAt.toISOString() : null,
+    // 병역
+    militaryStatus:        row.militaryStatus        ?? null,
+    militaryRank:          row.militaryRank          ?? null,
+    militaryEnteredAt:     row.militaryEnteredAt     ?? null,
+    militaryDischargedAt:  row.militaryDischargedAt  ?? null,
+    militaryReason:        row.militaryReason        ?? null,
+    militaryReportYear:    row.militaryReportYear    ?? null,
+    militarySourceUrl:     row.militarySourceUrl     ?? null,
+    militaryLastSyncedAt:  row.militaryLastSyncedAt  ? row.militaryLastSyncedAt.toISOString() : null,
   };
 }
 

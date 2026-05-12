@@ -111,6 +111,115 @@ function DisclosureCard({
   );
 }
 
+// ─── 병역 카드 ────────────────────────────────────────────────
+
+type MilitaryBadgeVariant = "green" | "red" | "yellow" | "gray";
+
+function militaryBadgeVariant(status: string | null): MilitaryBadgeVariant {
+  if (!status) return "gray";
+  if (status.includes("마침") || status.includes("전역") || status.includes("소집해제")) return "green";
+  if (status.includes("미필") || status.includes("현역")) return "yellow";
+  if (status.includes("면제")) return "red";
+  return "gray";
+}
+
+function militaryBadgeClass(variant: MilitaryBadgeVariant): string {
+  switch (variant) {
+    case "green":  return "bg-green-100 text-green-800 border-green-200";
+    case "red":    return "bg-red-100 text-red-700 border-red-200";
+    case "yellow": return "bg-yellow-100 text-yellow-800 border-yellow-200";
+    default:       return "bg-slate-100 text-slate-500 border-slate-200";
+  }
+}
+
+function MilitaryCard({ legislator }: { legislator: LegislatorDetailDTO }) {
+  // Derive enriched status: prefer 행안부 관보 data, fall back to NEC disclosure flag
+  const enriched = !!legislator.militaryLastSyncedAt;
+  const hasMilitary = legislator.hasMilitaryRecord;
+
+  const statusLabel: string =
+    legislator.militaryStatus ??
+    (hasMilitary ? "신고됨" : "해당없음");
+
+  const variant = militaryBadgeVariant(legislator.militaryStatus);
+  const badgeClass = militaryBadgeClass(variant);
+
+  return (
+    <div className="border border-slate-200 rounded-xl p-4 bg-white hover:border-slate-300 hover:shadow-sm transition-all flex flex-col gap-2">
+      <div className="flex items-center gap-2 text-slate-500">
+        <Shield className="w-3.5 h-3.5" />
+        <span className="text-xs font-semibold uppercase tracking-wide">병역</span>
+      </div>
+
+      {/* Status badge */}
+      <span
+        className={`inline-flex self-start text-sm font-semibold px-2 py-0.5 rounded-full border ${badgeClass}`}
+      >
+        {statusLabel}
+      </span>
+
+      {/* Enriched detail rows (행안부 관보 데이터 있을 때만) */}
+      {enriched && (
+        <dl className="text-xs text-slate-600 flex flex-col gap-1 mt-1">
+          {legislator.militaryRank && (
+            <div className="flex gap-1.5">
+              <dt className="text-slate-400 min-w-[2.5rem]">계급</dt>
+              <dd className="font-medium">{legislator.militaryRank}</dd>
+            </div>
+          )}
+          {legislator.militaryEnteredAt && (
+            <div className="flex gap-1.5">
+              <dt className="text-slate-400 min-w-[2.5rem]">입영</dt>
+              <dd>{legislator.militaryEnteredAt}</dd>
+            </div>
+          )}
+          {legislator.militaryDischargedAt && (
+            <div className="flex gap-1.5">
+              <dt className="text-slate-400 min-w-[2.5rem]">전역</dt>
+              <dd>{legislator.militaryDischargedAt}</dd>
+            </div>
+          )}
+          {legislator.militaryReason && (
+            <div className="flex gap-1.5">
+              <dt className="text-slate-400 min-w-[2.5rem]">사유</dt>
+              <dd className="text-slate-500">{legislator.militaryReason}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+
+      {/* Source links */}
+      <div className="flex flex-col gap-1 mt-auto">
+        {legislator.militaryRecordPdfUrl ? (
+          <a
+            href={legislator.militaryRecordPdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            선관위 신고 PDF
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        ) : (
+          <span className="text-xs text-slate-300">PDF 없음</span>
+        )}
+        {enriched && legislator.militarySourceUrl && (
+          <a
+            href={legislator.militarySourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-blue-600 hover:underline"
+          >
+            행안부 관보
+            {legislator.militaryReportYear && ` (${legislator.militaryReportYear}년)`}
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function LegislatorPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -341,13 +450,7 @@ export default function LegislatorPage() {
               }
               pdfUrl={legislator.assetDisclosurePdfUrl}
             />
-            <DisclosureCard
-              icon={<Shield className="w-3.5 h-3.5" />}
-              title="병역"
-              status={legislator.hasMilitaryRecord ? "신고됨" : "해당없음"}
-              statusTone={legislator.hasMilitaryRecord ? "ok" : "neutral"}
-              pdfUrl={legislator.militaryRecordPdfUrl}
-            />
+            <MilitaryCard legislator={legislator} />
             <DisclosureCard
               icon={<Receipt className="w-3.5 h-3.5" />}
               title="납세"

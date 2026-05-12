@@ -23,11 +23,12 @@ import { ingestCandidateBackgrounds } from "./candidateBackground.js";
 import { linkAllLegislatorHuboids } from "./legislatorHuboids.js";
 import { ingestLegislatorBackgrounds } from "./legislatorBackgrounds.js";
 import { ingestNationalLegislatorAssets } from "./legislatorAssets.js";
-import { ingestProvincialAssetsFromNewstapa } from "./newstapaAssets.js";
+import { ingestProvincialAssetsFromNewstapa, ingestBasicAssetsFromNewstapa } from "./newstapaAssets.js";
 import {
   ingestMetropolitanBudget,
   ingestNationalBudget,
 } from "./budget.js";
+import { ingestLegislatorMilitary } from "./legislatorMilitary.js";
 
 type Step =
   | "all"
@@ -50,9 +51,13 @@ type Step =
   | "assets"
   | "provincial-assets"
   | "newstapa-provincial"
+  | "basic-assets"
+  | "newstapa-basic"
   | "budget"
   | "budget-national"
-  | "budget-metropolitan";
+  | "budget-metropolitan"
+  | "military"
+  | "legislator-military";
 
 const VALID_STEPS: Step[] = [
   "all",
@@ -75,9 +80,13 @@ const VALID_STEPS: Step[] = [
   "assets",
   "provincial-assets",
   "newstapa-provincial",
+  "basic-assets",
+  "newstapa-basic",
   "budget",
   "budget-national",
   "budget-metropolitan",
+  "military",
+  "legislator-military",
 ];
 
 function printUsageAndExit(code = 1): never {
@@ -102,9 +111,13 @@ function printUsageAndExit(code = 1): never {
       "  tsx src/ingest/index.ts assets [csvPath]\n" +
       "  tsx src/ingest/index.ts provincial-assets\n" +
       "  tsx src/ingest/index.ts newstapa-provincial\n" +
+      "  tsx src/ingest/index.ts basic-assets\n" +
+      "  tsx src/ingest/index.ts newstapa-basic\n" +
       "  tsx src/ingest/index.ts budget [fiscalYear]\n" +
       "  tsx src/ingest/index.ts budget-national [fiscalYear]\n" +
-      "  tsx src/ingest/index.ts budget-metropolitan [fiscalYear]",
+      "  tsx src/ingest/index.ts budget-metropolitan [fiscalYear]\n" +
+      "  tsx src/ingest/index.ts military\n" +
+      "  tsx src/ingest/index.ts legislator-military",
   );
   process.exit(code);
 }
@@ -216,6 +229,16 @@ async function runStep(step: Exclude<Step, "all">, args: string[]): Promise<void
     case "provincial-assets":
     case "newstapa-provincial": {
       await ingestProvincialAssetsFromNewstapa();
+      return;
+    }
+    case "basic-assets":
+    case "newstapa-basic": {
+      await ingestBasicAssetsFromNewstapa();
+      return;
+    }
+    case "military":
+    case "legislator-military": {
+      await ingestLegislatorMilitary();
       return;
     }
   }

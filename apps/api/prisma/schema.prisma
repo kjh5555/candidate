@@ -170,6 +170,16 @@ model Legislator {
   assetSourceName        String?   // "opengirok", "newstapa", "peti.go.kr"
   assetLastSyncedAt      DateTime?
 
+  // 병역 (military service) — 행안부 관보 공직자 병역사항 공개 (data.go.kr 15110207)
+  militaryStatus         String?   // e.g. "복무를 마침", "복무 사항 없음", "미필", "현역"
+  militaryRank           String?   // e.g. "병장", "중사"
+  militaryEnteredAt      String?   // YYYY-MM-DD or YYYYMMDD
+  militaryDischargedAt   String?
+  militaryReason         String?   // 면제/면접 사유
+  militaryReportYear     Int?      // 관보 공개 연도
+  militarySourceUrl      String?
+  militaryLastSyncedAt   DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
