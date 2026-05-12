@@ -214,9 +214,12 @@ export async function ingestNationalBudget(fiscalYear: number): Promise<IngestSt
         const sector = nonEmpty(row.SECT_NM);
         const program = nonEmpty(row.PGM_NM);
         const subProject = nonEmpty(row.SACTV_NM) ?? nonEmpty(row.ACTV_NM);
+        // openfiscaldata expenditure amounts are in 천원 (thousand won).
+        // Multiply by 1000 to store as raw 원 for consistent downstream
+        // formatting (조원/억원/만원).
         const amount = toBigInt(
           row.Y_YY_DFN_MEDI_KCUR_AMT ?? row.Y_YY_MEDI_KCUR_AMT,
-        );
+        ) * 1000n;
         if (!field) return null;
         return {
           level: "NATIONAL" as const,
