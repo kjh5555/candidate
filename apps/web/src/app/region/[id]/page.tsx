@@ -31,17 +31,20 @@ export default async function RegionPage({ params }: RegionPageProps) {
   const legislators = await fetchLegislators(id);
 
   return (
-    <div>
-      <div className="mb-6">
+    <div className="flex flex-col gap-8">
+      {/* Page hero */}
+      <div>
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-blue-600 transition-colors mb-4"
         >
           <ArrowLeft className="w-4 h-4" />
-          주소 다시 입력
+          홈으로
         </Link>
-        <h1 className="text-2xl font-bold text-slate-800">지역구 의원 목록</h1>
-        <p className="text-slate-500 text-sm mt-1">총 {legislators.length}명</p>
+        <h1 className="text-3xl font-bold text-slate-900">지역구 의원 목록</h1>
+        <p className="text-slate-500 text-sm mt-1.5">
+          총 <span className="font-semibold text-slate-700">{legislators.length}</span>명
+        </p>
       </div>
 
       {legislators.length === 0 ? (
@@ -50,7 +53,7 @@ export default async function RegionPage({ params }: RegionPageProps) {
           description="주소를 다시 확인하거나 다른 주소로 검색해보세요."
         />
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {legislators.map((legislator) => (
             <LegislatorCard key={legislator.id} legislator={legislator} />
           ))}

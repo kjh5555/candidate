@@ -14,7 +14,7 @@
 
 import { prisma } from "../db.js";
 import { ingestBills, ingestLegislators, ingestVotes } from "./nationalAssembly.js";
-import { ingestProvincialLegislators } from "./provincialCouncil.js";
+import { ingestBasicLegislators, ingestProvincialLegislators } from "./provincialCouncil.js";
 import { seedDistrictMapping } from "./districtMapping.js";
 import { resolveBillProposers } from "./billProposerResolver.js";
 import { linkLegislatorDistricts } from "./linkDistricts.js";
@@ -35,6 +35,7 @@ type Step =
   | "link-districts"
   | "provincial"
   | "provincial-assembly"
+  | "basic-assembly"
   | "resolve"
   | "local-candidates"
   | "candidate-backgrounds"
@@ -53,6 +54,7 @@ const VALID_STEPS: Step[] = [
   "link-districts",
   "provincial",
   "provincial-assembly",
+  "basic-assembly",
   "resolve",
   "local-candidates",
   "candidate-backgrounds",
@@ -74,6 +76,7 @@ function printUsageAndExit(code = 1): never {
       "  tsx src/ingest/index.ts link-districts [assemblyAge]\n" +
       "  tsx src/ingest/index.ts provincial\n" +
       "  tsx src/ingest/index.ts provincial-assembly [sgId]\n" +
+      "  tsx src/ingest/index.ts basic-assembly [sgId]\n" +
       "  tsx src/ingest/index.ts resolve <assemblyAge>\n" +
       "  tsx src/ingest/index.ts local-candidates [electionId]\n" +
       "  tsx src/ingest/index.ts candidate-backgrounds [electionId]\n" +
@@ -141,6 +144,11 @@ async function runStep(step: Exclude<Step, "all">, args: string[]): Promise<void
     case "provincial-assembly": {
       const sgId = args[0] && args[0].trim() !== "" ? args[0] : "20220601";
       await ingestProvincialLegislators(sgId);
+      return;
+    }
+    case "basic-assembly": {
+      const sgId = args[0] && args[0].trim() !== "" ? args[0] : "20220601";
+      await ingestBasicLegislators(sgId);
       return;
     }
     case "budget":

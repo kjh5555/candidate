@@ -33,21 +33,22 @@ export default async function ProvincialPage({
   const region = pickRegion(params.region);
 
   return (
-    <div>
-      <div className="mb-6">
+    <div className="flex flex-col gap-8">
+      {/* Page hero */}
+      <div>
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-blue-600 transition-colors mb-4"
         >
           <ArrowLeft className="w-4 h-4" />
-          처음으로
+          홈으로
         </Link>
-        <h1 className="text-2xl font-bold text-slate-800">
+        <h1 className="text-3xl font-bold text-slate-900">
           {region ? `${region} 광역의회 의원` : "광역의회 의원"}
         </h1>
         {region && (
-          <p className="text-slate-500 text-sm mt-1">
-            제8회 지방선거 당선자 (제11대) — 임기 2022.07.01 ~ 2026.06.30
+          <p className="text-slate-500 text-sm mt-1.5">
+            제8회 지방선거 당선자 (제11대) · 임기 2022.07.01 ~ 2026.06.30
           </p>
         )}
       </div>
@@ -76,8 +77,10 @@ async function ProvincialList({ region }: { region: string }) {
   }
   return (
     <>
-      <p className="text-slate-500 text-sm mb-4">총 {legislators.length}명</p>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+      <p className="text-slate-500 text-sm -mt-4">
+        총 <span className="font-semibold text-slate-700">{legislators.length}</span>명
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {legislators.map((l) => (
           <LegislatorCard key={l.id} legislator={l} />
         ))}

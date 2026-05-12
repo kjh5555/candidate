@@ -8,8 +8,9 @@ datasource db {
 }
 
 enum LegislatorLevel {
-  NATIONAL
-  PROVINCIAL
+  NATIONAL    // 국회의원
+  PROVINCIAL  // 광역의원 (시·도의회)
+  BASIC       // 기초의원 (시·군·구의회)
 }
 
 enum Gender {

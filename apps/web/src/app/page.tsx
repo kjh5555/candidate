@@ -5,132 +5,156 @@ import Link from "next/link";
 import { DistrictPicker } from "@/components/DistrictPicker";
 import { CandidatePicker } from "@/components/CandidatePicker";
 import { ProvincialPicker } from "@/components/ProvincialPicker";
-import { MapPin, Vote, Landmark, PieChart } from "lucide-react";
+import { Users, Vote, PieChart, ChevronRight } from "lucide-react";
 
 type Tab = "national" | "provincial" | "local";
 
-const TAB_META: Record<
-  Tab,
-  { title: string; subtitle: string; icon: typeof MapPin }
-> = {
-  national: {
-    title: "내 지역구 의원 보기",
-    subtitle:
-      "지역구를 선택하면 해당 국회의원의 정보를 확인할 수 있습니다.",
-    icon: MapPin,
+const FEATURE_CARDS = [
+  {
+    tab: "national" as Tab,
+    icon: Users,
+    title: "국회의원 찾기",
+    desc: "내 지역구 국회의원의 발의 법안과 표결 이력을 확인하세요.",
+    cta: "의원 조회",
+    accent: "blue",
   },
-  provincial: {
-    title: "광역의회 의원 보기",
-    subtitle:
-      "시·도를 선택하면 해당 광역의회 의원 현황을 확인할 수 있습니다.",
-    icon: Landmark,
-  },
-  local: {
-    title: "지방선거 후보 보기",
-    subtitle:
-      "제9회 전국동시지방선거 (2026.6.3) 후보자 정보를 조회합니다.",
+  {
+    tab: "provincial" as Tab,
     icon: Vote,
+    title: "광역의회 의원",
+    desc: "시·도별 광역의회 의원 현황과 프로필을 한눈에 봅니다.",
+    cta: "광역의원 조회",
+    accent: "indigo",
   },
+  {
+    tab: "local" as Tab,
+    icon: PieChart,
+    title: "지방선거 후보",
+    desc: "2026.6.3 지방선거 후보자의 전과·재산·공약 정보를 확인하세요.",
+    cta: "후보 조회",
+    accent: "violet",
+  },
+] as const;
+
+const ACCENT_STYLES = {
+  blue: {
+    icon: "bg-blue-100 text-blue-700",
+    border: "border-blue-500",
+    cta: "text-blue-700",
+  },
+  indigo: {
+    icon: "bg-indigo-100 text-indigo-700",
+    border: "border-indigo-500",
+    cta: "text-indigo-700",
+  },
+  violet: {
+    icon: "bg-violet-100 text-violet-700",
+    border: "border-violet-500",
+    cta: "text-violet-700",
+  },
+} as const;
+
+const TAB_LABEL: Record<Tab, string> = {
+  national: "내 지역구 국회의원 바로 찾기",
+  provincial: "광역의회 의원 바로 찾기",
+  local: "지방선거 후보 바로 찾기",
 };
 
 export default function HomePage() {
-  const [tab, setTab] = useState<Tab>("national");
-  const meta = TAB_META[tab];
-  const Icon = meta.icon;
+  const [activeTab, setActiveTab] = useState<Tab>("national");
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-      <div className="mb-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-100 mb-6">
-          <Icon className="w-8 h-8 text-blue-600" />
+    <div className="flex flex-col gap-12">
+      {/* Hero */}
+      <section className="pt-4 sm:pt-8">
+        <div className="max-w-2xl">
+          <p className="text-xs font-semibold tracking-widest text-blue-600 uppercase mb-3">
+            열린의회 · 시민 정보 서비스
+          </p>
+          <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 leading-tight mb-4">
+            내 지역의 의원·후보·예산
+          </h1>
+          <p className="text-slate-500 text-base sm:text-lg leading-relaxed">
+            내 세금이 어디 쓰이고, 우리 지역 의원들이 무엇을 하는지 한눈에 확인하세요.
+          </p>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 mb-3">
-          {meta.title}
-        </h1>
-        <p className="text-slate-500 text-base sm:text-lg max-w-md mx-auto">
-          {meta.subtitle}
-        </p>
-      </div>
+      </section>
 
-      {/* Tab switcher */}
-      <div
-        role="tablist"
-        aria-label="조회 대상 선택"
-        className="inline-flex bg-slate-100 p-1 rounded-xl mb-6 flex-wrap gap-1 justify-center"
-      >
-        <button
-          role="tab"
-          aria-selected={tab === "national"}
-          onClick={() => setTab("national")}
-          className={`px-3 sm:px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
-            tab === "national"
-              ? "bg-white text-slate-800 shadow-sm"
-              : "text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          국회의원
-        </button>
-        <button
-          role="tab"
-          aria-selected={tab === "provincial"}
-          onClick={() => setTab("provincial")}
-          className={`px-3 sm:px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
-            tab === "provincial"
-              ? "bg-white text-slate-800 shadow-sm"
-              : "text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          광역의회 의원
-        </button>
-        <button
-          role="tab"
-          aria-selected={tab === "local"}
-          onClick={() => setTab("local")}
-          className={`px-3 sm:px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
-            tab === "local"
-              ? "bg-white text-slate-800 shadow-sm"
-              : "text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          지방선거 후보 (2026.6.3)
-        </button>
-      </div>
+      {/* Feature cards */}
+      <section>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {FEATURE_CARDS.map((card) => {
+            const Icon = card.icon;
+            const styles = ACCENT_STYLES[card.accent];
+            const isActive = activeTab === card.tab;
+            return (
+              <button
+                key={card.tab}
+                onClick={() => setActiveTab(card.tab)}
+                className={`text-left bg-white rounded-xl border-2 p-5 transition-all cursor-pointer hover:shadow-md focus:outline-none ${
+                  isActive
+                    ? `${styles.border} shadow-sm`
+                    : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <div
+                  className={`inline-flex items-center justify-center w-10 h-10 rounded-lg mb-4 ${styles.icon}`}
+                >
+                  <Icon className="w-5 h-5" />
+                </div>
+                <p className="font-semibold text-slate-900 mb-1.5">{card.title}</p>
+                <p className="text-sm text-slate-500 leading-relaxed mb-3">
+                  {card.desc}
+                </p>
+                <span
+                  className={`inline-flex items-center gap-1 text-xs font-semibold ${styles.cta}`}
+                >
+                  {card.cta}
+                  <ChevronRight className="w-3 h-3" />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
 
-      {tab === "national" ? (
-        <DistrictPicker />
-      ) : tab === "provincial" ? (
-        <ProvincialPicker />
-      ) : (
-        <CandidatePicker />
-      )}
+      {/* Quick finder */}
+      <section>
+        <div className="flex items-center gap-3 mb-5">
+          <h2 className="text-lg font-semibold text-slate-800">
+            {TAB_LABEL[activeTab]}
+          </h2>
+          <div className="flex-1 h-px bg-slate-200" />
+        </div>
+        {activeTab === "national" ? (
+          <DistrictPicker />
+        ) : activeTab === "provincial" ? (
+          <ProvincialPicker />
+        ) : (
+          <CandidatePicker />
+        )}
+      </section>
 
       {/* Budget shortcut */}
-      <Link
-        href="/budget"
-        className="mt-8 inline-flex items-center gap-2 px-5 py-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-sm font-medium hover:bg-emerald-100 transition-colors"
-      >
-        <PieChart className="w-4 h-4" />
-        예산 보기 (국가 · 광역)
-      </Link>
-
-      <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-2xl text-left">
-        {[
-          { title: "국회의원 정보", desc: "대표발의 법안, 표결 이력을 한눈에" },
-          { title: "광역의회 의원", desc: "지역 광역의회 의원 현황 및 프로필" },
-          {
-            title: "지방선거 후보",
-            desc: "2026.6.3 시·도지사 · 시장·군수·구청장 후보",
-          },
-        ].map((item) => (
-          <div
-            key={item.title}
-            className="bg-white rounded-xl border border-slate-200 p-4"
-          >
-            <p className="font-semibold text-slate-700 mb-1">{item.title}</p>
-            <p className="text-sm text-slate-400">{item.desc}</p>
+      <section>
+        <Link
+          href="/budget"
+          className="group flex items-center justify-between bg-white border border-slate-200 rounded-xl p-5 hover:border-blue-300 hover:shadow-sm transition-all"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+              <PieChart className="w-5 h-5 text-emerald-700" />
+            </div>
+            <div>
+              <p className="font-semibold text-slate-900">예산 정보 보기</p>
+              <p className="text-sm text-slate-500 mt-0.5">
+                국가·광역 예산이 어디에 얼마나 쓰이는지 분야별로 확인하세요
+              </p>
+            </div>
           </div>
-        ))}
-      </div>
+          <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-blue-600 transition-colors shrink-0 ml-4" />
+        </Link>
+      </section>
     </div>
   );
 }

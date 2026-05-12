@@ -13,21 +13,26 @@ export function Pagination({ offset, limit, total, onPrev, onNext }: PaginationP
   const hasNext = offset + limit < total;
 
   return (
-    <div className="flex items-center justify-between mt-6">
+    <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
       <button
         onClick={onPrev}
         disabled={!hasPrev}
-        className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       >
         이전
       </button>
-      <span className="text-sm text-slate-500">
-        {page} / {totalPages || 1} 페이지 · 총 {total}건
+      <span className="text-xs text-slate-400 tabular-nums">
+        <span className="font-medium text-slate-600">{page}</span>
+        {" / "}
+        <span>{totalPages || 1}</span>
+        {" 페이지 · 총 "}
+        <span className="font-medium text-slate-600">{total}</span>
+        {" 건"}
       </span>
       <button
         onClick={onNext}
         disabled={!hasNext}
-        className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       >
         다음
       </button>

@@ -3,9 +3,10 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, User, Vote } from "lucide-react";
+import { ArrowLeft, User } from "lucide-react";
 import { getCandidates } from "@/lib/api";
 import { PartyBadge } from "@/components/PartyBadge";
+import { EmptyState } from "@/components/EmptyState";
 import type {
   CandidatePositionType,
   CandidateStatus,
@@ -39,13 +40,13 @@ function statusBadgeClass(status: CandidateStatus): string {
 
 function CandidateCard({ candidate }: { candidate: CandidateSummaryDTO }) {
   return (
-    <Link href={`/candidate/${candidate.id}`}>
-      <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer flex flex-col items-center text-center gap-3 h-full">
-        <div className="w-20 h-20 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0">
+    <Link href={`/candidate/${candidate.id}`} className="group">
+      <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer flex flex-col items-center text-center gap-3 h-full">
+        <div className="w-20 h-20 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0 group-hover:bg-slate-200 transition-colors">
           <User className="w-10 h-10 text-slate-400" />
         </div>
         <div className="flex flex-col items-center gap-1.5 w-full">
-          <p className="font-bold text-slate-800 text-lg leading-tight">
+          <p className="font-bold text-slate-900 text-lg leading-tight">
             {candidate.name}
           </p>
           <PartyBadge party={candidate.party} />
@@ -76,20 +77,23 @@ function CandidateCard({ candidate }: { candidate: CandidateSummaryDTO }) {
   );
 }
 
+function SkeletonCard() {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-5 animate-pulse flex flex-col items-center gap-3">
+      <div className="w-20 h-20 rounded-full bg-slate-100" />
+      <div className="h-5 w-20 bg-slate-100 rounded" />
+      <div className="h-4 w-16 bg-slate-100 rounded" />
+    </div>
+  );
+}
+
 export default function CandidatesPage() {
   return (
     <Suspense
       fallback={
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div
-              key={i}
-              className="bg-white rounded-xl border border-slate-200 p-4 animate-pulse"
-            >
-              <div className="w-20 h-20 mx-auto rounded-full bg-slate-100" />
-              <div className="mt-3 h-5 w-20 bg-slate-100 rounded mx-auto" />
-              <div className="mt-2 h-4 w-16 bg-slate-100 rounded mx-auto" />
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
           ))}
         </div>
       }
@@ -119,12 +123,7 @@ function CandidatesPageInner() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    getCandidates({
-      electionId,
-      positionType,
-      sido,
-      wiwName,
-    })
+    getCandidates({ electionId, positionType, sido, wiwName })
       .then((data) => {
         if (cancelled) return;
         setCandidates(data.candidates);
@@ -133,9 +132,7 @@ function CandidatesPageInner() {
       .catch((err: unknown) => {
         if (cancelled) return;
         setError(
-          err instanceof Error
-            ? err.message
-            : "후보 목록을 불러오지 못했습니다.",
+          err instanceof Error ? err.message : "후보 목록을 불러오지 못했습니다.",
         );
       })
       .finally(() => {
@@ -156,41 +153,33 @@ function CandidatesPageInner() {
       : POSITION_LABEL[positionType as CandidatePositionType];
 
   return (
-    <div>
-      <button
-        onClick={() => router.back()}
-        className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-blue-600 transition-colors mb-4"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        뒤로가기
-      </button>
-
-      <div className="mb-6">
-        <p className="text-xs text-slate-400 mb-1">
+    <div className="flex flex-col gap-8">
+      {/* Page hero */}
+      <div>
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-blue-600 transition-colors mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          뒤로가기
+        </button>
+        <p className="text-xs text-slate-400 mb-1.5">
           {breadcrumbParts.join(" / ")}
         </p>
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <Vote className="w-6 h-6 text-blue-600" />
+        <h1 className="text-3xl font-bold text-slate-900">
           {positionLabel} 후보
         </h1>
         {!loading && !error && (
-          <p className="text-sm text-slate-500 mt-1">
-            총 {total}명의 후보가 등록되었습니다.
+          <p className="text-slate-500 text-sm mt-1.5">
+            총 <span className="font-semibold text-slate-700">{total}</span>명의 후보가 등록되었습니다.
           </p>
         )}
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div
-              key={i}
-              className="bg-white rounded-xl border border-slate-200 p-4 animate-pulse"
-            >
-              <div className="w-20 h-20 mx-auto rounded-full bg-slate-100" />
-              <div className="mt-3 h-5 w-20 bg-slate-100 rounded mx-auto" />
-              <div className="mt-2 h-4 w-16 bg-slate-100 rounded mx-auto" />
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
           ))}
         </div>
       ) : error ? (
@@ -198,17 +187,12 @@ function CandidatesPageInner() {
           {error}
         </div>
       ) : candidates.length === 0 ? (
-        <div className="py-16 text-center">
-          <p className="text-slate-500">조건에 맞는 후보가 없습니다.</p>
-          <Link
-            href="/"
-            className="mt-4 inline-block text-blue-600 hover:underline text-sm"
-          >
-            홈으로 돌아가기
-          </Link>
-        </div>
+        <EmptyState
+          message="조건에 맞는 후보가 없습니다."
+          description="다른 지역이나 선거 종류를 선택해보세요."
+        />
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {candidates.map((c) => (
             <CandidateCard key={c.id} candidate={c} />
           ))}

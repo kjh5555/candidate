@@ -1,7 +1,7 @@
 // Korean political information service — shared DTOs
 // Mirrors Prisma schema enums; kept in sync manually.
 
-export type LegislatorLevel = "NATIONAL" | "PROVINCIAL";
+export type LegislatorLevel = "NATIONAL" | "PROVINCIAL" | "BASIC";
 export type Gender = "MALE" | "FEMALE" | "UNKNOWN";
 export type VoteResult = "YES" | "NO" | "ABSTAIN" | "ABSENT";
 export type BillResult =

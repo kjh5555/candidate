@@ -10,12 +10,12 @@ const BILL_LABELS: Record<BillResult, string> = {
 };
 
 const BILL_COLORS: Record<BillResult, string> = {
-  PASSED: "bg-green-100 text-green-800",
-  PASSED_AMENDED: "bg-teal-100 text-teal-800",
-  REJECTED: "bg-red-100 text-red-800",
-  WITHDRAWN: "bg-gray-100 text-gray-600",
-  SUPERSEDED: "bg-purple-100 text-purple-800",
-  PENDING: "bg-yellow-100 text-yellow-800",
+  PASSED: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  PASSED_AMENDED: "bg-teal-50 text-teal-700 border-teal-200",
+  REJECTED: "bg-red-50 text-red-700 border-red-200",
+  WITHDRAWN: "bg-slate-100 text-slate-500 border-slate-200",
+  SUPERSEDED: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  PENDING: "bg-amber-50 text-amber-700 border-amber-200",
 };
 
 interface BillResultBadgeProps {
@@ -23,10 +23,10 @@ interface BillResultBadgeProps {
 }
 
 export function BillResultBadge({ result }: BillResultBadgeProps) {
-  if (!result) return <span className="text-slate-400 text-xs">-</span>;
+  if (!result) return <span className="text-slate-300 text-xs">—</span>;
   return (
     <span
-      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${BILL_COLORS[result]}`}
+      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${BILL_COLORS[result]}`}
     >
       {BILL_LABELS[result]}
     </span>

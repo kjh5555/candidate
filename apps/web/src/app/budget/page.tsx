@@ -11,6 +11,7 @@ import {
 import type { BudgetBreakdownDTO } from "@repo/shared";
 import { BudgetChart } from "@/components/budget/BudgetChart";
 import { Amount } from "@/components/budget/AmountFormatter";
+import { EmptyState } from "@/components/EmptyState";
 
 type BudgetTab = "national" | "metropolitan";
 
@@ -23,54 +24,72 @@ const SIDO_LIST = [
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-base font-semibold text-slate-700 mb-3">{children}</h3>
-  );
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="flex items-center justify-center h-32 text-slate-400 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-200">
-      {message}
-    </div>
+    <h3 className="text-lg font-semibold text-slate-900 mb-1">{children}</h3>
   );
 }
 
 function LoadingBar() {
   return (
-    <div className="flex items-center justify-center h-32 text-slate-400 text-sm">
-      불러오는 중...
+    <div className="flex items-center justify-center h-40 text-slate-400 text-sm bg-slate-50 rounded-xl border border-slate-200 animate-pulse">
+      데이터 불러오는 중...
     </div>
   );
 }
 
 function SourceNote({ text }: { text: string }) {
   return (
-    <p className="text-xs text-slate-400 mt-4 text-right">{text}</p>
+    <p className="text-xs text-slate-400 mt-2 text-right">{text}</p>
+  );
+}
+
+function SelectField({
+  id,
+  label,
+  value,
+  onChange,
+  children,
+}: {
+  id: string;
+  label: string;
+  value: string | number;
+  onChange: (v: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <label htmlFor={id} className="text-sm font-medium text-slate-700 shrink-0">
+        {label}
+      </label>
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+      >
+        {children}
+      </select>
+    </div>
   );
 }
 
 export default function BudgetPage() {
   const [tab, setTab] = useState<BudgetTab>("national");
 
-  // Years
   const [nationalYears, setNationalYears] = useState<number[]>([]);
   const [metroYears, setMetroYears] = useState<number[]>([]);
   const [yearsLoading, setYearsLoading] = useState(true);
 
-  // National state
   const [natYear, setNatYear] = useState<number | null>(null);
   const [natFieldData, setNatFieldData] = useState<BudgetBreakdownDTO | null>(null);
   const [natMinistryData, setNatMinistryData] = useState<BudgetBreakdownDTO | null>(null);
   const [natLoading, setNatLoading] = useState(false);
 
-  // Metro state
   const [metYear, setMetYear] = useState<number | null>(null);
   const [selectedSido, setSelectedSido] = useState<string>(SIDO_LIST[0]);
   const [sidoDetailData, setSidoDetailData] = useState<BudgetBreakdownDTO | null>(null);
   const [allSidoData, setAllSidoData] = useState<BudgetBreakdownDTO | null>(null);
   const [metLoading, setMetLoading] = useState(false);
 
-  // Load years on mount
   useEffect(() => {
     setYearsLoading(true);
     Promise.all([
@@ -85,7 +104,6 @@ export default function BudgetPage() {
     });
   }, []);
 
-  // Load national data when year changes
   const loadNational = useCallback(async (year: number) => {
     setNatLoading(true);
     setNatFieldData(null);
@@ -106,7 +124,6 @@ export default function BudgetPage() {
     if (natYear !== null) loadNational(natYear);
   }, [natYear, loadNational]);
 
-  // Load metro data when year or sido changes
   const loadMetro = useCallback(async (year: number, sido: string) => {
     setMetLoading(true);
     setSidoDetailData(null);
@@ -129,7 +146,7 @@ export default function BudgetPage() {
 
   if (yearsLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[40vh] text-slate-400">
+      <div className="flex items-center justify-center min-h-[40vh] text-slate-400 text-sm">
         데이터 불러오는 중...
       </div>
     );
@@ -138,117 +155,111 @@ export default function BudgetPage() {
   const noData = nationalYears.length === 0 && metroYears.length === 0;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">예산 정보</h1>
-        <p className="text-slate-500 text-sm sm:text-base">
+    <div className="flex flex-col gap-8">
+      {/* Page hero */}
+      <div>
+        <h1 className="text-3xl font-bold text-slate-900 mb-2">예산 정보</h1>
+        <p className="text-slate-500 text-base">
           국가와 시·도 예산이 어디에 얼마나 쓰였는지 확인하세요
         </p>
       </div>
 
       {noData ? (
-        <EmptyState message="예산 데이터가 아직 적재되지 않았습니다" />
+        <EmptyState
+          message="예산 데이터가 아직 적재되지 않았습니다."
+          description="잠시 후 다시 시도해주세요."
+        />
       ) : (
         <>
-          {/* Tab + Year selector row */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+          {/* Tab + controls row */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            {/* Segmented tab */}
             <div
               role="tablist"
               aria-label="예산 구분"
-              className="inline-flex bg-slate-100 p-1 rounded-xl"
+              className="inline-flex bg-slate-100 p-1 rounded-xl self-start"
             >
-              <button
-                role="tab"
-                aria-selected={tab === "national"}
-                onClick={() => setTab("national")}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  tab === "national"
-                    ? "bg-white text-slate-800 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                국가 예산
-              </button>
-              <button
-                role="tab"
-                aria-selected={tab === "metropolitan"}
-                onClick={() => setTab("metropolitan")}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  tab === "metropolitan"
-                    ? "bg-white text-slate-800 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                광역 예산
-              </button>
+              {(["national", "metropolitan"] as const).map((t) => (
+                <button
+                  key={t}
+                  role="tab"
+                  aria-selected={tab === t}
+                  onClick={() => setTab(t)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    tab === t
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {t === "national" ? "국가 예산" : "광역 예산"}
+                </button>
+              ))}
             </div>
 
             {/* Year selector */}
             {tab === "national" && nationalYears.length > 0 && (
-              <select
+              <SelectField
+                id="nat-year"
+                label="연도"
                 value={natYear ?? ""}
-                onChange={(e) => setNatYear(Number(e.target.value))}
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(v) => setNatYear(Number(v))}
               >
                 {nationalYears.map((y) => (
                   <option key={y} value={y}>{y}년도</option>
                 ))}
-              </select>
+              </SelectField>
             )}
             {tab === "metropolitan" && metroYears.length > 0 && (
-              <select
+              <SelectField
+                id="met-year"
+                label="연도"
                 value={metYear ?? ""}
-                onChange={(e) => setMetYear(Number(e.target.value))}
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(v) => setMetYear(Number(v))}
               >
                 {metroYears.map((y) => (
                   <option key={y} value={y}>{y}년도</option>
                 ))}
-              </select>
+              </SelectField>
             )}
           </div>
 
           {/* National tab */}
           {tab === "national" && (
-            <div className="space-y-10">
+            <div className="flex flex-col gap-8">
               {nationalYears.length === 0 ? (
-                <EmptyState message="국가 예산 데이터가 아직 적재되지 않았습니다" />
+                <EmptyState message="국가 예산 데이터가 아직 적재되지 않았습니다." />
               ) : natLoading ? (
                 <LoadingBar />
               ) : (
                 <>
-                  {/* Total */}
                   {natFieldData && (
-                    <div className="bg-blue-50 rounded-xl p-5 flex items-center gap-4 border border-blue-100">
-                      <div>
-                        <p className="text-xs text-blue-500 font-medium mb-1">
-                          {natYear}년 국가 총예산
-                        </p>
-                        <p className="text-2xl font-bold text-blue-700">
-                          <Amount amount={natFieldData.totalAmount} unit="조" />
-                        </p>
-                      </div>
+                    <div className="bg-blue-50 rounded-xl p-5 border border-blue-100">
+                      <p className="text-xs font-semibold text-blue-500 uppercase tracking-wide mb-1">
+                        {natYear}년 국가 총예산
+                      </p>
+                      <p className="text-3xl font-bold text-blue-800">
+                        <Amount amount={natFieldData.totalAmount} unit="조" />
+                      </p>
                     </div>
                   )}
 
-                  {/* By field */}
-                  <div>
+                  <div className="bg-white rounded-xl border border-slate-200 p-6">
                     <SectionTitle>분야별 예산</SectionTitle>
+                    <p className="text-sm text-slate-400 mb-4">항목을 클릭하면 상세 정보를 볼 수 있습니다</p>
                     {natFieldData && natFieldData.items.length > 0 ? (
                       <BudgetChart data={natFieldData.items} valueLabel="예산" />
                     ) : (
-                      <EmptyState message="분야별 데이터가 없습니다" />
+                      <EmptyState message="분야별 데이터가 없습니다." />
                     )}
                   </div>
 
-                  {/* By ministry */}
-                  <div>
+                  <div className="bg-white rounded-xl border border-slate-200 p-6">
                     <SectionTitle>부처별 TOP 10</SectionTitle>
+                    <p className="text-sm text-slate-400 mb-4">예산 규모 상위 10개 부처</p>
                     {natMinistryData && natMinistryData.items.length > 0 ? (
                       <BudgetChart data={natMinistryData.items} valueLabel="예산" />
                     ) : (
-                      <EmptyState message="부처별 데이터가 없습니다" />
+                      <EmptyState message="부처별 데이터가 없습니다." />
                     )}
                   </div>
 
@@ -260,58 +271,52 @@ export default function BudgetPage() {
 
           {/* Metropolitan tab */}
           {tab === "metropolitan" && (
-            <div className="space-y-10">
+            <div className="flex flex-col gap-8">
               {metroYears.length === 0 ? (
-                <EmptyState message="광역 예산 데이터가 아직 적재되지 않았습니다" />
+                <EmptyState message="광역 예산 데이터가 아직 적재되지 않았습니다." />
               ) : metLoading ? (
                 <LoadingBar />
               ) : (
                 <>
-                  {/* Sido selector */}
-                  <div className="flex items-center gap-3">
-                    <label className="text-sm font-medium text-slate-700">시·도 선택</label>
-                    <select
-                      value={selectedSido}
-                      onChange={(e) => setSelectedSido(e.target.value)}
-                      className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {SIDO_LIST.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <SelectField
+                    id="sido-select"
+                    label="시·도"
+                    value={selectedSido}
+                    onChange={(v) => setSelectedSido(v)}
+                  >
+                    {SIDO_LIST.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </SelectField>
 
-                  {/* Sido total */}
                   {sidoDetailData && (
-                    <div className="bg-emerald-50 rounded-xl p-5 flex items-center gap-4 border border-emerald-100">
-                      <div>
-                        <p className="text-xs text-emerald-600 font-medium mb-1">
-                          {metYear}년 {selectedSido} 총예산
-                        </p>
-                        <p className="text-2xl font-bold text-emerald-700">
-                          <Amount amount={sidoDetailData.totalAmount} />
-                        </p>
-                      </div>
+                    <div className="bg-emerald-50 rounded-xl p-5 border border-emerald-100">
+                      <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-1">
+                        {metYear}년 {selectedSido} 총예산
+                      </p>
+                      <p className="text-3xl font-bold text-emerald-800">
+                        <Amount amount={sidoDetailData.totalAmount} />
+                      </p>
                     </div>
                   )}
 
-                  {/* Sido detail */}
-                  <div>
+                  <div className="bg-white rounded-xl border border-slate-200 p-6">
                     <SectionTitle>{selectedSido} 분야별 예산</SectionTitle>
+                    <p className="text-sm text-slate-400 mb-4">분야별 예산 배분 현황</p>
                     {sidoDetailData && sidoDetailData.items.length > 0 ? (
                       <BudgetChart data={sidoDetailData.items} valueLabel="예산" />
                     ) : (
-                      <EmptyState message="해당 시·도 예산 데이터가 없습니다" />
+                      <EmptyState message="해당 시·도 예산 데이터가 없습니다." />
                     )}
                   </div>
 
-                  {/* All sidos comparison */}
-                  <div>
-                    <SectionTitle>17개 시·도 비교</SectionTitle>
+                  <div className="bg-white rounded-xl border border-slate-200 p-6">
+                    <SectionTitle>17개 시·도 예산 비교</SectionTitle>
+                    <p className="text-sm text-slate-400 mb-4">전국 광역자치단체 총예산 규모 비교</p>
                     {allSidoData && allSidoData.items.length > 0 ? (
                       <BudgetChart data={allSidoData.items} valueLabel="총예산" />
                     ) : (
-                      <EmptyState message="시·도 비교 데이터가 없습니다" />
+                      <EmptyState message="시·도 비교 데이터가 없습니다." />
                     )}
                   </div>
 

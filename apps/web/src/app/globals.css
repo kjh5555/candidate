@@ -2,14 +2,31 @@
 
 :root {
   --font-noto: "Noto Sans KR", sans-serif;
+
+  /* Brand tokens */
+  --color-brand: #1d4ed8;
+  --color-brand-hover: #1e40af;
+  --color-brand-light: #eff6ff;
+  --color-surface: #ffffff;
+  --color-bg: #f8fafc;
+  --color-border: #e2e8f0;
+  --color-text: #0f172a;
+  --color-muted: #64748b;
+  --color-faint: #94a3b8;
 }
 
 body {
   font-family: var(--font-noto);
-  background-color: #f8fafc;
-  color: #1e293b;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Smooth page-level scroll */
+html {
+  scroll-behavior: smooth;
 }

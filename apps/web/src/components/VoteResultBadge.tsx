@@ -8,10 +8,10 @@ const VOTE_LABELS: Record<VoteResult, string> = {
 };
 
 const VOTE_COLORS: Record<VoteResult, string> = {
-  YES: "bg-green-100 text-green-800",
-  NO: "bg-red-100 text-red-800",
-  ABSTAIN: "bg-yellow-100 text-yellow-800",
-  ABSENT: "bg-gray-100 text-gray-600",
+  YES: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  NO: "bg-red-50 text-red-700 border-red-200",
+  ABSTAIN: "bg-amber-50 text-amber-700 border-amber-200",
+  ABSENT: "bg-slate-100 text-slate-500 border-slate-200",
 };
 
 interface VoteResultBadgeProps {
@@ -21,7 +21,7 @@ interface VoteResultBadgeProps {
 export function VoteResultBadge({ result }: VoteResultBadgeProps) {
   return (
     <span
-      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${VOTE_COLORS[result]}`}
+      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${VOTE_COLORS[result]}`}
     >
       {VOTE_LABELS[result]}
     </span>

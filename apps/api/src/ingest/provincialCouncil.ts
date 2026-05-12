@@ -29,9 +29,12 @@ const QUERY_METHOD = "getWinnerInfoInqire";
 
 const SG_TYPECODE_PROVINCIAL_LOCAL = "4"; // 광역의원 지역구
 const SG_TYPECODE_PROVINCIAL_PROP = "5"; // 광역의원 비례
+const SG_TYPECODE_BASIC_LOCAL = "7"; // 기초의원 지역구
+const SG_TYPECODE_BASIC_PROP = "8"; // 기초의원 비례
 
 const DEFAULT_SG_ID = "20220601"; // 제8회 지방선거
 const PROVINCIAL_ASSEMBLY_AGE = 11; // 제11대 광역의회
+const BASIC_ASSEMBLY_AGE = 9; // 제9대 기초의회 (2022-07 ~ 2026-06)
 
 // ---------- Raw row type (defensive) ----------
 interface NecWinnerRow {
@@ -84,14 +87,33 @@ function buildCouncilName(sdName: string | null): string | null {
   return `${sdName}의회`;
 }
 
-function buildId(huboid: string): string {
-  return `PROV-WIN-${huboid}`;
+function buildId(huboid: string, prefix = "PROV-WIN"): string {
+  return `${prefix}-${huboid}`;
+}
+
+function buildBasicCouncilName(
+  sdName: string | null,
+  wiwName: string | null,
+): string | null {
+  if (!sdName && !wiwName) return null;
+  // 강원도 영월군 -> 영월군의회, 서울특별시 강남구 -> 강남구의회
+  if (wiwName) return `${wiwName}의회`;
+  return sdName ? `${sdName}의회` : null;
 }
 
 async function ingestOnePool(
   sgId: string,
   sgTypecode: string,
   poolLabel: string,
+  options: {
+    level: "PROVINCIAL" | "BASIC";
+    assemblyAge: number;
+    idPrefix: string;
+  } = {
+    level: "PROVINCIAL",
+    assemblyAge: PROVINCIAL_ASSEMBLY_AGE,
+    idPrefix: "PROV-WIN",
+  },
 ): Promise<{ total: number; success: number }> {
   console.log(
     `[provincial-legis] Fetching ${poolLabel} (sgId=${sgId}, sgTypecode=${sgTypecode})...`,
@@ -123,28 +145,36 @@ async function ingestOnePool(
   for (const row of rows) {
     const huboidRaw = row.huboid != null ? String(row.huboid).trim() : "";
     if (!huboidRaw) continue;
-    const id = buildId(huboidRaw);
+    const id = buildId(huboidRaw, options.idPrefix);
 
     const name =
       emptyToNull(row.name) ?? emptyToNull(row.hanjaName) ?? huboidRaw;
     const sdName = emptyToNull(row.sdName);
     const sggName = emptyToNull(row.sggName);
+    const wiwName = emptyToNull((row as { wiwName?: string }).wiwName);
     const careerSummary =
       emptyToNull(row.jobName) ??
       emptyToNull(row.job) ??
       emptyToNull(row.career1);
 
+    const councilName =
+      options.level === "BASIC"
+        ? buildBasicCouncilName(sdName, wiwName)
+        : buildCouncilName(sdName);
+    // For 기초의원, region should be 시·군·구 to differentiate from 광역
+    const region = options.level === "BASIC" ? wiwName ?? sdName : sdName;
+
     const data = {
-      level: "PROVINCIAL" as const,
+      level: options.level,
       name,
       party: emptyToNull(row.jdName),
       gender: mapGender(row.gender),
       birthDate: parseBirthDate(row.birthday),
       electoralDistrictName: sggName,
-      assemblyAge: PROVINCIAL_ASSEMBLY_AGE,
+      assemblyAge: options.assemblyAge,
       committee: careerSummary,
-      councilName: buildCouncilName(sdName),
-      region: sdName,
+      councilName,
+      region,
       rawSourceJson: row as unknown as Prisma.InputJsonValue,
       lastSyncedAt: new Date(),
     };
@@ -208,5 +238,51 @@ export async function ingestProvincialLegislators(
   const totalSuccess = local.success + proportional.success;
   console.log(
     `[provincial-legis] All done. Upserted ${totalSuccess}/${totalRows} provincial legislators (sgId=${sgId}).`,
+  );
+}
+
+/**
+ * Ingest 기초의원 (시·군·구의회 의원, 지역구 + 비례) for the given local-election sgId.
+ *
+ * Stores rows as Legislator with level=BASIC.
+ * ID = `BASIC-WIN-${huboid}` to avoid collisions with provincial/national.
+ *
+ * Defaults to sgId=20220601 (제8회 지방선거 = 제9대 기초의회).
+ */
+export async function ingestBasicLegislators(
+  sgId: string = DEFAULT_SG_ID,
+): Promise<void> {
+  if (!process.env.NEC_API_KEY) {
+    console.warn(
+      "[basic-legis] NEC_API_KEY not set. Skipping NEC-based ingest.",
+    );
+    return;
+  }
+
+  console.log(`[basic-legis] Starting NEC 기초의회 ingest for sgId=${sgId}.`);
+
+  const opts = {
+    level: "BASIC" as const,
+    assemblyAge: BASIC_ASSEMBLY_AGE,
+    idPrefix: "BASIC-WIN",
+  };
+
+  const local = await ingestOnePool(
+    sgId,
+    SG_TYPECODE_BASIC_LOCAL,
+    "기초의원 지역구",
+    opts,
+  );
+  const proportional = await ingestOnePool(
+    sgId,
+    SG_TYPECODE_BASIC_PROP,
+    "기초의원 비례",
+    opts,
+  );
+
+  const totalRows = local.total + proportional.total;
+  const totalSuccess = local.success + proportional.success;
+  console.log(
+    `[basic-legis] All done. Upserted ${totalSuccess}/${totalRows} basic legislators (sgId=${sgId}).`,
   );
 }

@@ -37,7 +37,19 @@ interface BillRow {
   AGE?: string;
 }
 
-interface VoteRow {
+interface VoteEventRow {
+  // 본회의 표결 집계 (ncocpgfiaoituanbr)
+  BILL_ID: string;
+  BILL_NO: string;
+  BILL_NAME?: string;
+  PROC_DT?: string;
+  PROC_RESULT_CD?: string;
+  AGE?: string | number;
+}
+
+interface MemberVoteRow {
+  // 본회의 표결 의원별 (nojepdqqaweusdfbi)
+  BILL_ID: string;
   BILL_NO: string;
   BILL_NAME?: string;
   MONA_CD: string;
@@ -46,7 +58,7 @@ interface VoteRow {
   POLY_NM?: string;
   RESULT_VOTE_MOD?: string;
   VOTE_DATE?: string;
-  AGE?: string;
+  AGE?: string | number;
 }
 
 // ---------- Helpers ----------
@@ -217,67 +229,114 @@ export async function ingestBills(assemblyAge: number): Promise<void> {
  * Keyed on the unique (billNo, legislatorId, voteDate).
  */
 export async function ingestVotes(assemblyAge: number): Promise<void> {
-  console.log(`[votes] Fetching for AGE=${assemblyAge}...`);
-  const rows = await fetchAllPages<VoteRow>("ncocpgfiaoituanbr", {
+  console.log(`[votes] Step 1/2: fetching vote events for AGE=${assemblyAge}...`);
+  const events = await fetchAllPages<VoteEventRow>("ncocpgfiaoituanbr", {
     AGE: String(assemblyAge),
   });
-  console.log(`[votes] Got ${rows.length} rows. Upserting...`);
+  console.log(`[votes] Got ${events.length} vote events.`);
 
-  // Pre-fetch all bills for this assemblyAge to avoid N+1 queries
-  const bills = await prisma.bill.findMany({
-    where: { assemblyAge },
-    select: { id: true, billNo: true },
-  });
+  // Pre-fetch existing bills + legislators to populate FKs and skip orphans.
+  const [bills, legislators] = await Promise.all([
+    prisma.bill.findMany({
+      where: { assemblyAge },
+      select: { id: true, billNo: true },
+    }),
+    prisma.legislator.findMany({
+      where: { level: "NATIONAL" },
+      select: { id: true },
+    }),
+  ]);
   const billIdByNo = new Map(bills.map((b) => [b.billNo, b.id]));
+  const legislatorIds = new Set(legislators.map((l) => l.id));
 
-  let success = 0;
-  let skipped = 0;
-  for (const row of rows) {
-    if (!row.BILL_NO || !row.MONA_CD) {
-      skipped += 1;
-      continue;
-    }
-    const voteDate = parseDateTime(row.VOTE_DATE);
-    const result = mapVoteResult(row.RESULT_VOTE_MOD);
-    if (!voteDate || !result) {
-      skipped += 1;
-      continue;
-    }
+  let totalUpserted = 0;
+  let totalSkipped = 0;
+  let billIndex = 0;
+  for (const event of events) {
+    billIndex += 1;
+    if (!event.BILL_ID) continue;
 
-    const billId = billIdByNo.get(row.BILL_NO) ?? null;
-
-    const data = {
-      billNo: row.BILL_NO,
-      billName: emptyToNull(row.BILL_NAME),
-      billId,
-      legislatorId: row.MONA_CD,
-      result,
-      voteDate,
-      assemblyAge: parseIntOrNull(row.AGE) ?? assemblyAge,
-    };
-
+    // Fetch per-member votes for this bill
+    let memberRows: MemberVoteRow[] = [];
     try {
-      await prisma.vote.upsert({
-        where: {
-          billNo_legislatorId_voteDate: {
-            billNo: data.billNo,
-            legislatorId: data.legislatorId,
-            voteDate: data.voteDate,
-          },
+      memberRows = await fetchAllPages<MemberVoteRow>(
+        "nojepdqqaweusdfbi",
+        {
+          AGE: String(assemblyAge),
+          BILL_ID: event.BILL_ID,
         },
-        create: data,
-        update: data,
-      });
-      success += 1;
+        { pageSize: 300, delayMs: 150 },
+      );
     } catch (err) {
-      // Most common cause: legislator not yet ingested (FK violation)
       console.error(
-        `[votes] Failed for billNo=${row.BILL_NO} legislator=${row.MONA_CD}:`,
-        err,
+        `[votes] Failed to fetch members for bill ${event.BILL_ID}:`,
+        (err as Error).message,
+      );
+      continue;
+    }
+
+    const billId = billIdByNo.get(event.BILL_NO) ?? null;
+
+    for (const row of memberRows) {
+      if (!row.MONA_CD || !row.BILL_NO) {
+        totalSkipped += 1;
+        continue;
+      }
+      // Skip votes from legislators not in our DB (FK would fail)
+      if (!legislatorIds.has(row.MONA_CD)) {
+        totalSkipped += 1;
+        continue;
+      }
+      const voteDate = parseDateTime(row.VOTE_DATE);
+      const result = mapVoteResult(row.RESULT_VOTE_MOD);
+      if (!voteDate || !result) {
+        totalSkipped += 1;
+        continue;
+      }
+
+      const data = {
+        billNo: row.BILL_NO,
+        billName: emptyToNull(row.BILL_NAME),
+        billId,
+        legislatorId: row.MONA_CD,
+        result,
+        voteDate,
+        assemblyAge:
+          parseIntOrNull(row.AGE != null ? String(row.AGE) : undefined) ??
+          assemblyAge,
+      };
+
+      try {
+        await prisma.vote.upsert({
+          where: {
+            billNo_legislatorId_voteDate: {
+              billNo: data.billNo,
+              legislatorId: data.legislatorId,
+              voteDate: data.voteDate,
+            },
+          },
+          create: data,
+          update: data,
+        });
+        totalUpserted += 1;
+      } catch (err) {
+        console.error(
+          `[votes] Upsert failed billNo=${row.BILL_NO} legis=${row.MONA_CD}:`,
+          (err as Error).message,
+        );
+      }
+    }
+
+    if (billIndex % 50 === 0 || billIndex === events.length) {
+      console.log(
+        `[votes] Progress: ${billIndex}/${events.length} bills, ` +
+          `${totalUpserted} upserted, ${totalSkipped} skipped`,
       );
     }
   }
+
   console.log(
-    `[votes] Done. Upserted ${success}/${rows.length} (skipped ${skipped} invalid).`,
+    `[votes] Done. Upserted ${totalUpserted} vote records ` +
+      `(skipped ${totalSkipped}) across ${events.length} bills.`,
   );
 }
