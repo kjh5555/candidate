@@ -71,16 +71,26 @@ export async function getSettlementByField(
   };
 }
 
-// 시·도별 결산 (광역단체 본청 기준).
+// 시·도별 결산 — 광역 본청 + 기초 자치단체 합산 (시·도 전체 살림 기준).
+// (METROPOLITAN만 쓰면 자치구 없는 제주가 25 자치구를 가진 서울과 비교돼 비대칭)
 export async function getSettlementBySido(
   fiscalYear: number,
 ): Promise<SettlementBreakdownDTO> {
   const rows = await prisma.settlementSummary.findMany({
-    where: { fiscalYear, level: "METROPOLITAN", groupKey: "sido" },
+    where: { fiscalYear, groupKey: "sido" }, // both METROPOLITAN + BASIC
     select: { groupValue: true, totalAmount: true },
   });
-  const total = sumAmounts(rows);
-  const items = sortItemsDesc(buildItems(rows, total));
+  // 같은 sido에 METRO/BASIC 두 합계가 있으므로 sido별로 합산
+  const bySido = new Map<string, bigint>();
+  for (const r of rows) {
+    bySido.set(r.groupValue, (bySido.get(r.groupValue) ?? 0n) + r.totalAmount);
+  }
+  const aggregated = Array.from(bySido, ([groupValue, totalAmount]) => ({
+    groupValue,
+    totalAmount,
+  }));
+  const total = sumAmounts(aggregated);
+  const items = sortItemsDesc(buildItems(aggregated, total));
   return {
     fiscalYear,
     level: "METROPOLITAN",
