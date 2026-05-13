@@ -255,14 +255,20 @@ export async function ingestVotes(assemblyAge: number): Promise<void> {
   const billIdByNo = new Map(bills.map((b) => [b.billNo, b.id]));
   const legislatorIds = new Set(legislators.map((l) => l.id));
 
-  let totalUpserted = 0;
+  // Wipe existing votes for this assemblyAge to keep re-ingest idempotent.
+  // (Votes are immutable per (billNo, legislatorId, voteDate) — replacing is
+  // simpler than upserting one-by-one.)
+  console.log(`[votes] Clearing existing votes for AGE=${assemblyAge}...`);
+  const deleted = await prisma.vote.deleteMany({ where: { assemblyAge } });
+  console.log(`[votes] Deleted ${deleted.count} existing votes.`);
+
+  let totalInserted = 0;
   let totalSkipped = 0;
   let billIndex = 0;
   for (const event of events) {
     billIndex += 1;
     if (!event.BILL_ID) continue;
 
-    // Fetch per-member votes for this bill
     let memberRows: MemberVoteRow[] = [];
     try {
       memberRows = await fetchAllPages<MemberVoteRow>(
@@ -283,12 +289,21 @@ export async function ingestVotes(assemblyAge: number): Promise<void> {
 
     const billId = billIdByNo.get(event.BILL_NO) ?? null;
 
+    // Build batch of valid Vote rows for this bill.
+    const batch: Array<{
+      billNo: string;
+      billName: string | null;
+      billId: string | null;
+      legislatorId: string;
+      result: "YES" | "NO" | "ABSTAIN" | "ABSENT";
+      voteDate: Date;
+      assemblyAge: number;
+    }> = [];
     for (const row of memberRows) {
       if (!row.MONA_CD || !row.BILL_NO) {
         totalSkipped += 1;
         continue;
       }
-      // Skip votes from legislators not in our DB (FK would fail)
       if (!legislatorIds.has(row.MONA_CD)) {
         totalSkipped += 1;
         continue;
@@ -299,8 +314,7 @@ export async function ingestVotes(assemblyAge: number): Promise<void> {
         totalSkipped += 1;
         continue;
       }
-
-      const data = {
+      batch.push({
         billNo: row.BILL_NO,
         billName: emptyToNull(row.BILL_NAME),
         billId,
@@ -310,24 +324,19 @@ export async function ingestVotes(assemblyAge: number): Promise<void> {
         assemblyAge:
           parseIntOrNull(row.AGE != null ? String(row.AGE) : undefined) ??
           assemblyAge,
-      };
+      });
+    }
 
+    if (batch.length > 0) {
       try {
-        await prisma.vote.upsert({
-          where: {
-            billNo_legislatorId_voteDate: {
-              billNo: data.billNo,
-              legislatorId: data.legislatorId,
-              voteDate: data.voteDate,
-            },
-          },
-          create: data,
-          update: data,
+        const res = await prisma.vote.createMany({
+          data: batch,
+          skipDuplicates: true,
         });
-        totalUpserted += 1;
+        totalInserted += res.count;
       } catch (err) {
         console.error(
-          `[votes] Upsert failed billNo=${row.BILL_NO} legis=${row.MONA_CD}:`,
+          `[votes] Batch insert failed for bill ${event.BILL_ID}:`,
           (err as Error).message,
         );
       }
@@ -336,13 +345,13 @@ export async function ingestVotes(assemblyAge: number): Promise<void> {
     if (billIndex % 50 === 0 || billIndex === events.length) {
       console.log(
         `[votes] Progress: ${billIndex}/${events.length} bills, ` +
-          `${totalUpserted} upserted, ${totalSkipped} skipped`,
+          `${totalInserted} inserted, ${totalSkipped} skipped`,
       );
     }
   }
 
   console.log(
-    `[votes] Done. Upserted ${totalUpserted} vote records ` +
+    `[votes] Done. Inserted ${totalInserted} vote records ` +
       `(skipped ${totalSkipped}) across ${events.length} bills.`,
   );
 }
