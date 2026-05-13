@@ -34,6 +34,7 @@ import {
   ingestSettlementStructure,
 } from "./settlement.js";
 import { ingestLegislatorMilitary } from "./legislatorMilitary.js";
+import { ingestLegislatorPhotos } from "./legislatorPhotos.js";
 
 type Step =
   | "all"
@@ -68,7 +69,9 @@ type Step =
   | "settlement-reports"
   | "reports"
   | "military"
-  | "legislator-military";
+  | "legislator-military"
+  | "legislator-photos"
+  | "photos";
 
 const VALID_STEPS: Step[] = [
   "all",
@@ -104,6 +107,8 @@ const VALID_STEPS: Step[] = [
   "reports",
   "military",
   "legislator-military",
+  "legislator-photos",
+  "photos",
 ];
 
 function printUsageAndExit(code = 1): never {
@@ -140,7 +145,9 @@ function printUsageAndExit(code = 1): never {
       "  tsx src/ingest/index.ts settlement-reports [fiscalYear]\n" +
       "  tsx src/ingest/index.ts reports [fiscalYear]\n" +
       "  tsx src/ingest/index.ts military\n" +
-      "  tsx src/ingest/index.ts legislator-military",
+      "  tsx src/ingest/index.ts legislator-military\n" +
+      "  tsx src/ingest/index.ts legislator-photos\n" +
+      "  tsx src/ingest/index.ts photos",
   );
   process.exit(code);
 }
@@ -296,6 +303,11 @@ async function runStep(step: Exclude<Step, "all">, args: string[]): Promise<void
     case "military":
     case "legislator-military": {
       await ingestLegislatorMilitary();
+      return;
+    }
+    case "legislator-photos":
+    case "photos": {
+      await ingestLegislatorPhotos();
       return;
     }
   }
