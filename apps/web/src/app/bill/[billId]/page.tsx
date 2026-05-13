@@ -129,46 +129,73 @@ export default async function BillPage({ params }: BillPageProps) {
             </>
           )}
         </dl>
-        {bill.linkUrl && (
-          <a
-            href={bill.linkUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 hover:underline"
-          >
-            의안 원문 보기
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-        )}
+        <a
+          href={bill.linkUrl ?? `https://likms.assembly.go.kr/bill/billDetail.do?billId=${bill.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+        >
+          의안 원문 보기
+          <ExternalLink className="w-3.5 h-3.5" />
+        </a>
       </div>
 
       {/* Proposers */}
       <div className="bg-white rounded-xl border border-slate-200 p-6">
         <h2 className="text-xl font-semibold text-slate-900 mb-4">발의자</h2>
-        {primary.length > 0 && (
-          <div className="mb-4">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">대표발의자</p>
-            <div className="flex flex-col gap-2">
-              {primary.map((p) => (
-                <ProposerCard key={p.legislatorId} proposer={p} />
-              ))}
-            </div>
-          </div>
-        )}
-        {co.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
-              공동발의자 ({co.length}명)
+        {bill.proposers.length > 0 ? (
+          <>
+            {primary.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">대표발의자</p>
+                <div className="flex flex-col gap-2">
+                  {primary.map((p) => (
+                    <ProposerCard key={p.legislatorId} proposer={p} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {co.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
+                  공동발의자 ({co.length}명)
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {co.map((p) => (
+                    <ProposerCard key={p.legislatorId} proposer={p} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="space-y-4">
+            {bill.primaryProposerNameText && (
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">대표발의</p>
+                <p className="text-sm text-slate-800">{bill.primaryProposerNameText}</p>
+              </div>
+            )}
+            {bill.coProposerNamesText.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
+                  공동발의자 {bill.coProposerNamesText.length}명
+                </p>
+                <p className="text-sm text-slate-700 leading-relaxed">
+                  {bill.coProposerNamesText.slice(0, 20).join(", ")}
+                  {bill.coProposerNamesText.length > 20 && (
+                    <span className="text-slate-400"> 외 {bill.coProposerNamesText.length - 20}명</span>
+                  )}
+                </p>
+              </div>
+            )}
+            {!bill.primaryProposerNameText && bill.coProposerNamesText.length === 0 && (
+              <p className="text-sm text-slate-400">발의자 정보가 없습니다.</p>
+            )}
+            <p className="text-xs text-slate-400 italic">
+              발의자 매칭 처리 중 — 의원 페이지 연결은 추후 가능
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {co.map((p) => (
-                <ProposerCard key={p.legislatorId} proposer={p} />
-              ))}
-            </div>
           </div>
-        )}
-        {bill.proposers.length === 0 && (
-          <p className="text-sm text-slate-400">발의자 정보가 없습니다.</p>
         )}
       </div>
 

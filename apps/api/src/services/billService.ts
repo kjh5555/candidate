@@ -66,6 +66,22 @@ export async function getBillDetail(
     }
   }
 
+  const linkUrl =
+    bill.linkUrl && bill.linkUrl.trim()
+      ? bill.linkUrl
+      : `https://likms.assembly.go.kr/bill/billDetail.do?billId=${bill.id}`;
+
+  const coProposerNamesText = bill.coProposerNamesRaw
+    ? [
+        ...new Set(
+          bill.coProposerNamesRaw
+            .split(/[,，、]/)
+            .map((n) => n.trim())
+            .filter(Boolean),
+        ),
+      ]
+    : [];
+
   return {
     id: bill.id,
     billNo: bill.billNo,
@@ -74,10 +90,12 @@ export async function getBillDetail(
     committee: bill.committee,
     result: bill.result,
     assemblyAge: bill.assemblyAge,
-    linkUrl: bill.linkUrl,
+    linkUrl,
     coProposerNamesRaw: bill.coProposerNamesRaw,
     proposerMatchStatus: bill.proposerMatchStatus,
     proposers,
     votesSummary,
+    primaryProposerNameText: bill.primaryProposerName ?? null,
+    coProposerNamesText,
   };
 }

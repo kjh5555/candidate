@@ -168,6 +168,8 @@ export interface BillDetailDTO {
   proposerMatchStatus: string | null;
   proposers: ProposerDTO[];
   votesSummary: VotesSummaryDTO;
+  primaryProposerNameText: string | null;
+  coProposerNamesText: string[];
 }
 
 export interface BillsResponseDTO {
