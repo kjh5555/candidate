@@ -28,6 +28,7 @@ import {
   ingestMetropolitanBudget,
   ingestNationalBudget,
 } from "./budget.js";
+import { ingestSettlement } from "./settlement.js";
 import { ingestLegislatorMilitary } from "./legislatorMilitary.js";
 
 type Step =
@@ -56,6 +57,8 @@ type Step =
   | "budget"
   | "budget-national"
   | "budget-metropolitan"
+  | "settlement"
+  | "budget-settlement"
   | "military"
   | "legislator-military";
 
@@ -85,6 +88,8 @@ const VALID_STEPS: Step[] = [
   "budget",
   "budget-national",
   "budget-metropolitan",
+  "settlement",
+  "budget-settlement",
   "military",
   "legislator-military",
 ];
@@ -116,6 +121,8 @@ function printUsageAndExit(code = 1): never {
       "  tsx src/ingest/index.ts budget [fiscalYear]\n" +
       "  tsx src/ingest/index.ts budget-national [fiscalYear]\n" +
       "  tsx src/ingest/index.ts budget-metropolitan [fiscalYear]\n" +
+      "  tsx src/ingest/index.ts settlement [fiscalYear]\n" +
+      "  tsx src/ingest/index.ts budget-settlement [fiscalYear]\n" +
       "  tsx src/ingest/index.ts military\n" +
       "  tsx src/ingest/index.ts legislator-military",
   );
@@ -195,6 +202,20 @@ async function runStep(step: Exclude<Step, "all">, args: string[]): Promise<void
     case "budget-metropolitan": {
       const year = parseFiscalYear(args[0]);
       await ingestMetropolitanBudget(year);
+      return;
+    }
+    case "settlement":
+    case "budget-settlement": {
+      // Settlement is published year-end, so default to previous year
+      // when no fiscalYear is provided.
+      const raw = args[0];
+      let year: number;
+      if (raw && raw.trim() !== "") {
+        year = parseFiscalYear(raw);
+      } else {
+        year = new Date().getFullYear() - 1;
+      }
+      await ingestSettlement(year);
       return;
     }
     case "resolve": {

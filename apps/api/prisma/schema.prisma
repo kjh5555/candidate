@@ -62,6 +62,11 @@ enum BudgetLevel {
   METROPOLITAN // 광역 (시·도)
 }
 
+enum SettlementLevel {
+  METROPOLITAN // 광역 단체 (시·도본청)
+  BASIC // 기초 단체 (시·군·구)
+}
+
 model ElectoralDistrict {
   id          String        @id @default(cuid())
   level       DistrictLevel
@@ -369,4 +374,47 @@ model BudgetSummary {
   @@unique([level, fiscalYear, groupKey, groupValue])
   @@index([level, fiscalYear])
   @@index([groupKey])
+}
+
+// ─── Budget Settlement (세출결산 — 실제 지출) ──────────────────────
+//
+// Source: 지방재정365 (lofin365.go.kr) — endpoint ABIFB.
+// Distinct from BudgetCategory because semantics differ:
+//   - BudgetCategory = 예산편성 (planned / appropriation)
+//   - BudgetSettlement = 세출결산 (actual expenditure)
+//
+// Includes BOTH 광역 (시·도본청) AND 기초 (시·군·구) data.
+
+model BudgetSettlement {
+  id         String          @id @default(cuid())
+  fiscalYear Int
+  level      SettlementLevel
+  sido       String // 정식 명칭 (e.g. "서울특별시", "경기도")
+  unitCode   String // laf_cd
+  unitName   String // laf_hg_nm (e.g. "서울본청", "서울종로구")
+  field      String // 분야
+  fieldCode  String?
+  sector     String? // 부문
+  sectorCode String?
+  amount     BigInt // 세출결산액 (원)
+  rgstrDt    DateTime?
+  createdAt  DateTime        @default(now())
+
+  @@index([fiscalYear, level])
+  @@index([sido])
+  @@index([unitCode])
+  @@index([field])
+}
+
+model SettlementSummary {
+  id          String          @id @default(cuid())
+  fiscalYear  Int
+  level       SettlementLevel
+  groupKey    String // "sido" | "unit" | "field" | "sido-field" | "unit-field"
+  groupValue  String
+  totalAmount BigInt
+  createdAt   DateTime        @default(now())
+
+  @@unique([fiscalYear, level, groupKey, groupValue])
+  @@index([fiscalYear, level])
 }

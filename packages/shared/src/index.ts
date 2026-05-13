@@ -299,6 +299,42 @@ export interface BudgetYearsResponseDTO {
   years: number[];
 }
 
+// ── Settlement (세출결산 — 실제 지출) ──────────────────────────
+
+export type SettlementLevel = "METROPOLITAN" | "BASIC";
+
+export interface SettlementItemDTO {
+  key: string; // sido | unitCode | field, depending on groupBy
+  label?: string; // 표시명 (e.g. unitName when key=unitCode)
+  amount: string; // BigInt serialized as string (원)
+  percent: number; // 0-100, 2 decimals
+}
+
+export interface SettlementBreakdownDTO {
+  fiscalYear: number;
+  level: SettlementLevel;
+  groupBy: "sido" | "unit" | "field" | "sido-field" | "unit-field";
+  scope?: string; // optional context — e.g. selected sido or unitCode
+  items: SettlementItemDTO[];
+  totalAmount: string; // BigInt serialized as string
+}
+
+export interface SettlementUnitDTO {
+  unitCode: string;
+  unitName: string;
+  sido: string;
+  level: SettlementLevel;
+  totalAmount: string;
+}
+
+export interface SettlementUnitsResponseDTO {
+  units: SettlementUnitDTO[];
+}
+
+export interface SettlementYearsResponseDTO {
+  years: number[];
+}
+
 // ── Misc ──────────────────────────────────────────────────────
 
 export interface ApiErrorDTO {

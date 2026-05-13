@@ -1,19 +1,28 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   getBudgetYears,
   getBudgetByField,
   getBudgetByMinistry,
   getBudgetBySido,
   getBudgetSidoDetail,
+  getSettlementYears,
+  getSettlementBySido,
+  getSettlementSidoDetail,
+  getSettlementUnits,
+  getSettlementUnitDetail,
 } from "@/lib/api";
-import type { BudgetBreakdownDTO } from "@repo/shared";
+import type {
+  BudgetBreakdownDTO,
+  SettlementBreakdownDTO,
+  SettlementUnitDTO,
+} from "@repo/shared";
 import { BudgetChart } from "@/components/budget/BudgetChart";
 import { Amount } from "@/components/budget/AmountFormatter";
 import { EmptyState } from "@/components/EmptyState";
 
-type BudgetTab = "national" | "metropolitan";
+type BudgetTab = "national" | "metropolitan" | "settlement";
 
 const SIDO_LIST = [
   "서울특별시", "부산광역시", "대구광역시", "인천광역시",
@@ -21,6 +30,8 @@ const SIDO_LIST = [
   "경기도", "강원특별자치도", "충청북도", "충청남도",
   "전북특별자치도", "전라남도", "경상북도", "경상남도", "제주특별자치도",
 ];
+
+const ALL_UNITS_KEY = "__ALL__"; // sentinel value for "전체 (광역 본청)"
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -77,6 +88,7 @@ export default function BudgetPage() {
 
   const [nationalYears, setNationalYears] = useState<number[]>([]);
   const [metroYears, setMetroYears] = useState<number[]>([]);
+  const [settlementYears, setSettlementYears] = useState<number[]>([]);
   const [yearsLoading, setYearsLoading] = useState(true);
 
   const [natYear, setNatYear] = useState<number | null>(null);
@@ -90,16 +102,29 @@ export default function BudgetPage() {
   const [allSidoData, setAllSidoData] = useState<BudgetBreakdownDTO | null>(null);
   const [metLoading, setMetLoading] = useState(false);
 
+  // ── Settlement tab state ───────────────────────────────────────────
+  const [setYear, setSetYear] = useState<number | null>(null);
+  const [setSido, setSetSido] = useState<string>(SIDO_LIST[0]);
+  const [setUnitCode, setSetUnitCode] = useState<string>(ALL_UNITS_KEY);
+  const [setUnits, setSetUnits] = useState<SettlementUnitDTO[]>([]);
+  const [setSidoData, setSetSidoData] = useState<SettlementBreakdownDTO | null>(null);
+  const [setBudgetCompareData, setSetBudgetCompareData] = useState<BudgetBreakdownDTO | null>(null);
+  const [setUnitData, setSetUnitData] = useState<SettlementBreakdownDTO | null>(null);
+  const [setLoading, setSetLoading] = useState(false);
+
   useEffect(() => {
     setYearsLoading(true);
     Promise.all([
       getBudgetYears("NATIONAL").catch(() => ({ years: [] as number[] })),
       getBudgetYears("METROPOLITAN").catch(() => ({ years: [] as number[] })),
-    ]).then(([nat, met]) => {
+      getSettlementYears().catch(() => ({ years: [] as number[] })),
+    ]).then(([nat, met, settle]) => {
       setNationalYears(nat.years);
       setMetroYears(met.years);
+      setSettlementYears(settle.years);
       if (nat.years.length > 0) setNatYear(nat.years[0]);
       if (met.years.length > 0) setMetYear(met.years[0]);
+      if (settle.years.length > 0) setSetYear(settle.years[0]);
       setYearsLoading(false);
     });
   }, []);
@@ -144,6 +169,95 @@ export default function BudgetPage() {
     if (metYear !== null) loadMetro(metYear, selectedSido);
   }, [metYear, selectedSido, loadMetro]);
 
+  // ── Settlement effects ─────────────────────────────────────────────
+
+  // Load list of 자치단체 (시·군·구 + 본청) for the selected sido & year
+  useEffect(() => {
+    if (setYear === null) return;
+    let cancelled = false;
+    setSetUnits([]);
+    getSettlementUnits(setYear, setSido)
+      .then((res) => {
+        if (cancelled) return;
+        setSetUnits(res.units);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSetUnits([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [setYear, setSido]);
+
+  // Reset unit selection when sido or year changes
+  useEffect(() => {
+    setSetUnitCode(ALL_UNITS_KEY);
+  }, [setSido, setYear]);
+
+  const loadSettlement = useCallback(
+    async (year: number, sido: string, unitCode: string) => {
+      setSetLoading(true);
+      setSetSidoData(null);
+      setSetBudgetCompareData(null);
+      setSetUnitData(null);
+      try {
+        if (unitCode === ALL_UNITS_KEY) {
+          // 시·도 본청 결산 + (가능하면) 같은 시·도의 광역 예산편성 비교
+          const [sidoData, budgetCompare] = await Promise.all([
+            getSettlementSidoDetail(sido, year).catch(() => null),
+            getBudgetSidoDetail(sido, year).catch(() => null),
+          ]);
+          setSetSidoData(sidoData);
+          setSetBudgetCompareData(budgetCompare);
+        } else {
+          // 자치단체 (시·군·구 또는 본청) 단위 결산
+          const unitData = await getSettlementUnitDetail(unitCode, year).catch(
+            () => null,
+          );
+          setSetUnitData(unitData);
+        }
+      } finally {
+        setSetLoading(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (setYear !== null) loadSettlement(setYear, setSido, setUnitCode);
+  }, [setYear, setSido, setUnitCode, loadSettlement]);
+
+  // Build the comparison rows: 분야 -> (예산편성, 결산)
+  const sidoCompareRows = useMemo(() => {
+    if (!setSidoData) return [];
+    const budgetMap = new Map<string, bigint>();
+    if (setBudgetCompareData) {
+      for (const it of setBudgetCompareData.items) {
+        budgetMap.set(it.key, BigInt(it.amount));
+      }
+    }
+    return setSidoData.items.map((item) => {
+      const settle = BigInt(item.amount);
+      const budget = budgetMap.get(item.key) ?? null;
+      const exec =
+        budget && budget > 0n
+          ? Math.round((Number(settle) * 1000) / Number(budget)) / 10
+          : null;
+      return {
+        field: item.key,
+        settle,
+        budget,
+        executionPct: exec,
+      };
+    });
+  }, [setSidoData, setBudgetCompareData]);
+
+  const selectedUnit = useMemo(
+    () => setUnits.find((u) => u.unitCode === setUnitCode) ?? null,
+    [setUnits, setUnitCode],
+  );
+
   if (yearsLoading) {
     return (
       <div className="flex items-center justify-center min-h-[40vh] text-slate-400 text-sm">
@@ -152,7 +266,10 @@ export default function BudgetPage() {
     );
   }
 
-  const noData = nationalYears.length === 0 && metroYears.length === 0;
+  const noData =
+    nationalYears.length === 0 &&
+    metroYears.length === 0 &&
+    settlementYears.length === 0;
 
   return (
     <div className="flex flex-col gap-8">
@@ -160,7 +277,7 @@ export default function BudgetPage() {
       <div>
         <h1 className="text-3xl font-bold text-slate-900 mb-2">예산 정보</h1>
         <p className="text-slate-500 text-base">
-          국가와 시·도 예산이 어디에 얼마나 쓰였는지 확인하세요
+          국가와 지자체 예산이 어디에 얼마나 쓰였는지 확인하세요
         </p>
       </div>
 
@@ -179,7 +296,7 @@ export default function BudgetPage() {
               aria-label="예산 구분"
               className="inline-flex bg-slate-100 p-1 rounded-xl self-start"
             >
-              {(["national", "metropolitan"] as const).map((t) => (
+              {(["national", "metropolitan", "settlement"] as const).map((t) => (
                 <button
                   key={t}
                   role="tab"
@@ -191,7 +308,11 @@ export default function BudgetPage() {
                       : "text-slate-500 hover:text-slate-700"
                   }`}
                 >
-                  {t === "national" ? "국가 예산" : "광역 예산"}
+                  {t === "national"
+                    ? "국가 예산"
+                    : t === "metropolitan"
+                      ? "광역 예산"
+                      : "지자체 결산"}
                 </button>
               ))}
             </div>
@@ -217,6 +338,18 @@ export default function BudgetPage() {
                 onChange={(v) => setMetYear(Number(v))}
               >
                 {metroYears.map((y) => (
+                  <option key={y} value={y}>{y}년도</option>
+                ))}
+              </SelectField>
+            )}
+            {tab === "settlement" && settlementYears.length > 0 && (
+              <SelectField
+                id="set-year"
+                label="연도"
+                value={setYear ?? ""}
+                onChange={(v) => setSetYear(Number(v))}
+              >
+                {settlementYears.map((y) => (
                   <option key={y} value={y}>{y}년도</option>
                 ))}
               </SelectField>
@@ -321,6 +454,176 @@ export default function BudgetPage() {
                   </div>
 
                   <SourceNote text="출처: 행정안전부 지방재정365" />
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Settlement tab */}
+          {tab === "settlement" && (
+            <div className="flex flex-col gap-8">
+              {settlementYears.length === 0 ? (
+                <EmptyState message="결산 데이터가 아직 적재되지 않았습니다." />
+              ) : (
+                <>
+                  {/* sido + unit dropdowns */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <SelectField
+                      id="set-sido-select"
+                      label="시·도"
+                      value={setSido}
+                      onChange={(v) => setSetSido(v)}
+                    >
+                      {SIDO_LIST.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </SelectField>
+
+                    <SelectField
+                      id="set-unit-select"
+                      label="시·군·구"
+                      value={setUnitCode}
+                      onChange={(v) => setSetUnitCode(v)}
+                    >
+                      <option value={ALL_UNITS_KEY}>전체 (시·도 본청)</option>
+                      {setUnits
+                        .filter((u) => u.level === "BASIC")
+                        .map((u) => (
+                          <option key={u.unitCode} value={u.unitCode}>
+                            {u.unitName}
+                          </option>
+                        ))}
+                    </SelectField>
+                  </div>
+
+                  {setLoading ? (
+                    <LoadingBar />
+                  ) : setUnitCode === ALL_UNITS_KEY ? (
+                    // ── 시·도 본청 결산 view ─────────────────────────
+                    <>
+                      {setSidoData && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="bg-amber-50 rounded-xl p-5 border border-amber-100">
+                            <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">
+                              {setYear}년 {setSido} 본청 총결산
+                            </p>
+                            <p className="text-3xl font-bold text-amber-800">
+                              <Amount amount={setSidoData.totalAmount} unit="조" />
+                            </p>
+                          </div>
+                          {setBudgetCompareData && (
+                            <div className="bg-emerald-50 rounded-xl p-5 border border-emerald-100">
+                              <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-1">
+                                {setYear}년 {setSido} 예산편성 (비교)
+                              </p>
+                              <p className="text-3xl font-bold text-emerald-800">
+                                <Amount
+                                  amount={setBudgetCompareData.totalAmount}
+                                  unit="조"
+                                />
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="bg-white rounded-xl border border-slate-200 p-6">
+                        <SectionTitle>{setSido} 본청 분야별 결산</SectionTitle>
+                        <p className="text-sm text-slate-400 mb-4">실제 지출된 금액 (세출결산액)</p>
+                        {setSidoData && setSidoData.items.length > 0 ? (
+                          <BudgetChart data={setSidoData.items} valueLabel="결산" />
+                        ) : (
+                          <EmptyState message="결산 데이터가 없습니다." />
+                        )}
+                      </div>
+
+                      {sidoCompareRows.length > 0 && setBudgetCompareData && (
+                        <div className="bg-white rounded-xl border border-slate-200 p-6 overflow-x-auto">
+                          <SectionTitle>예산편성 vs 결산 (분야별)</SectionTitle>
+                          <p className="text-sm text-slate-400 mb-4">
+                            편성된 예산 대비 실제 집행률
+                          </p>
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-slate-200 text-slate-500">
+                                <th className="text-left py-2 px-2 font-medium">분야</th>
+                                <th className="text-right py-2 px-2 font-medium">예산편성</th>
+                                <th className="text-right py-2 px-2 font-medium">결산</th>
+                                <th className="text-right py-2 px-2 font-medium">집행률</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {sidoCompareRows.map((row) => (
+                                <tr
+                                  key={row.field}
+                                  className="border-b border-slate-100 last:border-0"
+                                >
+                                  <td className="py-2 px-2 text-slate-700">{row.field}</td>
+                                  <td className="py-2 px-2 text-right text-slate-600">
+                                    {row.budget !== null ? (
+                                      <Amount amount={row.budget.toString()} />
+                                    ) : (
+                                      <span className="text-slate-300">—</span>
+                                    )}
+                                  </td>
+                                  <td className="py-2 px-2 text-right text-slate-900 font-medium">
+                                    <Amount amount={row.settle.toString()} />
+                                  </td>
+                                  <td className="py-2 px-2 text-right">
+                                    {row.executionPct !== null ? (
+                                      <span
+                                        className={`font-medium ${
+                                          row.executionPct >= 100
+                                            ? "text-red-600"
+                                            : row.executionPct >= 80
+                                              ? "text-emerald-600"
+                                              : "text-amber-600"
+                                        }`}
+                                      >
+                                        {row.executionPct.toFixed(1)}%
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-300">—</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    // ── 시·군·구 결산 view ─────────────────────────
+                    <>
+                      {setUnitData && (
+                        <div className="bg-amber-50 rounded-xl p-5 border border-amber-100">
+                          <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">
+                            {setYear}년 {selectedUnit?.unitName ?? "자치단체"} 총결산
+                          </p>
+                          <p className="text-3xl font-bold text-amber-800">
+                            <Amount amount={setUnitData.totalAmount} />
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="bg-white rounded-xl border border-slate-200 p-6">
+                        <SectionTitle>
+                          {selectedUnit?.unitName ?? "자치단체"} 분야별 결산
+                        </SectionTitle>
+                        <p className="text-sm text-slate-400 mb-4">
+                          분야별 실제 지출 금액
+                        </p>
+                        {setUnitData && setUnitData.items.length > 0 ? (
+                          <BudgetChart data={setUnitData.items} valueLabel="결산" />
+                        ) : (
+                          <EmptyState message="해당 자치단체 결산 데이터가 없습니다." />
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  <SourceNote text="출처: 지방재정365 (lofin365.go.kr)" />
                 </>
               )}
             </div>

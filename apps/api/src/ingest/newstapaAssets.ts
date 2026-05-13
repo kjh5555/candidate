@@ -605,6 +605,11 @@ function parseBelongBasicCouncilName(belong: string): string | null {
   return rest;
 }
 
+/** Sanitize a newstapa ID for use in a Legislator PK: replace non-alphanumeric chars with _ */
+function sanitizeIdPart(raw: string): string {
+  return raw.replace(/[^a-zA-Z0-9]/g, "_");
+}
+
 export async function ingestBasicAssetsFromNewstapa(): Promise<void> {
   console.log("[basic-assets] 기초의원 재산 데이터 수집 시작 (뉴스타파)");
   console.log("[basic-assets] 1단계: DB에서 기초의회 목록 구성 중…");
@@ -613,13 +618,14 @@ export async function ingestBasicAssetsFromNewstapa(): Promise<void> {
   console.log(`[basic-assets] 기초의회 수: ${councils.length}`);
 
   const NOW = new Date();
-  let totalMatched = 0;
-  let totalUnmatched = 0;
+  let totalUpdated = 0;
+  let totalCreated = 0;
+  let totalTrulyUnmatched = 0;
   let totalParseFailed = 0;
   let totalFetched = 0;
   let totalProcessed = 0;
 
-  const unmatchedSamples: Array<{ name: string; region: string; councilName: string }> = [];
+  const trulyUnmatchedSamples: Array<{ name: string; region: string; councilName: string }> = [];
   const matchedSamples: Array<{ name: string; region: string; year: number; total: bigint }> = [];
 
   for (let ci = 0; ci < councils.length; ci++) {
@@ -650,17 +656,91 @@ export async function ingestBasicAssetsFromNewstapa(): Promise<void> {
       });
 
       if (candidates.length === 0) {
-        totalUnmatched++;
-        if (unmatchedSamples.length < 10) unmatchedSamples.push({ name, region, councilName });
+        // Option A: create a new Legislator row if we have reliable name+region+councilName
+        if (!name || !region || !councilName) {
+          totalTrulyUnmatched++;
+          if (trulyUnmatchedSamples.length < 10) {
+            trulyUnmatchedSamples.push({ name, region, councilName });
+          }
+          continue;
+        }
+
+        // Detail fetch for new row
+        totalFetched++;
+        let breakdown: Awaited<ReturnType<typeof fetchPersonBreakdown>> = null;
+        try {
+          breakdown = await fetchPersonBreakdown(hit.uniqueId);
+        } catch (err) {
+          console.warn(
+            `[basic-assets] 상세 페이지 fetch 실패 (신규): ${name} (${hit.uniqueId}) — ${(err as Error).message}`,
+          );
+        }
+
+        if (!breakdown) {
+          totalParseFailed++;
+          await sleep(DETAIL_DELAY_MS);
+          continue;
+        }
+
+        const totalManwon = cheonwonToManwon(breakdown.priceNowCheonwon);
+        const url = `${BASE}/people/${hit.uniqueId}`;
+        const newId = `BASIC-NEWSTAPA-${sanitizeIdPart(hit.uniqueId)}`;
+
+        try {
+          await prisma.legislator.create({
+            data: {
+              id: newId,
+              level: "BASIC",
+              name,
+              region,
+              councilName,
+              assemblyAge: 9,
+              rawSourceJson: hit as unknown as Parameters<typeof prisma.legislator.create>[0]["data"]["rawSourceJson"],
+              lastSyncedAt: NOW,
+              assetTotalManwon: totalManwon,
+              assetRealEstateManwon: cheonwonToManwon(breakdown.totals.realEstate),
+              assetCashManwon: cheonwonToManwon(breakdown.totals.cash),
+              assetSecuritiesManwon: cheonwonToManwon(breakdown.totals.securities),
+              assetDebtManwon: cheonwonToManwon(breakdown.totals.debt),
+              assetReportYear: breakdown.year,
+              assetSourceName: SOURCE_NAME,
+              assetSourceUrl: url,
+              assetLastSyncedAt: NOW,
+            },
+          });
+          totalCreated++;
+          console.log(`[basic-assets] 신규 생성: ${name} (${region} / ${councilName}) id=${newId}`);
+        } catch (err: unknown) {
+          // Unique constraint violation = already exists from a previous run — treat as processed
+          const msg = (err as Error).message ?? "";
+          if (msg.includes("Unique constraint") || msg.includes("unique constraint")) {
+            console.warn(`[basic-assets] 이미 존재 (중복 PK 무시): ${newId}`);
+          } else {
+            console.warn(`[basic-assets] 신규 생성 실패: ${name} — ${msg}`);
+          }
+        }
+
+        totalProcessed++;
+        if (totalProcessed % 100 === 0) {
+          console.log(
+            `[basic-assets] 진행: ${totalProcessed}명 처리 완료 ` +
+              `(matched=${totalUpdated + totalCreated}, updated=${totalUpdated}, created=${totalCreated}, ` +
+              `parseFail=${totalParseFailed}, unmatched=${totalTrulyUnmatched}) ` +
+              `[의회 ${ci + 1}/${councils.length}]`,
+          );
+        }
+
+        await sleep(DETAIL_DELAY_MS);
         continue;
       }
+
       if (candidates.length > 1) {
         console.warn(
           `[basic-assets] 동명이인 다중 매칭: ${name} (${region} ${councilName}) — ${candidates.length}건. 모두 업데이트.`,
         );
       }
 
-      // Detail fetch
+      // Detail fetch for existing rows
       totalFetched++;
       let breakdown: Awaited<ReturnType<typeof fetchPersonBreakdown>> = null;
       try {
@@ -696,7 +776,7 @@ export async function ingestBasicAssetsFromNewstapa(): Promise<void> {
           },
         });
       }
-      totalMatched++;
+      totalUpdated++;
       if (matchedSamples.length < 3) {
         matchedSamples.push({ name, region, year: breakdown.year, total: totalManwon });
       }
@@ -705,7 +785,8 @@ export async function ingestBasicAssetsFromNewstapa(): Promise<void> {
       if (totalProcessed % 100 === 0) {
         console.log(
           `[basic-assets] 진행: ${totalProcessed}명 처리 완료 ` +
-            `(matched=${totalMatched}, parseFail=${totalParseFailed}, unmatched=${totalUnmatched}) ` +
+            `(matched=${totalUpdated + totalCreated}, updated=${totalUpdated}, created=${totalCreated}, ` +
+            `parseFail=${totalParseFailed}, unmatched=${totalTrulyUnmatched}) ` +
             `[의회 ${ci + 1}/${councils.length}]`,
         );
       }
@@ -717,18 +798,20 @@ export async function ingestBasicAssetsFromNewstapa(): Promise<void> {
   console.log("\n[basic-assets] 완료");
   console.log(`  - 기초의회 수:                     ${councils.length}`);
   console.log(`  - 상세 페이지 fetch 시도:          ${totalFetched}`);
-  console.log(`  - 매칭 성공 (DB 업데이트):         ${totalMatched}`);
+  console.log(`  - 매칭 성공 합계:                  ${totalUpdated + totalCreated}`);
+  console.log(`    - 기존 DB 업데이트:              ${totalUpdated}`);
+  console.log(`    - 신규 행 생성:                  ${totalCreated}`);
   console.log(`  - 파싱/네트워크 실패:              ${totalParseFailed}`);
-  console.log(`  - DB 미매칭 (이름+region+council): ${totalUnmatched}`);
+  console.log(`  - 진짜 미매칭 (데이터 불충분):    ${totalTrulyUnmatched}`);
 
-  if (unmatchedSamples.length > 0) {
-    console.log("[basic-assets] 미매칭 샘플 (최대 10):");
-    for (const u of unmatchedSamples) {
+  if (trulyUnmatchedSamples.length > 0) {
+    console.log("[basic-assets] 진짜 미매칭 샘플 (최대 10):");
+    for (const u of trulyUnmatchedSamples) {
       console.log(`    - ${u.name} (${u.region} / ${u.councilName})`);
     }
   }
   if (matchedSamples.length > 0) {
-    console.log("[basic-assets] 매칭 샘플 (참고):");
+    console.log("[basic-assets] 업데이트 샘플 (참고):");
     for (const s of matchedSamples) {
       console.log(`    - ${s.name} (${s.region}) ${s.year}년 총액 ${s.total.toString()}만원`);
     }

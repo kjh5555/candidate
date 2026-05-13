@@ -14,6 +14,9 @@ import type {
   BudgetBreakdownDTO,
   BudgetYearsResponseDTO,
   BasicRegionsResponseDTO,
+  SettlementBreakdownDTO,
+  SettlementUnitsResponseDTO,
+  SettlementYearsResponseDTO,
 } from "@repo/shared";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -187,5 +190,49 @@ export function getBudgetSidoDetail(
 ): Promise<BudgetBreakdownDTO> {
   return apiFetch<BudgetBreakdownDTO>(
     `/api/budget/metropolitan/sido/${encodeURIComponent(sido)}?year=${encodeURIComponent(String(year))}`
+  );
+}
+
+// ── Settlement (세출결산 — 실제 지출) ─────────────────────────
+
+export function getSettlementYears(): Promise<SettlementYearsResponseDTO> {
+  return apiFetch<SettlementYearsResponseDTO>(`/api/settlement/years`);
+}
+
+export function getSettlementBySido(
+  year: number
+): Promise<SettlementBreakdownDTO> {
+  return apiFetch<SettlementBreakdownDTO>(
+    `/api/settlement/by-sido?year=${encodeURIComponent(String(year))}`
+  );
+}
+
+export function getSettlementSidoDetail(
+  sido: string,
+  year: number
+): Promise<SettlementBreakdownDTO> {
+  return apiFetch<SettlementBreakdownDTO>(
+    `/api/settlement/sido/${encodeURIComponent(sido)}?year=${encodeURIComponent(String(year))}`
+  );
+}
+
+export function getSettlementUnits(
+  year: number,
+  sido?: string
+): Promise<SettlementUnitsResponseDTO> {
+  const query = new URLSearchParams();
+  query.set("year", String(year));
+  if (sido) query.set("sido", sido);
+  return apiFetch<SettlementUnitsResponseDTO>(
+    `/api/settlement/units?${query.toString()}`
+  );
+}
+
+export function getSettlementUnitDetail(
+  unitCode: string,
+  year: number
+): Promise<SettlementBreakdownDTO> {
+  return apiFetch<SettlementBreakdownDTO>(
+    `/api/settlement/unit/${encodeURIComponent(unitCode)}?year=${encodeURIComponent(String(year))}`
   );
 }
