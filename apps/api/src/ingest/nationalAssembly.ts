@@ -108,8 +108,14 @@ function mapVoteResult(raw: string | undefined): "YES" | "NO" | "ABSTAIN" | "ABS
 function parseDateTime(raw: string | undefined): Date | null {
   const t = emptyToNull(raw);
   if (!t) return null;
-  // Accept YYYY-MM-DD or YYYYMMDD
+  // Accept YYYY-MM-DD, YYYYMMDD, or YYYYMMDD HHMMSS (votes API returns 14-digit)
   const digits = t.replace(/\D/g, "");
+  if (digits.length >= 14) {
+    return new Date(
+      `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}T` +
+        `${digits.slice(8, 10)}:${digits.slice(10, 12)}:${digits.slice(12, 14)}Z`,
+    );
+  }
   if (digits.length === 8) {
     return new Date(
       `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}T00:00:00Z`,
