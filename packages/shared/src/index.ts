@@ -349,6 +349,22 @@ export interface SettlementFieldDetailDTO {
   field: string;
   items: SettlementFieldDetailItemDTO[];
   totalAmount: string; // BigInt serialized as string
+
+  // ── GGNSE 구조별 (정책사업/재무활동/행정운영) — aggregated per field ──
+  // Optional: present when ingestSettlementStructure has been run for this year.
+  policyBizAmount?: string;        // 정책사업비 (원, BigInt as string)
+  financeActivityAmount?: string;  // 재무활동비 (원)
+  adminOperAmount?: string;        // 행정운영경비 (원)
+}
+
+// 결산서 원본 PDF (lofin365 SETLK)
+export interface SettlementReportDTO {
+  fiscalYear: number;
+  unitName: string;
+  unitCode: string;
+  sido: string;
+  reportUrl: string;
+  reportName: string | null;
 }
 
 // ── Misc ──────────────────────────────────────────────────────

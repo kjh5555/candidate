@@ -6,6 +6,7 @@ import {
   getSettlementBySidoDetail,
   getSettlementByUnitDetail,
   getSettlementByFieldDetail,
+  getSettlementReport,
   getSettlementSidoFieldDetail,
   getSettlementUnits,
 } from "../services/settlementService.js";
@@ -36,6 +37,11 @@ interface UnitFieldParams {
 interface SidoFieldParams {
   sido: string;
   field: string;
+}
+
+interface ReportQuery {
+  year?: number;
+  unitCode?: string;
 }
 
 function parseYear(raw: number | undefined): number {
@@ -196,6 +202,35 @@ const settlementRoutes: FastifyPluginAsync = async (fastify) => {
         request.params.unitCode,
         request.params.field,
       );
+      return reply.send(data);
+    },
+  );
+
+  // GET /settlement/report?year=&unitCode=
+  fastify.get<{ Querystring: ReportQuery }>(
+    "/report",
+    {
+      schema: {
+        querystring: {
+          type: "object",
+          required: ["unitCode"],
+          properties: {
+            year: { type: "integer", minimum: 1900, maximum: 9999 },
+            unitCode: { type: "string", minLength: 1 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const year = parseYear(request.query.year);
+      const unitCode = request.query.unitCode ?? "";
+      const data = await getSettlementReport(year, unitCode);
+      if (!data) {
+        return reply.code(404).send({
+          error: "not_found",
+          message: `No settlement report for unitCode=${unitCode}, year=${year}`,
+        });
+      }
       return reply.send(data);
     },
   );

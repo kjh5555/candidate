@@ -16,11 +16,13 @@ import {
   getSettlementUnitDetail,
   getSettlementUnitFieldDetail,
   getSettlementSidoFieldDetail,
+  getSettlementReport,
 } from "@/lib/api";
 import type {
   BudgetBreakdownDTO,
   SettlementBreakdownDTO,
   SettlementFieldDetailDTO,
+  SettlementReportDTO,
   SettlementUnitDTO,
 } from "@repo/shared";
 import { BudgetChart } from "@/components/budget/BudgetChart";
@@ -55,6 +57,111 @@ function LoadingBar() {
 function SourceNote({ text }: { text: string }) {
   return (
     <p className="text-xs text-slate-400 mt-2 text-right">{text}</p>
+  );
+}
+
+function StructureBreakdownCard({
+  policy,
+  finance,
+  admin,
+}: {
+  policy: bigint;
+  finance: bigint;
+  admin: bigint;
+}) {
+  const total = policy + finance + admin;
+  if (total === 0n) return null;
+  const totalNum = Number(total);
+  const pct = (v: bigint) =>
+    Math.round((Number(v) * 1000) / totalNum) / 10;
+  const policyPct = pct(policy);
+  const financePct = pct(finance);
+  const adminPct = pct(admin);
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <h4 className="text-sm font-semibold text-slate-700 mb-3">
+        구조별 세출 (정책사업 · 재무활동 · 행정운영)
+      </h4>
+      {/* Stacked bar */}
+      <div className="flex h-3 rounded-full overflow-hidden bg-slate-100 mb-4">
+        {policyPct > 0 && (
+          <div
+            className="bg-blue-500 h-full"
+            style={{ width: `${policyPct}%` }}
+            title={`정책사업비 ${policyPct.toFixed(1)}%`}
+          />
+        )}
+        {financePct > 0 && (
+          <div
+            className="bg-emerald-500 h-full"
+            style={{ width: `${financePct}%` }}
+            title={`재무활동비 ${financePct.toFixed(1)}%`}
+          />
+        )}
+        {adminPct > 0 && (
+          <div
+            className="bg-amber-500 h-full"
+            style={{ width: `${adminPct}%` }}
+            title={`행정운영경비 ${adminPct.toFixed(1)}%`}
+          />
+        )}
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-blue-50 rounded-lg p-3">
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="w-2 h-2 bg-blue-500 rounded-full" />
+            <span className="text-xs text-slate-500">정책사업비</span>
+          </div>
+          <div className="text-base font-bold text-blue-800">
+            <Amount amount={policy.toString()} />
+          </div>
+          <div className="text-xs text-blue-600 mt-0.5">
+            {policyPct.toFixed(1)}%
+          </div>
+        </div>
+        <div className="bg-emerald-50 rounded-lg p-3">
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="w-2 h-2 bg-emerald-500 rounded-full" />
+            <span className="text-xs text-slate-500">재무활동비</span>
+          </div>
+          <div className="text-base font-bold text-emerald-800">
+            <Amount amount={finance.toString()} />
+          </div>
+          <div className="text-xs text-emerald-600 mt-0.5">
+            {financePct.toFixed(1)}%
+          </div>
+        </div>
+        <div className="bg-amber-50 rounded-lg p-3">
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="w-2 h-2 bg-amber-500 rounded-full" />
+            <span className="text-xs text-slate-500">행정운영경비</span>
+          </div>
+          <div className="text-base font-bold text-amber-800">
+            <Amount amount={admin.toString()} />
+          </div>
+          <div className="text-xs text-amber-600 mt-0.5">
+            {adminPct.toFixed(1)}%
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReportLink({ report }: { report: SettlementReportDTO }) {
+  return (
+    <a
+      href={report.reportUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors"
+    >
+      <span>📄</span>
+      <span className="font-medium">
+        {report.reportName ?? "원본 결산서"} PDF →
+      </span>
+    </a>
   );
 }
 
@@ -127,6 +234,9 @@ function BudgetPageInner() {
   const [fieldDetailData, setFieldDetailData] =
     useState<SettlementFieldDetailDTO | null>(null);
   const [fieldDetailLoading, setFieldDetailLoading] = useState(false);
+
+  // ── Settlement report (PDF link) state ─────────────────────────────
+  const [reportData, setReportData] = useState<SettlementReportDTO | null>(null);
 
   useEffect(() => {
     setYearsLoading(true);
@@ -293,6 +403,27 @@ function BudgetPageInner() {
     setSelectedField(null);
     setFieldDetailData(null);
   }, [setSido, setUnitCode, setYear]);
+
+  // Load 결산서 PDF link when a specific unit (시·군·구 or 본청) is selected.
+  // For ALL_UNITS_KEY (시·도 합산 뷰) we don't fetch — there is no single PDF.
+  useEffect(() => {
+    if (setYear === null || setUnitCode === ALL_UNITS_KEY) {
+      setReportData(null);
+      return;
+    }
+    let cancelled = false;
+    setReportData(null);
+    getSettlementReport(setUnitCode, setYear)
+      .then((data) => {
+        if (!cancelled) setReportData(data);
+      })
+      .catch(() => {
+        if (!cancelled) setReportData(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [setUnitCode, setYear]);
 
   // Build the comparison rows: 분야 -> (예산편성, 결산)
   const sidoCompareRows = useMemo(() => {
@@ -646,6 +777,22 @@ function BudgetPageInner() {
                           <p className="text-sm text-slate-400 mb-4">
                             {setSido} 본청 · {setYear}년 세출결산 (부문별)
                           </p>
+
+                          {/* 구조 breakdown (정책사업/재무활동/행정운영) */}
+                          {fieldDetailData?.policyBizAmount &&
+                            fieldDetailData?.financeActivityAmount &&
+                            fieldDetailData?.adminOperAmount && (
+                              <div className="mb-5">
+                                <StructureBreakdownCard
+                                  policy={BigInt(fieldDetailData.policyBizAmount)}
+                                  finance={BigInt(
+                                    fieldDetailData.financeActivityAmount,
+                                  )}
+                                  admin={BigInt(fieldDetailData.adminOperAmount)}
+                                />
+                              </div>
+                            )}
+
                           {fieldDetailLoading ? (
                             <LoadingBar />
                           ) : fieldDetailData &&
@@ -790,6 +937,22 @@ function BudgetPageInner() {
                           <p className="text-sm text-slate-400 mb-4">
                             {selectedUnit?.unitName ?? "자치단체"} · {setYear}년 세출결산 (부문별)
                           </p>
+
+                          {/* 구조 breakdown (정책사업/재무활동/행정운영) */}
+                          {fieldDetailData?.policyBizAmount &&
+                            fieldDetailData?.financeActivityAmount &&
+                            fieldDetailData?.adminOperAmount && (
+                              <div className="mb-5">
+                                <StructureBreakdownCard
+                                  policy={BigInt(fieldDetailData.policyBizAmount)}
+                                  finance={BigInt(
+                                    fieldDetailData.financeActivityAmount,
+                                  )}
+                                  admin={BigInt(fieldDetailData.adminOperAmount)}
+                                />
+                              </div>
+                            )}
+
                           {fieldDetailLoading ? (
                             <LoadingBar />
                           ) : fieldDetailData &&
@@ -805,6 +968,14 @@ function BudgetPageInner() {
                           ) : (
                             <EmptyState message="부문별 데이터가 없습니다." />
                           )}
+
+                          {/* 원본 결산서 PDF 링크 */}
+                          {reportData && (
+                            <div className="mt-4 pt-4 border-t border-slate-100">
+                              <ReportLink report={reportData} />
+                            </div>
+                          )}
+
                           <SourceNote text="출처: lofin365.go.kr" />
                         </div>
                       )}

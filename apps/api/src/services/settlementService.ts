@@ -4,6 +4,7 @@ import type {
   SettlementFieldDetailItemDTO,
   SettlementItemDTO,
   SettlementLevel,
+  SettlementReportDTO,
   SettlementUnitDTO,
 } from "@repo/shared";
 import { prisma } from "../db.js";
@@ -245,6 +246,67 @@ function buildFieldDetailItems(
   });
 }
 
+// Aggregate GGNSE structure fields across rows (deduped per row.id since the
+// same triple appears on every sector row for a given (unit, field)).
+async function aggregateStructure(where: {
+  fiscalYear: number;
+  unitCode?: string;
+  sido?: string;
+  field: string;
+  level?: SettlementLevel;
+}): Promise<{ policy: bigint; finance: bigint; admin: bigint; hasAny: boolean }> {
+  const rows = await prisma.budgetSettlement.findMany({
+    where,
+    select: {
+      unitCode: true,
+      policyBizManwon: true,
+      financeActivityManwon: true,
+      adminOperManwon: true,
+    },
+  });
+  // GGNSE is unique per (unit, field) — but BudgetSettlement is per-sector.
+  // Dedupe by unitCode and pick the first non-null triple.
+  const seen = new Map<
+    string,
+    { policy: bigint | null; finance: bigint | null; admin: bigint | null }
+  >();
+  for (const r of rows) {
+    if (
+      r.policyBizManwon === null &&
+      r.financeActivityManwon === null &&
+      r.adminOperManwon === null
+    ) {
+      continue;
+    }
+    if (!seen.has(r.unitCode)) {
+      seen.set(r.unitCode, {
+        policy: r.policyBizManwon,
+        finance: r.financeActivityManwon,
+        admin: r.adminOperManwon,
+      });
+    }
+  }
+  let policy = 0n;
+  let finance = 0n;
+  let admin = 0n;
+  let hasAny = false;
+  for (const v of seen.values()) {
+    if (v.policy !== null) {
+      policy += v.policy;
+      hasAny = true;
+    }
+    if (v.finance !== null) {
+      finance += v.finance;
+      hasAny = true;
+    }
+    if (v.admin !== null) {
+      admin += v.admin;
+      hasAny = true;
+    }
+  }
+  return { policy, finance, admin, hasAny };
+}
+
 // 단일 자치단체의 특정 분야 → 부문별 결산
 export async function getSettlementByFieldDetail(
   fiscalYear: number,
@@ -270,6 +332,8 @@ export async function getSettlementByFieldDetail(
   });
   const level: SettlementLevel = (sample?.level as SettlementLevel) ?? "BASIC";
 
+  const struct = await aggregateStructure({ fiscalYear, unitCode, field });
+
   return {
     fiscalYear,
     level,
@@ -277,6 +341,13 @@ export async function getSettlementByFieldDetail(
     field,
     items: buildFieldDetailItems(rows, total),
     totalAmount: total.toString(),
+    ...(struct.hasAny
+      ? {
+          policyBizAmount: struct.policy.toString(),
+          financeActivityAmount: struct.finance.toString(),
+          adminOperAmount: struct.admin.toString(),
+        }
+      : {}),
   };
 }
 
@@ -298,6 +369,14 @@ export async function getSettlementSidoFieldDetail(
   rows.sort((a, b) => (a.totalAmount > b.totalAmount ? -1 : a.totalAmount < b.totalAmount ? 1 : 0));
   const total = rows.reduce<bigint>((acc, r) => acc + r.totalAmount, 0n);
 
+  // Structure: aggregate across ALL units in the sido (both METROPOLITAN
+  // and BASIC) per spec "if only sido selected, sum across all units in sido".
+  const struct = await aggregateStructure({
+    fiscalYear,
+    sido,
+    field,
+  });
+
   return {
     fiscalYear,
     level: "METROPOLITAN",
@@ -305,5 +384,31 @@ export async function getSettlementSidoFieldDetail(
     field,
     items: buildFieldDetailItems(rows, total),
     totalAmount: total.toString(),
+    ...(struct.hasAny
+      ? {
+          policyBizAmount: struct.policy.toString(),
+          financeActivityAmount: struct.finance.toString(),
+          adminOperAmount: struct.admin.toString(),
+        }
+      : {}),
+  };
+}
+
+// 결산서 PDF 링크 조회 (lofin365 SETLK)
+export async function getSettlementReport(
+  fiscalYear: number,
+  unitCode: string,
+): Promise<SettlementReportDTO | null> {
+  const row = await prisma.settlementReport.findUnique({
+    where: { fiscalYear_unitCode: { fiscalYear, unitCode } },
+  });
+  if (!row) return null;
+  return {
+    fiscalYear: row.fiscalYear,
+    unitCode: row.unitCode,
+    unitName: row.unitName,
+    sido: row.sido,
+    reportUrl: row.reportUrl,
+    reportName: row.reportName,
   };
 }

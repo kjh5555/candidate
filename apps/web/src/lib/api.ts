@@ -16,6 +16,7 @@ import type {
   BasicRegionsResponseDTO,
   SettlementBreakdownDTO,
   SettlementFieldDetailDTO,
+  SettlementReportDTO,
   SettlementUnitsResponseDTO,
   SettlementYearsResponseDTO,
 } from "@repo/shared";
@@ -257,3 +258,15 @@ export function getSettlementSidoFieldDetail(
     `/api/settlement/sido/${encodeURIComponent(sido)}/field/${encodeURIComponent(field)}?year=${encodeURIComponent(String(year))}`
   );
 }
+
+export function getSettlementReport(
+  unitCode: string,
+  year: number
+): Promise<SettlementReportDTO> {
+  return apiFetch<SettlementReportDTO>(
+    `/api/settlement/report?year=${encodeURIComponent(String(year))}&unitCode=${encodeURIComponent(unitCode)}`
+  );
+}
+
+// 시·도 단위 (전 자치단체 합산) 결산서는 단일 PDF가 아니므로, sido는 본청 unitCode 사용.
+// UI에서는 unitCode가 있을 때만 호출.

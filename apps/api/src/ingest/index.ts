@@ -28,7 +28,11 @@ import {
   ingestMetropolitanBudget,
   ingestNationalBudget,
 } from "./budget.js";
-import { ingestSettlement } from "./settlement.js";
+import {
+  ingestSettlement,
+  ingestSettlementReports,
+  ingestSettlementStructure,
+} from "./settlement.js";
 import { ingestLegislatorMilitary } from "./legislatorMilitary.js";
 
 type Step =
@@ -59,6 +63,10 @@ type Step =
   | "budget-metropolitan"
   | "settlement"
   | "budget-settlement"
+  | "settlement-structure"
+  | "structure"
+  | "settlement-reports"
+  | "reports"
   | "military"
   | "legislator-military";
 
@@ -90,6 +98,10 @@ const VALID_STEPS: Step[] = [
   "budget-metropolitan",
   "settlement",
   "budget-settlement",
+  "settlement-structure",
+  "structure",
+  "settlement-reports",
+  "reports",
   "military",
   "legislator-military",
 ];
@@ -123,6 +135,10 @@ function printUsageAndExit(code = 1): never {
       "  tsx src/ingest/index.ts budget-metropolitan [fiscalYear]\n" +
       "  tsx src/ingest/index.ts settlement [fiscalYear]\n" +
       "  tsx src/ingest/index.ts budget-settlement [fiscalYear]\n" +
+      "  tsx src/ingest/index.ts settlement-structure [fiscalYear]\n" +
+      "  tsx src/ingest/index.ts structure [fiscalYear]\n" +
+      "  tsx src/ingest/index.ts settlement-reports [fiscalYear]\n" +
+      "  tsx src/ingest/index.ts reports [fiscalYear]\n" +
       "  tsx src/ingest/index.ts military\n" +
       "  tsx src/ingest/index.ts legislator-military",
   );
@@ -216,6 +232,26 @@ async function runStep(step: Exclude<Step, "all">, args: string[]): Promise<void
         year = new Date().getFullYear() - 1;
       }
       await ingestSettlement(year);
+      return;
+    }
+    case "settlement-structure":
+    case "structure": {
+      const raw = args[0];
+      const year =
+        raw && raw.trim() !== ""
+          ? parseFiscalYear(raw)
+          : new Date().getFullYear() - 1;
+      await ingestSettlementStructure(year);
+      return;
+    }
+    case "settlement-reports":
+    case "reports": {
+      const raw = args[0];
+      const year =
+        raw && raw.trim() !== ""
+          ? parseFiscalYear(raw)
+          : new Date().getFullYear() - 1;
+      await ingestSettlementReports(year);
       return;
     }
     case "resolve": {

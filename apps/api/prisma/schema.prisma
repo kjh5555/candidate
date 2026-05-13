@@ -400,10 +400,37 @@ model BudgetSettlement {
   rgstrDt    DateTime?
   createdAt  DateTime        @default(now())
 
+  // GGNSE 구조별 breakdown — same key (fiscalYear, level, unitCode, field).
+  // NOTE: field names use "Manwon" suffix for codebase consistency, but values
+  // are stored in 원 (won) as BigInt — matching the raw lofin365 GGNSE units.
+  policyBizManwon       BigInt? // 정책사업비 (원)
+  financeActivityManwon BigInt? // 재무활동비 (원)
+  adminOperManwon       BigInt? // 행정운영경비 (원)
+
   @@index([fiscalYear, level])
   @@index([sido])
   @@index([unitCode])
   @@index([field])
+}
+
+// ─── Settlement Report (결산서 원본 PDF) ────────────────────────
+//
+// Source: 지방재정365 (lofin365.go.kr) — endpoint SETLK.
+// One row per (fiscalYear × unit) with the official 결산서 PDF link.
+
+model SettlementReport {
+  id         String   @id @default(cuid())
+  fiscalYear Int
+  sido       String // 정식 명칭
+  unitCode   String
+  unitName   String // 정규화된 이름 (e.g. "여주시")
+  reportUrl  String
+  reportName String? // "결산서" etc
+  createdAt  DateTime @default(now())
+
+  @@unique([fiscalYear, unitCode])
+  @@index([sido])
+  @@index([fiscalYear])
 }
 
 model SettlementSummary {

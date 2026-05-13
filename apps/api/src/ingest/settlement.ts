@@ -78,7 +78,7 @@ function parseDate(v: string | undefined | null): Date | null {
 
 // lofin365 returns short sido names ("서울", "경기"); we normalize to the
 // full canonical names used elsewhere in the app.
-const SIDO_SHORT_TO_FULL: Record<string, string> = {
+export const SIDO_SHORT_TO_FULL: Record<string, string> = {
   서울: "서울특별시",
   부산: "부산광역시",
   대구: "대구광역시",
@@ -98,9 +98,27 @@ const SIDO_SHORT_TO_FULL: Record<string, string> = {
   제주: "제주특별자치도",
 };
 
-function normalizeSido(raw: string | null): string | null {
+export function normalizeSido(raw: string | null): string | null {
   if (!raw) return null;
   return SIDO_SHORT_TO_FULL[raw] ?? raw;
+}
+
+// lofin365 returns unitName with sido short prefix (e.g. "경기여주시").
+// Strip prefix for BASIC level so it matches Legislator.region ("여주시").
+const SIDO_SHORT_PREFIXES = [
+  "서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종",
+  "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주",
+];
+
+export function stripSidoPrefix(name: string): string {
+  for (const p of SIDO_SHORT_PREFIXES) {
+    if (name.startsWith(p) && name.length > p.length) {
+      const rest = name.slice(p.length);
+      // Only strip if rest looks like a 시/군/구 name
+      if (/^[가-힣]+(시|군|구|읍|면|동)$/.test(rest)) return rest;
+    }
+  }
+  return name;
 }
 
 // Determine whether a row is for the 광역 단체 (시·도본청) or a 기초 단체.
@@ -260,23 +278,8 @@ export async function ingestSettlement(fiscalYear: number): Promise<IngestStats>
 
   console.log(`[settlement] Got ${rawRows.length} rows. Normalizing...`);
 
-  // lofin365 returns unitName with sido short prefix (e.g. "경기여주시").
-  // Strip prefix for BASIC level so it matches Legislator.region ("여주시").
-  // Keep METROPOLITAN level names as-is ("서울본청", "경기도청" etc).
-  const SIDO_SHORT_PREFIXES = [
-    "서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종",
-    "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주",
-  ];
-  function stripSidoPrefix(name: string): string {
-    for (const p of SIDO_SHORT_PREFIXES) {
-      if (name.startsWith(p) && name.length > p.length) {
-        const rest = name.slice(p.length);
-        // Only strip if rest looks like a 시/군/구 name
-        if (/^[가-힣]+(시|군|구|읍|면|동)$/.test(rest)) return rest;
-      }
-    }
-    return name;
-  }
+  // BASIC level names: strip sido short prefix so they match Legislator.region
+  // (e.g. "경기여주시" → "여주시"). METROPOLITAN names kept as-is.
 
   const normalized: NormalizedRow[] = [];
   for (const row of rawRows) {
@@ -404,3 +407,376 @@ export async function ingestSettlement(fiscalYear: number): Promise<IngestStats>
 }
 
 export { SettlementLevel } from "@prisma/client";
+
+// ─── GGNSE: 구조별 세출결산 (정책사업/재무활동/행정운영) ──────────────
+//
+// Endpoint: https://www.lofin365.go.kr/lf/hub/GGNSE
+// One row per (자치단체 × 분야). ~3,400 rows per fiscalYear.
+// Augments existing BudgetSettlement rows with the three structure totals.
+
+const LOFIN_GGNSE_BASE = "https://www.lofin365.go.kr/lf/hub/GGNSE";
+
+interface GgnseRow {
+  fyr?: string | number;
+  wa_laf_cd?: string;
+  wa_laf_hg_nm?: string;
+  laf_cd?: string;
+  laf_hg_nm?: string;
+  fld_cd?: string;
+  fld_nm?: string;
+  pol_bizct?: string | number; // 정책사업비
+  fin_acv_amt?: string | number; // 재무활동비
+  padm_oper_exps?: string | number; // 행정운영경비
+  rgstr_dt?: string;
+}
+
+async function fetchGgnsePage(
+  apiKey: string,
+  fiscalYear: number,
+  pageIndex: number,
+): Promise<{ rows: GgnseRow[]; total: number }> {
+  const params = new URLSearchParams({
+    Key: apiKey,
+    Type: "json",
+    pIndex: String(pageIndex),
+    pSize: String(PAGE_SIZE),
+    fyr: String(fiscalYear),
+  });
+  const url = `${LOFIN_GGNSE_BASE}?${params.toString()}`;
+  const res = await fetch(url);
+  const text = await res.text();
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+    if (typeof data === "string") data = JSON.parse(data);
+  } catch {
+    throw new Error(`Non-JSON response from lofin365 GGNSE: ${text.slice(0, 200)}`);
+  }
+  const block = (data as Record<string, unknown>)["GGNSE"];
+  if (!Array.isArray(block)) {
+    const result = (data as Record<string, unknown>).RESULT as
+      | { CODE?: string; MESSAGE?: string }
+      | undefined;
+    if (result?.CODE && result.CODE !== "INFO-000") {
+      if (result.CODE === "INFO-200") return { rows: [], total: 0 };
+      throw new Error(`GGNSE error ${result.CODE}: ${result.MESSAGE ?? ""}`);
+    }
+    return { rows: [], total: 0 };
+  }
+  let total = 0;
+  let rows: GgnseRow[] = [];
+  for (const entry of block) {
+    if (entry && typeof entry === "object" && "head" in entry) {
+      const head = (entry as { head: Array<Record<string, unknown>> }).head;
+      for (const h of head) {
+        if (typeof h.list_total_count === "number") total = h.list_total_count;
+      }
+    }
+    if (entry && typeof entry === "object" && "row" in entry) {
+      rows = (entry as { row: GgnseRow[] }).row ?? [];
+    }
+  }
+  return { rows, total };
+}
+
+async function fetchAllGgnseRows(
+  apiKey: string,
+  fiscalYear: number,
+): Promise<GgnseRow[]> {
+  const collected: GgnseRow[] = [];
+  let pageIndex = 1;
+  let total = Infinity;
+  while (collected.length < total && pageIndex <= MAX_PAGES) {
+    const { rows, total: pageTotal } = await fetchGgnsePage(
+      apiKey,
+      fiscalYear,
+      pageIndex,
+    );
+    if (pageTotal > 0) total = pageTotal;
+    if (rows.length === 0) break;
+    collected.push(...rows);
+    pageIndex += 1;
+    if (collected.length < total) await sleep(PAGE_DELAY_MS);
+  }
+  return collected;
+}
+
+export async function ingestSettlementStructure(
+  fiscalYear: number,
+): Promise<{ total: number; matched: number; unmatched: number; inserted: number }> {
+  console.log(`[settlement-structure] Starting fiscalYear=${fiscalYear}`);
+  const apiKey = process.env.LOFIN_API_KEY;
+  if (!apiKey) {
+    console.warn("[settlement-structure] LOFIN_API_KEY not set. Skipping.");
+    return { total: 0, matched: 0, unmatched: 0, inserted: 0 };
+  }
+
+  let rawRows: GgnseRow[];
+  try {
+    rawRows = await fetchAllGgnseRows(apiKey, fiscalYear);
+  } catch (err) {
+    console.error(`[settlement-structure] Fetch failed: ${(err as Error).message}`);
+    return { total: 0, matched: 0, unmatched: 0, inserted: 0 };
+  }
+
+  console.log(`[settlement-structure] Got ${rawRows.length} rows. Building bulk UPDATE...`);
+
+  let matched = 0;
+  let unmatched = 0;
+  let inserted = 0;
+
+  // Pre-normalize rows + collect into VALUES batches for a single bulk SQL UPDATE.
+  type NormalizedStructureRow = {
+    sido: string;
+    unitCode: string;
+    unitName: string;
+    field: string;
+    fieldCode: string | null;
+    level: SettlementLevel;
+    policy: bigint;
+    finance: bigint;
+    admin: bigint;
+    rgstrDt: Date | null;
+  };
+  const normalized: NormalizedStructureRow[] = [];
+  for (const row of rawRows) {
+    const sido = normalizeSido(nonEmpty(row.wa_laf_hg_nm));
+    const unitCode = nonEmpty(row.laf_cd);
+    const rawUnitName = nonEmpty(row.laf_hg_nm);
+    const field = nonEmpty(row.fld_nm);
+    if (!sido || !unitCode || !rawUnitName || !field) continue;
+    const level: SettlementLevel = detectLevel({
+      laf_cd: row.laf_cd,
+      wa_laf_cd: row.wa_laf_cd,
+      laf_hg_nm: row.laf_hg_nm,
+    });
+    const unitName = level === "BASIC" ? stripSidoPrefix(rawUnitName) : rawUnitName;
+    normalized.push({
+      sido,
+      unitCode,
+      unitName,
+      field,
+      fieldCode: nonEmpty(row.fld_cd),
+      level,
+      policy: toBigInt(row.pol_bizct),
+      finance: toBigInt(row.fin_acv_amt),
+      admin: toBigInt(row.padm_oper_exps),
+      rgstrDt: parseDate(row.rgstr_dt),
+    });
+  }
+
+  // Bulk UPDATE via a single SQL statement using FROM (VALUES ...).
+  // Splits into chunks of 1000 to avoid query size limits.
+  const BULK_BATCH = 1000;
+  for (let i = 0; i < normalized.length; i += BULK_BATCH) {
+    const chunk = normalized.slice(i, i + BULK_BATCH);
+    const params: string[] = [];
+    const tuples: string[] = [];
+    let p = 1;
+    for (const r of chunk) {
+      tuples.push(`($${p}, $${p + 1}, $${p + 2}::bigint, $${p + 3}::bigint, $${p + 4}::bigint)`);
+      params.push(r.unitCode, r.field, r.policy.toString(), r.finance.toString(), r.admin.toString());
+      p += 5;
+    }
+    const sql = `
+      UPDATE "BudgetSettlement" bs
+      SET "policyBizManwon" = v.policy,
+          "financeActivityManwon" = v.finance,
+          "adminOperManwon" = v.admin
+      FROM (VALUES ${tuples.join(",")}) AS v("unitCode", field, policy, finance, admin)
+      WHERE bs."fiscalYear" = ${fiscalYear}
+        AND bs."unitCode" = v."unitCode"
+        AND bs.field = v.field
+    `;
+    await prisma.$executeRawUnsafe(sql, ...params);
+    matched += chunk.length;
+    console.log(`[settlement-structure] Bulk-updated ${Math.min(i + BULK_BATCH, normalized.length)}/${normalized.length}`);
+  }
+
+  // Insert stubs for any GGNSE rows whose (fiscalYear, unitCode, field) had no
+  // matching BudgetSettlement row. Detect by counting actual updates per row
+  // is expensive; instead we cross-check by querying existing keys.
+  const existingKeys = new Set<string>();
+  const existing = await prisma.budgetSettlement.findMany({
+    where: { fiscalYear },
+    select: { unitCode: true, field: true },
+  });
+  for (const e of existing) existingKeys.add(`${e.unitCode}|${e.field}`);
+
+  for (const r of normalized) {
+    const key = `${r.unitCode}|${r.field}`;
+    if (existingKeys.has(key)) continue;
+    // No matching BudgetSettlement row → insert stub so structure isn't lost.
+    await prisma.budgetSettlement.create({
+      data: {
+        fiscalYear,
+        level: r.level,
+        sido: r.sido,
+        unitCode: r.unitCode,
+        unitName: r.unitName,
+        field: r.field,
+        fieldCode: r.fieldCode,
+        sector: null,
+        sectorCode: null,
+        amount: 0n,
+        rgstrDt: r.rgstrDt,
+        policyBizManwon: r.policy,
+        financeActivityManwon: r.finance,
+        adminOperManwon: r.admin,
+      },
+    });
+    unmatched += 1;
+    inserted += 1;
+  }
+
+  console.log(
+    `[settlement-structure] Done. matched=${matched} unmatched=${unmatched} inserted_stubs=${inserted}`,
+  );
+  return { total: rawRows.length, matched, unmatched, inserted };
+}
+
+// ─── SETLK: 결산서 PDF 링크 ───────────────────────────────────────────
+//
+// Endpoint: https://www.lofin365.go.kr/lf/hub/SETLK
+// One row per (fiscalYear × unit) with the official 결산서 PDF link.
+
+const LOFIN_SETLK_BASE = "https://www.lofin365.go.kr/lf/hub/SETLK";
+
+interface SetlkRow {
+  fyr?: string | number;
+  wa_laf_hg_nm?: string;
+  laf_cd?: string;
+  laf_hg_nm?: string;
+  lnk_nm?: string;
+  lnk_url_nm?: string;
+}
+
+async function fetchSetlkPage(
+  apiKey: string,
+  fiscalYear: number,
+  pageIndex: number,
+): Promise<{ rows: SetlkRow[]; total: number }> {
+  const params = new URLSearchParams({
+    Key: apiKey,
+    Type: "json",
+    pIndex: String(pageIndex),
+    pSize: String(PAGE_SIZE),
+    fyr: String(fiscalYear),
+  });
+  const url = `${LOFIN_SETLK_BASE}?${params.toString()}`;
+  const res = await fetch(url);
+  const text = await res.text();
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+    if (typeof data === "string") data = JSON.parse(data);
+  } catch {
+    throw new Error(`Non-JSON response from lofin365 SETLK: ${text.slice(0, 200)}`);
+  }
+  const block = (data as Record<string, unknown>)["SETLK"];
+  if (!Array.isArray(block)) {
+    const result = (data as Record<string, unknown>).RESULT as
+      | { CODE?: string; MESSAGE?: string }
+      | undefined;
+    if (result?.CODE && result.CODE !== "INFO-000") {
+      if (result.CODE === "INFO-200") return { rows: [], total: 0 };
+      throw new Error(`SETLK error ${result.CODE}: ${result.MESSAGE ?? ""}`);
+    }
+    return { rows: [], total: 0 };
+  }
+  let total = 0;
+  let rows: SetlkRow[] = [];
+  for (const entry of block) {
+    if (entry && typeof entry === "object" && "head" in entry) {
+      const head = (entry as { head: Array<Record<string, unknown>> }).head;
+      for (const h of head) {
+        if (typeof h.list_total_count === "number") total = h.list_total_count;
+      }
+    }
+    if (entry && typeof entry === "object" && "row" in entry) {
+      rows = (entry as { row: SetlkRow[] }).row ?? [];
+    }
+  }
+  return { rows, total };
+}
+
+async function fetchAllSetlkRows(
+  apiKey: string,
+  fiscalYear: number,
+): Promise<SetlkRow[]> {
+  const collected: SetlkRow[] = [];
+  let pageIndex = 1;
+  let total = Infinity;
+  while (collected.length < total && pageIndex <= MAX_PAGES) {
+    const { rows, total: pageTotal } = await fetchSetlkPage(
+      apiKey,
+      fiscalYear,
+      pageIndex,
+    );
+    if (pageTotal > 0) total = pageTotal;
+    if (rows.length === 0) break;
+    collected.push(...rows);
+    pageIndex += 1;
+    if (collected.length < total) await sleep(PAGE_DELAY_MS);
+  }
+  return collected;
+}
+
+export async function ingestSettlementReports(
+  fiscalYear: number,
+): Promise<{ total: number; upserted: number }> {
+  console.log(`[settlement-reports] Starting fiscalYear=${fiscalYear}`);
+  const apiKey = process.env.LOFIN_API_KEY;
+  if (!apiKey) {
+    console.warn("[settlement-reports] LOFIN_API_KEY not set. Skipping.");
+    return { total: 0, upserted: 0 };
+  }
+
+  let rawRows: SetlkRow[];
+  try {
+    rawRows = await fetchAllSetlkRows(apiKey, fiscalYear);
+  } catch (err) {
+    console.error(`[settlement-reports] Fetch failed: ${(err as Error).message}`);
+    return { total: 0, upserted: 0 };
+  }
+
+  console.log(`[settlement-reports] Got ${rawRows.length} rows. Upserting...`);
+
+  let upserted = 0;
+  for (const row of rawRows) {
+    const sido = normalizeSido(nonEmpty(row.wa_laf_hg_nm));
+    const unitCode = nonEmpty(row.laf_cd);
+    const rawUnitName = nonEmpty(row.laf_hg_nm);
+    const url = nonEmpty(row.lnk_url_nm);
+    if (!sido || !unitCode || !rawUnitName || !url) continue;
+
+    const level: SettlementLevel = detectLevel({
+      laf_cd: row.laf_cd,
+      laf_hg_nm: row.laf_hg_nm,
+    });
+    const unitName = level === "BASIC" ? stripSidoPrefix(rawUnitName) : rawUnitName;
+    const reportName = nonEmpty(row.lnk_nm);
+
+    await prisma.settlementReport.upsert({
+      where: { fiscalYear_unitCode: { fiscalYear, unitCode } },
+      create: {
+        fiscalYear,
+        sido,
+        unitCode,
+        unitName,
+        reportUrl: url,
+        reportName,
+      },
+      update: {
+        sido,
+        unitName,
+        reportUrl: url,
+        reportName,
+      },
+    });
+    upserted += 1;
+  }
+
+  console.log(`[settlement-reports] Done. upserted=${upserted}/${rawRows.length}`);
+  return { total: rawRows.length, upserted };
+}
