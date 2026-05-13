@@ -27,11 +27,11 @@ export interface BasicRegionRow {
 export async function listBasicRegions(): Promise<BasicRegionRow[]> {
   const rows = await prisma.$queryRaw<{ sido: string; wiwName: string }[]>`
     SELECT DISTINCT
-      raw_source_json->>'sdName' AS sido,
+      "rawSourceJson"->>'sdName' AS sido,
       "region"                   AS "wiwName"
     FROM "Legislator"
     WHERE level = 'BASIC'
-      AND raw_source_json->>'sdName' IS NOT NULL
+      AND "rawSourceJson"->>'sdName' IS NOT NULL
       AND "region" IS NOT NULL
     ORDER BY sido, "wiwName"
   `;
