@@ -10,6 +10,7 @@ const ConfigSchema = z.object({
   // 지방재정365 15058011). Falls back to NEC_API_KEY at runtime when missing,
   // since the same 일반인증키 typically works across providers.
   FISCAL_API_KEY: z.string().optional(),
+  LOFIN_API_KEY: z.string().optional(),
   PORT: z
     .string()
     .optional()

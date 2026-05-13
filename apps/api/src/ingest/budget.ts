@@ -273,17 +273,145 @@ export async function ingestNationalBudget(fiscalYear: number): Promise<IngestSt
   return { total: rows.length, inserted };
 }
 
-// ── Metropolitan budget ingestion (stub) ──────────────────────────────────
+// ── Metropolitan budget ingestion (lofin365.go.kr) ───────────────────────
+
+const LOFIN_BASE = "https://www.lofin365.go.kr/lf/hub/BEDDH";
+const LOFIN_PAGE_SIZE = 100;
+
+interface LofinRow {
+  fyr?: string | number;
+  wa_laf_cd?: string;
+  wa_laf_hg_nm?: string;
+  fld_cd?: string;
+  fld_nm?: string;
+  bfae_totl_amt?: string | number;
+  bfae_prsm_amt?: string | number;
+}
+
+async function fetchLofinPage(
+  apiKey: string,
+  fiscalYear: number,
+  pageIndex: number,
+): Promise<{ rows: LofinRow[]; total: number }> {
+  const params = new URLSearchParams({
+    Key: apiKey,
+    Type: "json",
+    pIndex: String(pageIndex),
+    pSize: String(LOFIN_PAGE_SIZE),
+    fyr: String(fiscalYear),
+  });
+  const url = `${LOFIN_BASE}?${params.toString()}`;
+  const res = await fetch(url);
+  const text = await res.text();
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+    if (typeof data === "string") data = JSON.parse(data);
+  } catch {
+    throw new Error(`Non-JSON response from lofin365: ${text.slice(0, 200)}`);
+  }
+
+  const block = (data as Record<string, unknown>)["BEDDH"];
+  if (!Array.isArray(block)) {
+    throw new Error(`Unexpected lofin365 response shape: ${text.slice(0, 200)}`);
+  }
+
+  let total = 0;
+  let rows: LofinRow[] = [];
+  for (const entry of block) {
+    if (entry && typeof entry === "object" && "head" in entry) {
+      const head = (entry as { head: Array<Record<string, unknown>> }).head;
+      for (const h of head) {
+        if (typeof h.list_total_count === "number") total = h.list_total_count;
+      }
+    }
+    if (entry && typeof entry === "object" && "row" in entry) {
+      rows = (entry as { row: LofinRow[] }).row ?? [];
+    }
+  }
+  return { rows, total };
+}
 
 export async function ingestMetropolitanBudget(
   fiscalYear: number,
 ): Promise<IngestStats> {
-  console.warn(
-    `[budget-metro] Skipped — 지방재정365 기능별 단체별 세출결산은 ` +
-      `현재 SHEET 다운로드만 제공됩니다 (OpenAPI 없음). ` +
-      `fiscalYear=${fiscalYear} 무시.`,
+  console.log(`[budget-metro] Starting fiscalYear=${fiscalYear}`);
+  const apiKey = process.env.LOFIN_API_KEY;
+  if (!apiKey) {
+    console.warn("[budget-metro] LOFIN_API_KEY not set. Skipping.");
+    return { total: 0, inserted: 0 };
+  }
+
+  // Fetch all pages
+  const allRows: LofinRow[] = [];
+  let pageIndex = 1;
+  let total = Infinity;
+  while (allRows.length < total && pageIndex <= 100) {
+    const { rows, total: pageTotal } = await fetchLofinPage(apiKey, fiscalYear, pageIndex);
+    if (pageTotal > 0) total = pageTotal;
+    if (rows.length === 0) break;
+    allRows.push(...rows);
+    pageIndex += 1;
+  }
+
+  console.log(`[budget-metro] Got ${allRows.length} rows. Inserting...`);
+  await clearYear("METROPOLITAN", fiscalYear);
+
+  const bySido = new Map<string, bigint>();
+  const byField = new Map<string, bigint>();
+  const bySidoField = new Map<string, bigint>();
+
+  const data = allRows
+    .map((row) => {
+      const sido = nonEmpty(row.wa_laf_hg_nm);
+      const field = nonEmpty(row.fld_nm);
+      if (!sido || !field) return null;
+      const amount = toBigInt(row.bfae_totl_amt); // already in 원
+      return {
+        level: "METROPOLITAN" as const,
+        fiscalYear,
+        ministry: null,
+        sido,
+        field,
+        sector: null,
+        program: null,
+        subProject: null,
+        amount,
+      };
+    })
+    .filter((d): d is NonNullable<typeof d> => d !== null);
+
+  if (data.length > 0) {
+    await prisma.budgetCategory.createMany({
+      data: data as Prisma.BudgetCategoryUncheckedCreateInput[],
+    });
+  }
+
+  // Accumulate rollups
+  for (const d of data) {
+    bySido.set(d.sido, (bySido.get(d.sido) ?? 0n) + d.amount);
+    byField.set(d.field, (byField.get(d.field) ?? 0n) + d.amount);
+    const key = `${d.sido}|${d.field}`;
+    bySidoField.set(key, (bySidoField.get(key) ?? 0n) + d.amount);
+  }
+
+  // Persist rollups
+  for (const [k, v] of bySido) {
+    await upsertSummary("METROPOLITAN", fiscalYear, "sido", k, v);
+  }
+  for (const [k, v] of byField) {
+    await upsertSummary("METROPOLITAN", fiscalYear, "field", k, v);
+  }
+  for (const [k, v] of bySidoField) {
+    await upsertSummary("METROPOLITAN", fiscalYear, "sido-field", k, v);
+  }
+
+  console.log(
+    `[budget-metro] Done. Inserted ${data.length}/${allRows.length}; ` +
+      `${bySido.size} sido rollups, ${byField.size} field rollups, ` +
+      `${bySidoField.size} sido-field rollups.`,
   );
-  return { total: 0, inserted: 0 };
+  return { total: allRows.length, inserted: data.length };
 }
 
 export { BudgetLevel } from "@prisma/client";
