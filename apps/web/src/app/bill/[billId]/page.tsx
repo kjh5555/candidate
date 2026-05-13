@@ -3,7 +3,7 @@ import Image from "next/image";
 import { getBillDetail } from "@/lib/api";
 import { BillResultBadge } from "@/components/BillResultBadge";
 import { PartyBadge } from "@/components/PartyBadge";
-import { ArrowLeft, User, ExternalLink } from "lucide-react";
+import { ArrowLeft, User, ExternalLink, FileText } from "lucide-react";
 import type { ProposerDTO } from "@repo/shared";
 
 export const dynamic = "force-dynamic";
@@ -133,11 +133,33 @@ export default async function BillPage({ params }: BillPageProps) {
           href={bill.linkUrl ?? `https://likms.assembly.go.kr/bill/billDetail.do?billId=${bill.id}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+          className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 hover:underline"
         >
-          의안 원문 보기
-          <ExternalLink className="w-3.5 h-3.5" />
+          원문 보기
+          <ExternalLink className="w-3 h-3" />
         </a>
+      </div>
+
+      {/* Bill Content Info Card */}
+      <div className="bg-amber-50 rounded-xl border border-amber-200 p-5">
+        <div className="flex gap-4">
+          <FileText className="w-6 h-6 text-amber-600 shrink-0 mt-1" />
+          <div className="flex-1">
+            <h3 className="font-semibold text-slate-900 mb-1">법안 본문 보기</h3>
+            <p className="text-sm text-slate-700 mb-4">
+              법안의 제안이유와 주요내용은 국회 의안정보시스템(원문)에서 확인하실 수 있습니다.
+            </p>
+            <a
+              href={bill.linkUrl ?? `https://likms.assembly.go.kr/bill/billDetail.do?billId=${bill.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg text-sm transition-colors"
+            >
+              의안정보시스템에서 원문 보기
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
+        </div>
       </div>
 
       {/* Proposers */}
