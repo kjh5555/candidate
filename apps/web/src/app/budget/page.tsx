@@ -165,6 +165,57 @@ function ReportLink({ report }: { report: SettlementReportDTO }) {
   );
 }
 
+// Clickable horizontal bar list for field-level breakdowns.
+// Replaces the per-item BudgetChart (which created one chart per row).
+function FieldClickableList({
+  items,
+  selectedKey,
+  onSelect,
+}: {
+  items: { key: string; amount: bigint | string; percent: number }[];
+  selectedKey: string | null;
+  onSelect: (key: string) => void;
+}) {
+  const maxPercent = items.reduce((m, i) => Math.max(m, i.percent), 0);
+  return (
+    <div className="space-y-1">
+      {items.map((item) => {
+        const widthPct = maxPercent > 0 ? (item.percent / maxPercent) * 100 : 0;
+        const isSelected = selectedKey === item.key;
+        return (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => onSelect(item.key)}
+            className={`group w-full text-left rounded-lg px-3 py-2 transition-colors ${
+              isSelected
+                ? "bg-blue-50 ring-2 ring-blue-400"
+                : "hover:bg-slate-50"
+            }`}
+          >
+            <div className="flex items-baseline justify-between gap-3 mb-1.5">
+              <span className="text-sm font-medium text-slate-800 truncate">
+                {item.key}
+              </span>
+              <span className="text-sm tabular-nums text-slate-600 shrink-0">
+                <Amount amount={item.amount} /> ({item.percent.toFixed(1)}%)
+              </span>
+            </div>
+            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  isSelected ? "bg-blue-500" : "bg-blue-400 group-hover:bg-blue-500"
+                }`}
+                style={{ width: `${widthPct}%` }}
+              />
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function SelectField({
   id,
   label,
@@ -730,29 +781,13 @@ function BudgetPageInner() {
                           분야를 클릭하면 부문별 내역을 볼 수 있습니다
                         </p>
                         {setSidoData && setSidoData.items.length > 0 ? (
-                          <div className="space-y-1">
-                            {setSidoData.items.map((item) => (
-                              <button
-                                key={item.key}
-                                type="button"
-                                onClick={() =>
-                                  handleSelectField(
-                                    selectedField === item.key ? null : item.key,
-                                  )
-                                }
-                                className={`w-full text-left rounded-lg px-3 py-1 transition-colors ${
-                                  selectedField === item.key
-                                    ? "bg-blue-50 ring-2 ring-blue-400"
-                                    : "hover:bg-slate-50"
-                                }`}
-                              >
-                                <BudgetChart
-                                  data={[item]}
-                                  valueLabel="결산"
-                                />
-                              </button>
-                            ))}
-                          </div>
+                          <FieldClickableList
+                            items={setSidoData.items}
+                            selectedKey={selectedField}
+                            onSelect={(k) =>
+                              handleSelectField(selectedField === k ? null : k)
+                            }
+                          />
                         ) : (
                           <EmptyState message="결산 데이터가 없습니다." />
                         )}
@@ -890,29 +925,13 @@ function BudgetPageInner() {
                           분야를 클릭하면 부문별 내역을 볼 수 있습니다
                         </p>
                         {setUnitData && setUnitData.items.length > 0 ? (
-                          <div className="space-y-1">
-                            {setUnitData.items.map((item) => (
-                              <button
-                                key={item.key}
-                                type="button"
-                                onClick={() =>
-                                  handleSelectField(
-                                    selectedField === item.key ? null : item.key,
-                                  )
-                                }
-                                className={`w-full text-left rounded-lg px-3 py-1 transition-colors ${
-                                  selectedField === item.key
-                                    ? "bg-blue-50 ring-2 ring-blue-400"
-                                    : "hover:bg-slate-50"
-                                }`}
-                              >
-                                <BudgetChart
-                                  data={[item]}
-                                  valueLabel="결산"
-                                />
-                              </button>
-                            ))}
-                          </div>
+                          <FieldClickableList
+                            items={setUnitData.items}
+                            selectedKey={selectedField}
+                            onSelect={(k) =>
+                              handleSelectField(selectedField === k ? null : k)
+                            }
+                          />
                         ) : (
                           <EmptyState message="해당 자치단체 결산 데이터가 없습니다." />
                         )}
