@@ -335,6 +335,22 @@ export interface SettlementYearsResponseDTO {
   years: number[];
 }
 
+export interface SettlementFieldDetailItemDTO {
+  sector: string; // 부문명
+  amount: string; // BigInt serialized as string (원)
+  percent: number; // 0-100, 2 decimals
+}
+
+export interface SettlementFieldDetailDTO {
+  fiscalYear: number;
+  level: SettlementLevel;
+  sido?: string;
+  unitCode?: string;
+  field: string;
+  items: SettlementFieldDetailItemDTO[];
+  totalAmount: string; // BigInt serialized as string
+}
+
 // ── Misc ──────────────────────────────────────────────────────
 
 export interface ApiErrorDTO {

@@ -5,6 +5,8 @@ import {
   getSettlementBySido,
   getSettlementBySidoDetail,
   getSettlementByUnitDetail,
+  getSettlementByFieldDetail,
+  getSettlementSidoFieldDetail,
   getSettlementUnits,
 } from "../services/settlementService.js";
 import type { SettlementLevel } from "@repo/shared";
@@ -24,6 +26,16 @@ interface SidoParams {
 
 interface UnitParams {
   unitCode: string;
+}
+
+interface UnitFieldParams {
+  unitCode: string;
+  field: string;
+}
+
+interface SidoFieldParams {
+  sido: string;
+  field: string;
 }
 
 function parseYear(raw: number | undefined): number {
@@ -152,6 +164,69 @@ const settlementRoutes: FastifyPluginAsync = async (fastify) => {
       const data = await getSettlementByUnitDetail(
         year,
         request.params.unitCode,
+      );
+      return reply.send(data);
+    },
+  );
+  // GET /settlement/unit/:unitCode/field/:field?year=
+  fastify.get<{ Params: UnitFieldParams; Querystring: YearQuery }>(
+    "/unit/:unitCode/field/:field",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["unitCode", "field"],
+          properties: {
+            unitCode: { type: "string", minLength: 1 },
+            field: { type: "string", minLength: 1 },
+          },
+        },
+        querystring: {
+          type: "object",
+          properties: {
+            year: { type: "integer", minimum: 1900, maximum: 9999 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const year = parseYear(request.query.year);
+      const data = await getSettlementByFieldDetail(
+        year,
+        request.params.unitCode,
+        request.params.field,
+      );
+      return reply.send(data);
+    },
+  );
+
+  // GET /settlement/sido/:sido/field/:field?year=
+  fastify.get<{ Params: SidoFieldParams; Querystring: YearQuery }>(
+    "/sido/:sido/field/:field",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["sido", "field"],
+          properties: {
+            sido: { type: "string", minLength: 1 },
+            field: { type: "string", minLength: 1 },
+          },
+        },
+        querystring: {
+          type: "object",
+          properties: {
+            year: { type: "integer", minimum: 1900, maximum: 9999 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const year = parseYear(request.query.year);
+      const data = await getSettlementSidoFieldDetail(
+        year,
+        request.params.sido,
+        request.params.field,
       );
       return reply.send(data);
     },

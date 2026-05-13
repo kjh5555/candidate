@@ -1,5 +1,7 @@
 import type {
   SettlementBreakdownDTO,
+  SettlementFieldDetailDTO,
+  SettlementFieldDetailItemDTO,
   SettlementItemDTO,
   SettlementLevel,
   SettlementUnitDTO,
@@ -222,4 +224,86 @@ export async function getAvailableSettlementYears(): Promise<number[]> {
     orderBy: { fiscalYear: "desc" },
   });
   return rows.map((r) => r.fiscalYear);
+}
+
+// ── Sector drill-down helpers ─────────────────────────────────────────────
+
+function buildFieldDetailItems(
+  rows: Array<{ sector: string | null; totalAmount: bigint }>,
+  totalAmount: bigint,
+): SettlementFieldDetailItemDTO[] {
+  const totalNum = Number(totalAmount);
+  return rows.map((row) => {
+    const sector = row.sector ?? "(미분류)";
+    const percent =
+      totalAmount > 0n ? (Number(row.totalAmount) * 100) / totalNum : 0;
+    return {
+      sector,
+      amount: row.totalAmount.toString(),
+      percent: Math.round(percent * 100) / 100,
+    };
+  });
+}
+
+// 단일 자치단체의 특정 분야 → 부문별 결산
+export async function getSettlementByFieldDetail(
+  fiscalYear: number,
+  unitCode: string,
+  field: string,
+): Promise<SettlementFieldDetailDTO> {
+  const rawRows = await prisma.budgetSettlement.groupBy({
+    by: ["sector"],
+    where: { fiscalYear, unitCode, field },
+    _sum: { amount: true },
+  });
+  const rows = rawRows.map((r) => ({
+    sector: r.sector,
+    totalAmount: r._sum.amount ?? 0n,
+  }));
+  rows.sort((a, b) => (a.totalAmount > b.totalAmount ? -1 : a.totalAmount < b.totalAmount ? 1 : 0));
+  const total = rows.reduce<bigint>((acc, r) => acc + r.totalAmount, 0n);
+
+  // Determine level from any matching row
+  const sample = await prisma.budgetSettlement.findFirst({
+    where: { fiscalYear, unitCode, field },
+    select: { level: true, sido: true },
+  });
+  const level: SettlementLevel = (sample?.level as SettlementLevel) ?? "BASIC";
+
+  return {
+    fiscalYear,
+    level,
+    unitCode,
+    field,
+    items: buildFieldDetailItems(rows, total),
+    totalAmount: total.toString(),
+  };
+}
+
+// 시·도 본청 레벨: 특정 분야 → 부문별 결산 (해당 sido의 모든 레코드 집계)
+export async function getSettlementSidoFieldDetail(
+  fiscalYear: number,
+  sido: string,
+  field: string,
+): Promise<SettlementFieldDetailDTO> {
+  const rawRows = await prisma.budgetSettlement.groupBy({
+    by: ["sector"],
+    where: { fiscalYear, sido, field, level: "METROPOLITAN" },
+    _sum: { amount: true },
+  });
+  const rows = rawRows.map((r) => ({
+    sector: r.sector,
+    totalAmount: r._sum.amount ?? 0n,
+  }));
+  rows.sort((a, b) => (a.totalAmount > b.totalAmount ? -1 : a.totalAmount < b.totalAmount ? 1 : 0));
+  const total = rows.reduce<bigint>((acc, r) => acc + r.totalAmount, 0n);
+
+  return {
+    fiscalYear,
+    level: "METROPOLITAN",
+    sido,
+    field,
+    items: buildFieldDetailItems(rows, total),
+    totalAmount: total.toString(),
+  };
 }

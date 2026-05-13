@@ -15,6 +15,7 @@ import type {
   BudgetYearsResponseDTO,
   BasicRegionsResponseDTO,
   SettlementBreakdownDTO,
+  SettlementFieldDetailDTO,
   SettlementUnitsResponseDTO,
   SettlementYearsResponseDTO,
 } from "@repo/shared";
@@ -234,5 +235,25 @@ export function getSettlementUnitDetail(
 ): Promise<SettlementBreakdownDTO> {
   return apiFetch<SettlementBreakdownDTO>(
     `/api/settlement/unit/${encodeURIComponent(unitCode)}?year=${encodeURIComponent(String(year))}`
+  );
+}
+
+export function getSettlementUnitFieldDetail(
+  unitCode: string,
+  field: string,
+  year: number
+): Promise<SettlementFieldDetailDTO> {
+  return apiFetch<SettlementFieldDetailDTO>(
+    `/api/settlement/unit/${encodeURIComponent(unitCode)}/field/${encodeURIComponent(field)}?year=${encodeURIComponent(String(year))}`
+  );
+}
+
+export function getSettlementSidoFieldDetail(
+  sido: string,
+  field: string,
+  year: number
+): Promise<SettlementFieldDetailDTO> {
+  return apiFetch<SettlementFieldDetailDTO>(
+    `/api/settlement/sido/${encodeURIComponent(sido)}/field/${encodeURIComponent(field)}?year=${encodeURIComponent(String(year))}`
   );
 }

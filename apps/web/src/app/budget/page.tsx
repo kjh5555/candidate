@@ -1,6 +1,8 @@
 "use client";
 
+import { Suspense } from "react";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   getBudgetYears,
   getBudgetByField,
@@ -12,10 +14,13 @@ import {
   getSettlementSidoDetail,
   getSettlementUnits,
   getSettlementUnitDetail,
+  getSettlementUnitFieldDetail,
+  getSettlementSidoFieldDetail,
 } from "@/lib/api";
 import type {
   BudgetBreakdownDTO,
   SettlementBreakdownDTO,
+  SettlementFieldDetailDTO,
   SettlementUnitDTO,
 } from "@repo/shared";
 import { BudgetChart } from "@/components/budget/BudgetChart";
@@ -83,7 +88,10 @@ function SelectField({
   );
 }
 
-export default function BudgetPage() {
+function BudgetPageInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const [tab, setTab] = useState<BudgetTab>("national");
 
   const [nationalYears, setNationalYears] = useState<number[]>([]);
@@ -111,6 +119,14 @@ export default function BudgetPage() {
   const [setBudgetCompareData, setSetBudgetCompareData] = useState<BudgetBreakdownDTO | null>(null);
   const [setUnitData, setSetUnitData] = useState<SettlementBreakdownDTO | null>(null);
   const [setLoading, setSetLoading] = useState(false);
+
+  // ── Field drill-down state ─────────────────────────────────────────
+  const [selectedField, setSelectedField] = useState<string | null>(
+    () => searchParams.get("field"),
+  );
+  const [fieldDetailData, setFieldDetailData] =
+    useState<SettlementFieldDetailDTO | null>(null);
+  const [fieldDetailLoading, setFieldDetailLoading] = useState(false);
 
   useEffect(() => {
     setYearsLoading(true);
@@ -227,6 +243,56 @@ export default function BudgetPage() {
   useEffect(() => {
     if (setYear !== null) loadSettlement(setYear, setSido, setUnitCode);
   }, [setYear, setSido, setUnitCode, loadSettlement]);
+
+  // Sync selectedField with URL search params
+  const handleSelectField = useCallback(
+    (field: string | null) => {
+      setSelectedField(field);
+      setFieldDetailData(null);
+      const params = new URLSearchParams(searchParams.toString());
+      if (field) {
+        params.set("field", field);
+      } else {
+        params.delete("field");
+      }
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [searchParams, router, pathname],
+  );
+
+  // Load sector drill-down when selectedField changes
+  useEffect(() => {
+    if (!selectedField || setYear === null) {
+      setFieldDetailData(null);
+      return;
+    }
+    let cancelled = false;
+    setFieldDetailLoading(true);
+    setFieldDetailData(null);
+    const fetcher =
+      setUnitCode === ALL_UNITS_KEY
+        ? getSettlementSidoFieldDetail(setSido, selectedField, setYear)
+        : getSettlementUnitFieldDetail(setUnitCode, selectedField, setYear);
+    fetcher
+      .then((data) => {
+        if (!cancelled) setFieldDetailData(data);
+      })
+      .catch(() => {
+        if (!cancelled) setFieldDetailData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setFieldDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedField, setYear, setSido, setUnitCode]);
+
+  // Clear selected field when sido/unit/year changes
+  useEffect(() => {
+    setSelectedField(null);
+    setFieldDetailData(null);
+  }, [setSido, setUnitCode, setYear]);
 
   // Build the comparison rows: 분야 -> (예산편성, 결산)
   const sidoCompareRows = useMemo(() => {
@@ -529,13 +595,75 @@ export default function BudgetPage() {
 
                       <div className="bg-white rounded-xl border border-slate-200 p-6">
                         <SectionTitle>{setSido} 본청 분야별 결산</SectionTitle>
-                        <p className="text-sm text-slate-400 mb-4">실제 지출된 금액 (세출결산액)</p>
+                        <p className="text-sm text-slate-400 mb-4">
+                          분야를 클릭하면 부문별 내역을 볼 수 있습니다
+                        </p>
                         {setSidoData && setSidoData.items.length > 0 ? (
-                          <BudgetChart data={setSidoData.items} valueLabel="결산" />
+                          <div className="space-y-1">
+                            {setSidoData.items.map((item) => (
+                              <button
+                                key={item.key}
+                                type="button"
+                                onClick={() =>
+                                  handleSelectField(
+                                    selectedField === item.key ? null : item.key,
+                                  )
+                                }
+                                className={`w-full text-left rounded-lg px-3 py-1 transition-colors ${
+                                  selectedField === item.key
+                                    ? "bg-blue-50 ring-2 ring-blue-400"
+                                    : "hover:bg-slate-50"
+                                }`}
+                              >
+                                <BudgetChart
+                                  data={[item]}
+                                  valueLabel="결산"
+                                />
+                              </button>
+                            ))}
+                          </div>
                         ) : (
                           <EmptyState message="결산 데이터가 없습니다." />
                         )}
                       </div>
+
+                      {/* 부문별 drill-down */}
+                      {selectedField && (
+                        <div className="bg-white rounded-xl border border-blue-200 p-6">
+                          <div className="flex items-center justify-between mb-1">
+                            <SectionTitle>
+                              {selectedField} 부문별 세출결산
+                            </SectionTitle>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectField(null)}
+                              className="text-sm text-slate-400 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100 transition-colors"
+                              aria-label="선택 해제"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <p className="text-sm text-slate-400 mb-4">
+                            {setSido} 본청 · {setYear}년 세출결산 (부문별)
+                          </p>
+                          {fieldDetailLoading ? (
+                            <LoadingBar />
+                          ) : fieldDetailData &&
+                            fieldDetailData.items.length > 0 ? (
+                            <BudgetChart
+                              data={fieldDetailData.items.map((i) => ({
+                                key: i.sector,
+                                amount: i.amount,
+                                percent: i.percent,
+                              }))}
+                              valueLabel="결산"
+                            />
+                          ) : (
+                            <EmptyState message="부문별 데이터가 없습니다." />
+                          )}
+                          <SourceNote text="출처: lofin365.go.kr" />
+                        </div>
+                      )}
 
                       {sidoCompareRows.length > 0 && setBudgetCompareData && (
                         <div className="bg-white rounded-xl border border-slate-200 p-6 overflow-x-auto">
@@ -612,14 +740,74 @@ export default function BudgetPage() {
                           {selectedUnit?.unitName ?? "자치단체"} 분야별 결산
                         </SectionTitle>
                         <p className="text-sm text-slate-400 mb-4">
-                          분야별 실제 지출 금액
+                          분야를 클릭하면 부문별 내역을 볼 수 있습니다
                         </p>
                         {setUnitData && setUnitData.items.length > 0 ? (
-                          <BudgetChart data={setUnitData.items} valueLabel="결산" />
+                          <div className="space-y-1">
+                            {setUnitData.items.map((item) => (
+                              <button
+                                key={item.key}
+                                type="button"
+                                onClick={() =>
+                                  handleSelectField(
+                                    selectedField === item.key ? null : item.key,
+                                  )
+                                }
+                                className={`w-full text-left rounded-lg px-3 py-1 transition-colors ${
+                                  selectedField === item.key
+                                    ? "bg-blue-50 ring-2 ring-blue-400"
+                                    : "hover:bg-slate-50"
+                                }`}
+                              >
+                                <BudgetChart
+                                  data={[item]}
+                                  valueLabel="결산"
+                                />
+                              </button>
+                            ))}
+                          </div>
                         ) : (
                           <EmptyState message="해당 자치단체 결산 데이터가 없습니다." />
                         )}
                       </div>
+
+                      {/* 부문별 drill-down */}
+                      {selectedField && (
+                        <div className="bg-white rounded-xl border border-blue-200 p-6">
+                          <div className="flex items-center justify-between mb-1">
+                            <SectionTitle>
+                              {selectedField} 부문별 세출결산
+                            </SectionTitle>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectField(null)}
+                              className="text-sm text-slate-400 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100 transition-colors"
+                              aria-label="선택 해제"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <p className="text-sm text-slate-400 mb-4">
+                            {selectedUnit?.unitName ?? "자치단체"} · {setYear}년 세출결산 (부문별)
+                          </p>
+                          {fieldDetailLoading ? (
+                            <LoadingBar />
+                          ) : fieldDetailData &&
+                            fieldDetailData.items.length > 0 ? (
+                            <BudgetChart
+                              data={fieldDetailData.items.map((i) => ({
+                                key: i.sector,
+                                amount: i.amount,
+                                percent: i.percent,
+                              }))}
+                              valueLabel="결산"
+                            />
+                          ) : (
+                            <EmptyState message="부문별 데이터가 없습니다." />
+                          )}
+                          <SourceNote text="출처: lofin365.go.kr" />
+                        </div>
+                      )}
                     </>
                   )}
 
@@ -631,5 +819,19 @@ export default function BudgetPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function BudgetPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[40vh] text-slate-400 text-sm">
+          데이터 불러오는 중...
+        </div>
+      }
+    >
+      <BudgetPageInner />
+    </Suspense>
   );
 }
