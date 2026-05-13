@@ -50,8 +50,8 @@ function getCouncilUrl(legislator: { level: string; region: string | null; name:
     return (legislator.region ? PROVINCIAL_COUNCIL_URLS[legislator.region] : null) ?? null;
   }
   if (legislator.level === "BASIC") {
-    const q = `${legislator.name} ${legislator.councilName ?? ""}`.trim();
-    return `https://clik.nanet.go.kr/potal/search/searchList.do?collection=assemblyinfo&searchSelect=Y&query=${encodeURIComponent(q)}`;
+    // 이름만으로 검색 — CLIK 검색은 의회명 같이 보내면 결과가 빔
+    return `https://clik.nanet.go.kr/potal/search/searchList.do?collection=assemblyinfo&searchSelect=Y&query=${encodeURIComponent(legislator.name)}`;
   }
   return null;
 }
