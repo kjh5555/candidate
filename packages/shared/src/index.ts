@@ -187,6 +187,12 @@ export interface VoteRecordDTO {
   result: VoteResult;
   voteDate: string;
   assemblyAge: number | null;
+  // Bill context fields
+  committee: string | null;
+  primaryProposerName: string | null;
+  primaryProposerLegislatorId: string | null;
+  coProposerCount: number;
+  linkUrl: string | null;
 }
 
 export interface VotesResponseDTO {

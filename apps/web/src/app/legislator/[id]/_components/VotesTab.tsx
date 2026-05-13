@@ -76,9 +76,9 @@ export function VotesTab({ legislatorId }: VotesTabProps) {
       </div>
 
       {loading ? (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-12 bg-slate-100 rounded-lg animate-pulse" />
+            <div key={i} className="h-20 bg-slate-100 rounded-lg animate-pulse" />
           ))}
         </div>
       ) : error ? (
@@ -87,47 +87,10 @@ export function VotesTab({ legislatorId }: VotesTabProps) {
         <EmptyState message="표결 이력이 없습니다." />
       ) : (
         <>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left py-2 px-3 text-slate-500 font-medium hidden sm:table-cell">의안번호</th>
-                  <th className="text-left py-2 px-3 text-slate-500 font-medium">의안명</th>
-                  <th className="text-left py-2 px-3 text-slate-500 font-medium hidden sm:table-cell">표결일</th>
-                  <th className="text-left py-2 px-3 text-slate-500 font-medium">결과</th>
-                </tr>
-              </thead>
-              <tbody>
-                {votes.map((vote) => (
-                  <tr
-                    key={vote.id}
-                    className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
-                  >
-                    <td className="py-2 px-3 text-slate-500 hidden sm:table-cell text-xs">
-                      {vote.billNo}
-                    </td>
-                    <td className="py-2 px-3">
-                      {vote.billId ? (
-                        <Link
-                          href={`/bill/${vote.billId}`}
-                          className="text-blue-600 hover:underline"
-                        >
-                          {vote.billName ?? vote.billNo}
-                        </Link>
-                      ) : (
-                        <span className="text-slate-700">{vote.billName ?? vote.billNo}</span>
-                      )}
-                    </td>
-                    <td className="py-2 px-3 text-slate-500 hidden sm:table-cell">
-                      {vote.voteDate ? vote.voteDate.slice(0, 10) : "-"}
-                    </td>
-                    <td className="py-2 px-3">
-                      <VoteResultBadge result={vote.result as VoteResult} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-2">
+            {votes.map((vote) => (
+              <VoteRow key={vote.id} vote={vote} />
+            ))}
           </div>
           <Pagination
             offset={offset}
@@ -137,6 +100,84 @@ export function VotesTab({ legislatorId }: VotesTabProps) {
             onNext={() => setOffset((o) => o + LIMIT)}
           />
         </>
+      )}
+    </div>
+  );
+}
+
+function VoteRow({ vote }: { vote: VoteRecordDTO }) {
+  const billName = vote.billName ?? vote.billNo;
+
+  return (
+    <div className="border border-slate-200 rounded-lg px-4 py-3 hover:bg-slate-50 transition-colors">
+      {/* Top row: bill name + result badge */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          {vote.billId ? (
+            <Link
+              href={`/bill/${vote.billId}`}
+              className="text-sm font-medium text-blue-600 hover:underline leading-snug line-clamp-2"
+            >
+              {billName}
+            </Link>
+          ) : (
+            <span className="text-sm font-medium text-slate-800 leading-snug line-clamp-2">
+              {billName}
+            </span>
+          )}
+        </div>
+        <div className="flex-shrink-0">
+          <VoteResultBadge result={vote.result as VoteResult} />
+        </div>
+      </div>
+
+      {/* Middle row: meta info */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+        {vote.committee && (
+          <span>{vote.committee}</span>
+        )}
+        {vote.committee && (vote.primaryProposerName || vote.coProposerCount > 0) && (
+          <span className="text-slate-300">·</span>
+        )}
+        {vote.primaryProposerName && (
+          <span>
+            대표발의{" "}
+            {vote.primaryProposerLegislatorId ? (
+              <Link
+                href={`/legislator/${vote.primaryProposerLegislatorId}`}
+                className="text-blue-500 hover:underline"
+              >
+                {vote.primaryProposerName}
+              </Link>
+            ) : (
+              <span className="text-slate-600">{vote.primaryProposerName}</span>
+            )}
+          </span>
+        )}
+        {vote.primaryProposerName && vote.coProposerCount > 0 && (
+          <span className="text-slate-300">·</span>
+        )}
+        {vote.coProposerCount > 0 && (
+          <span>공동 {vote.coProposerCount}명</span>
+        )}
+        {(vote.committee || vote.primaryProposerName || vote.coProposerCount > 0) && (
+          <span className="text-slate-300">·</span>
+        )}
+        <span>{vote.voteDate.slice(0, 10)}</span>
+      </div>
+
+      {/* Bottom row: 원문 보기 link */}
+      {vote.linkUrl && (
+        <div className="mt-1.5 text-right">
+          <a
+            href={vote.linkUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-slate-400 hover:text-blue-500 transition-colors"
+          >
+            원문 보기 →
+          </a>
+        </div>
       )}
     </div>
   );

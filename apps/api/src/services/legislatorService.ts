@@ -340,19 +340,68 @@ export async function listLegislatorVotes(
       orderBy: { voteDate: "desc" },
       skip: offset,
       take: limit,
+      include: {
+        bill: {
+          include: {
+            proposers: {
+              where: { role: "PRIMARY" },
+              select: { legislatorId: true },
+            },
+          },
+        },
+      },
     }),
     prisma.vote.count({ where }),
   ]);
 
-  const votes: VoteRecordDTO[] = rows.map((v) => ({
-    id: v.id,
-    billNo: v.billNo,
-    billName: v.billName,
-    billId: v.billId,
-    result: v.result,
-    voteDate: v.voteDate.toISOString(),
-    assemblyAge: v.assemblyAge,
-  }));
+  // Batch-count CO proposers for all bills that have a billId
+  const billIds = rows.map((v) => v.billId).filter((id): id is string => id !== null);
+  const coCountMap = new Map<string, number>();
+  if (billIds.length > 0) {
+    const coCounts = await prisma.billProposer.groupBy({
+      by: ["billId"],
+      where: { billId: { in: billIds }, role: "CO" },
+      _count: { _all: true },
+    });
+    for (const c of coCounts) {
+      coCountMap.set(c.billId, c._count._all);
+    }
+  }
+
+  const votes: VoteRecordDTO[] = rows.map((v) => {
+    const bill = v.bill;
+    // Fallback coProposerCount: split coProposerNamesRaw if BillProposer table has no data
+    let coProposerCount = 0;
+    if (bill) {
+      const fromMap = coCountMap.get(bill.id);
+      if (fromMap !== undefined && fromMap > 0) {
+        coProposerCount = fromMap;
+      } else if (bill.coProposerNamesRaw) {
+        coProposerCount = bill.coProposerNamesRaw
+          .split(/[,，、\n]/)
+          .map((s) => s.trim())
+          .filter(Boolean).length;
+      }
+    }
+
+    const primaryProposerLegislatorId =
+      bill?.proposers?.[0]?.legislatorId ?? null;
+
+    return {
+      id: v.id,
+      billNo: v.billNo,
+      billName: v.billName,
+      billId: v.billId,
+      result: v.result,
+      voteDate: v.voteDate.toISOString(),
+      assemblyAge: v.assemblyAge,
+      committee: bill?.committee ?? null,
+      primaryProposerName: bill?.primaryProposerName ?? null,
+      primaryProposerLegislatorId,
+      coProposerCount,
+      linkUrl: bill?.linkUrl ?? null,
+    };
+  });
 
   return { votes, total, limit, offset };
 }
