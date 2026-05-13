@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   getBudgetYears,
@@ -285,6 +285,8 @@ function BudgetPageInner() {
   const [fieldDetailData, setFieldDetailData] =
     useState<SettlementFieldDetailDTO | null>(null);
   const [fieldDetailLoading, setFieldDetailLoading] = useState(false);
+  // Ref to scroll the 부문별 drill-down section into view on field click
+  const fieldDetailRef = useRef<HTMLDivElement | null>(null);
 
   // ── Settlement report (PDF link) state ─────────────────────────────
   const [reportData, setReportData] = useState<SettlementReportDTO | null>(null);
@@ -417,6 +419,16 @@ function BudgetPageInner() {
         params.delete("field");
       }
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+      // Smoothly scroll the drill-down section into view after it mounts
+      if (field) {
+        // Wait a frame for the section to render, then scroll.
+        requestAnimationFrame(() => {
+          fieldDetailRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        });
+      }
     },
     [searchParams, router, pathname],
   );
@@ -795,7 +807,7 @@ function BudgetPageInner() {
 
                       {/* 부문별 drill-down */}
                       {selectedField && (
-                        <div className="bg-white rounded-xl border border-blue-200 p-6">
+                        <div ref={fieldDetailRef} className="bg-white rounded-xl border border-blue-200 p-6 scroll-mt-24">
                           <div className="flex items-center justify-between mb-1">
                             <SectionTitle>
                               {selectedField} 부문별 세출결산
@@ -939,7 +951,7 @@ function BudgetPageInner() {
 
                       {/* 부문별 drill-down */}
                       {selectedField && (
-                        <div className="bg-white rounded-xl border border-blue-200 p-6">
+                        <div ref={fieldDetailRef} className="bg-white rounded-xl border border-blue-200 p-6 scroll-mt-24">
                           <div className="flex items-center justify-between mb-1">
                             <SectionTitle>
                               {selectedField} 부문별 세출결산
