@@ -361,9 +361,32 @@ export async function ingestMetropolitanBudget(
   const byField = new Map<string, bigint>();
   const bySidoField = new Map<string, bigint>();
 
+  // lofin365 returns short sido names ("서울", "경기"); the rest of the app
+  // (frontend pickers, Legislator.region for PROVINCIAL) uses full names.
+  const SIDO_SHORT_TO_FULL: Record<string, string> = {
+    서울: "서울특별시",
+    부산: "부산광역시",
+    대구: "대구광역시",
+    인천: "인천광역시",
+    광주: "광주광역시",
+    대전: "대전광역시",
+    울산: "울산광역시",
+    세종: "세종특별자치시",
+    경기: "경기도",
+    강원: "강원특별자치도",
+    충북: "충청북도",
+    충남: "충청남도",
+    전북: "전북특별자치도",
+    전남: "전라남도",
+    경북: "경상북도",
+    경남: "경상남도",
+    제주: "제주특별자치도",
+  };
+
   const data = allRows
     .map((row) => {
-      const sido = nonEmpty(row.wa_laf_hg_nm);
+      const rawSido = nonEmpty(row.wa_laf_hg_nm);
+      const sido = rawSido ? SIDO_SHORT_TO_FULL[rawSido] ?? rawSido : null;
       const field = nonEmpty(row.fld_nm);
       if (!sido || !field) return null;
       const amount = toBigInt(row.bfae_totl_amt); // already in 원
