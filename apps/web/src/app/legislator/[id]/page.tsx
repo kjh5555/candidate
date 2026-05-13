@@ -566,30 +566,47 @@ export default function LegislatorPage() {
         </div>
       )}
 
-      {/* Bills / Votes tabs */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6">
-        {/* Segmented control */}
-        <div className="flex gap-1 mb-6 border-b border-slate-200 -mx-6 px-6">
-          {(["bills", "votes"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                tab === t
-                  ? "border-blue-600 text-blue-700"
-                  : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"
-              }`}
-            >
-              {t === "bills" ? "발의 법안" : "표결 이력"}
-            </button>
-          ))}
+      {/* Bills / Votes tabs (NATIONAL only — 광역·기초의원은 법률안 발의 X, 조례안 발의 O) */}
+      {legislator.level === "NATIONAL" ? (
+        <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <div className="flex gap-1 mb-6 border-b border-slate-200 -mx-6 px-6">
+            {(["bills", "votes"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  tab === t
+                    ? "border-blue-600 text-blue-700"
+                    : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"
+                }`}
+              >
+                {t === "bills" ? "발의 법안" : "표결 이력"}
+              </button>
+            ))}
+          </div>
+          {tab === "bills" ? (
+            <BillsTab legislatorId={id} />
+          ) : (
+            <VotesTab legislatorId={id} />
+          )}
         </div>
-        {tab === "bills" ? (
-          <BillsTab legislatorId={id} />
-        ) : (
-          <VotesTab legislatorId={id} />
-        )}
-      </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <h2 className="text-lg font-semibold text-slate-900 mb-2">
+            의정활동 (조례안·회의·출석)
+          </h2>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            {legislator.level === "PROVINCIAL" ? "광역의원" : "기초의원"}은
+            법률안이 아닌 <strong>조례안</strong>을 발의합니다. 조례안 발의 이력,
+            본회의·상임위 출석률, 시정질문, 5분 자유발언 등 의정활동 데이터는
+            국회도서관 지방의정포털(CLIK) 데이터 연동 후 표시됩니다.
+          </p>
+          <p className="text-xs text-slate-400 mt-3">
+            ↑ 위의 &quot;의정활동 자세히 보기&quot; 카드를 통해 공식 의회 사이트에서
+            먼저 확인할 수 있습니다.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
