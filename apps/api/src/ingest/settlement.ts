@@ -260,16 +260,36 @@ export async function ingestSettlement(fiscalYear: number): Promise<IngestStats>
 
   console.log(`[settlement] Got ${rawRows.length} rows. Normalizing...`);
 
+  // lofin365 returns unitName with sido short prefix (e.g. "경기여주시").
+  // Strip prefix for BASIC level so it matches Legislator.region ("여주시").
+  // Keep METROPOLITAN level names as-is ("서울본청", "경기도청" etc).
+  const SIDO_SHORT_PREFIXES = [
+    "서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종",
+    "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주",
+  ];
+  function stripSidoPrefix(name: string): string {
+    for (const p of SIDO_SHORT_PREFIXES) {
+      if (name.startsWith(p) && name.length > p.length) {
+        const rest = name.slice(p.length);
+        // Only strip if rest looks like a 시/군/구 name
+        if (/^[가-힣]+(시|군|구|읍|면|동)$/.test(rest)) return rest;
+      }
+    }
+    return name;
+  }
+
   const normalized: NormalizedRow[] = [];
   for (const row of rawRows) {
     const sido = normalizeSido(nonEmpty(row.wa_laf_hg_nm));
     const unitCode = nonEmpty(row.laf_cd);
-    const unitName = nonEmpty(row.laf_hg_nm);
+    const rawUnitName = nonEmpty(row.laf_hg_nm);
     const field = nonEmpty(row.fld_nm);
-    if (!sido || !unitCode || !unitName || !field) continue;
+    if (!sido || !unitCode || !rawUnitName || !field) continue;
+    const level = detectLevel(row);
+    const unitName = level === "BASIC" ? stripSidoPrefix(rawUnitName) : rawUnitName;
     normalized.push({
       fiscalYear,
-      level: detectLevel(row),
+      level,
       sido,
       unitCode,
       unitName,
