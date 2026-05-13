@@ -23,6 +23,39 @@ import {
   ExternalLink,
 } from "lucide-react";
 
+// ─── 의회 외부 링크 ──────────────────────────────────────────
+
+const PROVINCIAL_COUNCIL_URLS: Record<string, string> = {
+  서울특별시: "https://www.smc.seoul.kr",
+  부산광역시: "https://council.busan.go.kr",
+  대구광역시: "https://council.daegu.go.kr",
+  인천광역시: "https://council.incheon.go.kr",
+  광주광역시: "https://council.gjcity.go.kr",
+  대전광역시: "https://council.daejeon.go.kr",
+  울산광역시: "https://council.ulsan.go.kr",
+  세종특별자치시: "https://council.sejong.go.kr",
+  경기도: "https://www.ggc.go.kr",
+  강원특별자치도: "https://www.council.gwd.go.kr",
+  충청북도: "https://council.cb21.net",
+  충청남도: "https://www.cnacl.go.kr",
+  전북특별자치도: "https://council.jeonbuk.go.kr",
+  전라남도: "https://www.jnassembly.go.kr",
+  경상북도: "https://council.gb.go.kr",
+  경상남도: "https://www.gnacl.go.kr",
+  제주특별자치도: "https://council.jeju.go.kr",
+};
+
+function getCouncilUrl(legislator: { level: string; region: string | null; name: string; councilName: string | null }): string | null {
+  if (legislator.level === "PROVINCIAL") {
+    return (legislator.region ? PROVINCIAL_COUNCIL_URLS[legislator.region] : null) ?? null;
+  }
+  if (legislator.level === "BASIC") {
+    const q = `${legislator.name} ${legislator.councilName ?? ""}`.trim();
+    return `https://clik.nanet.go.kr/potal/search/searchList.do?collection=assemblyinfo&searchSelect=Y&query=${encodeURIComponent(q)}`;
+  }
+  return null;
+}
+
 // ─── 재산 포맷 헬퍼 ──────────────────────────────────────────
 
 /** 만원 단위 BigInt(string) → 읽기 좋은 표시 (예: 52억 3,065만원) */
@@ -271,9 +304,10 @@ export default function LegislatorPage() {
     );
   }
 
-  const levelLabel = legislator.level === "NATIONAL" ? "국회의원" : "광역의회 의원";
+  const levelLabel = legislator.level === "NATIONAL" ? "국회의원" : legislator.level === "PROVINCIAL" ? "광역의회 의원" : "기초의회 의원";
   const counts = legislator._counts;
   const hasDisclosureData = !!legislator.disclosureElectionId;
+  const councilUrl = getCouncilUrl(legislator);
 
   return (
     <div className="flex flex-col gap-6">
@@ -326,6 +360,30 @@ export default function LegislatorPage() {
           </div>
         </div>
       </div>
+
+      {/* 공식 의회 외부 링크 (PROVINCIAL / BASIC only) */}
+      {councilUrl && legislator.level !== "NATIONAL" && (
+        <div className="bg-amber-50 rounded-xl border border-amber-200 p-5">
+          <div className="flex gap-4">
+            <ExternalLink className="w-6 h-6 text-amber-600 shrink-0 mt-1" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-slate-900 mb-1">의정활동 자세히 보기</h3>
+              <p className="text-sm text-slate-700 mb-4">
+                이 의원의 조례안 발의·회의 출석·시정질문 등 의정활동은 공식 의회 페이지에서 확인하세요.
+              </p>
+              <a
+                href={councilUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg text-sm transition-colors"
+              >
+                {legislator.councilName ? `${legislator.councilName}에서 보기` : "공식 의회에서 보기"}
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
