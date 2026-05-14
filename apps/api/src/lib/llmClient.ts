@@ -54,7 +54,7 @@ function getModel(provider: LlmProvider): string {
   if (explicit) return explicit;
   if (provider === "anthropic") return "claude-haiku-4-5";
   if (provider === "openai") return "gpt-4o-mini";
-  if (provider === "gemini") return "gemini-2.0-flash";
+  if (provider === "gemini") return "gemini-2.5-flash";
   return "";
 }
 
