@@ -44,41 +44,36 @@ function isControversyTopic(topic: ControversyTopicDTO): boolean {
   return issueCount * 2 >= articles.length;
 }
 
-function credibilityColor(score: number | null): {
-  border: string;
-  bg: string;
-  text: string;
-  label: string;
+/** 좌측 컬럼에 표시할 "최근 보도" 일자 포맷 (월/일 + 연도). */
+function formatLatestForBadge(iso: string | null): {
+  primary: string;
+  secondary: string;
+  relative: string;
 } {
-  if (score === null) {
-    return {
-      border: "border-slate-200",
-      bg: "bg-slate-50",
-      text: "text-slate-400",
-      label: "산정 전",
-    };
+  if (!iso) {
+    return { primary: "—", secondary: "보도일", relative: "" };
   }
-  if (score >= 70) {
-    return {
-      border: "border-emerald-200",
-      bg: "bg-emerald-50",
-      text: "text-emerald-700",
-      label: "신뢰도 높음",
-    };
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) {
+    return { primary: "—", secondary: "보도일", relative: "" };
   }
-  if (score >= 40) {
-    return {
-      border: "border-amber-200",
-      bg: "bg-amber-50",
-      text: "text-amber-700",
-      label: "신뢰도 보통",
-    };
-  }
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const year = d.getFullYear();
+  const diffMs = Date.now() - d.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  let relative = "";
+  if (diffDays < 0) relative = "예정";
+  else if (diffDays === 0) relative = "오늘";
+  else if (diffDays === 1) relative = "어제";
+  else if (diffDays < 7) relative = `${diffDays}일 전`;
+  else if (diffDays < 30) relative = `${Math.floor(diffDays / 7)}주 전`;
+  else if (diffDays < 365) relative = `${Math.floor(diffDays / 30)}개월 전`;
+  else relative = `${Math.floor(diffDays / 365)}년 전`;
   return {
-    border: "border-red-200",
-    bg: "bg-red-50",
-    text: "text-red-700",
-    label: "신뢰도 낮음",
+    primary: `${month}/${day}`,
+    secondary: `${year}`,
+    relative,
   };
 }
 
@@ -376,22 +371,33 @@ function TopicCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [showSignals, setShowSignals] = useState(false);
-  const tone = credibilityColor(topic.credibility);
   const isControversy = mode === "controversy";
+  const latestIso = topicLatestDate(topic);
+  const dateBadge = formatLatestForBadge(latestIso);
+  const sideBg = isControversy ? "bg-amber-50" : "bg-blue-50";
+  const sidePrimaryText = isControversy ? "text-amber-700" : "text-blue-700";
+  const sideSecondaryText = isControversy ? "text-amber-600" : "text-blue-600";
 
   return (
-    <div className={`rounded-xl border ${tone.border} bg-white overflow-hidden`}>
+    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
       <div className="flex flex-col sm:flex-row">
-        {/* 점수 영역 */}
+        {/* 좌측: 최근 보도 일자 */}
         <div
-          className={`flex flex-row sm:flex-col items-center justify-center px-5 py-4 sm:py-6 sm:w-32 shrink-0 ${tone.bg} gap-2 sm:gap-1`}
+          className={`flex flex-row sm:flex-col items-center justify-center px-5 py-4 sm:py-6 sm:w-32 shrink-0 ${sideBg} gap-2 sm:gap-1`}
         >
-          <span className={`text-4xl sm:text-5xl font-bold ${tone.text}`}>
-            {topic.credibility ?? "-"}
+          <span className={`text-3xl sm:text-4xl font-bold ${sidePrimaryText}`}>
+            {dateBadge.primary}
           </span>
-          <span className={`text-xs font-medium ${tone.text}`}>
-            {tone.label}
-          </span>
+          <div className="flex flex-col items-center">
+            <span className={`text-xs font-medium ${sideSecondaryText}`}>
+              {dateBadge.secondary}
+            </span>
+            {dateBadge.relative && (
+              <span className="text-[10px] text-slate-500 mt-0.5">
+                {dateBadge.relative}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* 본문 영역 */}
@@ -423,7 +429,7 @@ function TopicCard({
               return range ? (
                 <>
                   <span className="text-slate-600">
-                    보도 일자: <b className="text-slate-800">{range}</b>
+                    보도 기간: <b className="text-slate-800">{range}</b>
                   </span>
                   <span>·</span>
                 </>
@@ -438,11 +444,11 @@ function TopicCard({
               className={`inline-flex items-center gap-1 hover:underline ml-auto ${
                 isControversy
                   ? "text-amber-700 hover:text-amber-800 font-medium"
-                  : "text-blue-500 hover:text-blue-700"
+                  : "text-blue-600 hover:text-blue-700"
               }`}
             >
               <Info className="w-3 h-3" />
-              {isControversy ? "논란 정보" : "왜 이 점수?"}
+              {isControversy ? "논란 정보" : "상세 정보"}
             </button>
           </div>
 
