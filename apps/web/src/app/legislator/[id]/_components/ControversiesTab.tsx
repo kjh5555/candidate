@@ -23,6 +23,8 @@ interface ControversiesTabProps {
   legislatorId: string;
   /** "general" = 일반 정치 활동 기사 | "controversy" = 논란/해명 기사 */
   filter?: "general" | "controversy";
+  /** Google 검색 링크 생성을 위해 사용 */
+  legislatorName?: string;
 }
 
 const CONTROVERSY_TITLE_PATTERN =
@@ -160,12 +162,33 @@ function ArticleRow({ article }: { article: NewsArticleDTO }) {
   );
 }
 
+/**
+ * 토픽 제목에서 검색 키워드를 뽑는다 — "[TF사진관] '양평 공흥지구 특혜 의혹' 공판
+ * 출석한 김건희 일가와 김선교 의원" 같은 제목에서 작은따옴표·큰따옴표 안의 핵심
+ * 구절이나 가장 의미있는 토큰을 추출.
+ */
+function extractTopicKeyword(title: string): string {
+  const quoted = title.match(/['‘"“]([^'’"”]{4,40})['’"”]/);
+  if (quoted) return quoted[1]!;
+  // 대괄호 prefix 제거 후 앞 30자
+  const stripped = title.replace(/^\[[^\]]+\]\s*/, "").trim();
+  return stripped.length > 40 ? stripped.slice(0, 40) : stripped;
+}
+
 function SignalsDetail({
   signals,
   articles,
+  mode,
+  topicTitle,
+  legislatorName,
+  topicSummary,
 }: {
   signals: Record<string, unknown> | null;
   articles: NewsArticleDTO[];
+  mode: "general" | "controversy";
+  topicTitle: string;
+  legislatorName?: string;
+  topicSummary: string | null;
 }) {
   const get = (key: string): string | null => {
     if (!signals) return null;
@@ -182,7 +205,10 @@ function SignalsDetail({
   const primarySourceRatio = get("primarySourceRatio");
   const correctionRatio = get("correctionRatio");
 
-  // 대표 기사 3건 (stance=claim/explanation 우선 → 최신순)
+  const isControversy = mode === "controversy";
+
+  // 대표 기사: 일반 모드는 3건, 논란 모드는 5건
+  const limit = isControversy ? 5 : 3;
   const representative = [...articles]
     .sort((a, b) => {
       const aw = a.stance === "claim" || a.stance === "explanation" ? 1 : 0;
@@ -192,43 +218,50 @@ function SignalsDetail({
       const bd = b.publishedAt ?? "";
       return bd.localeCompare(ad);
     })
-    .slice(0, 3);
+    .slice(0, limit);
+
+  const excerptCap = isControversy ? 360 : 160;
+
+  // 외부 검색 링크 (논란 모드만): 토픽 핵심 키워드 + 의원 이름
+  const keyword = extractTopicKeyword(topicTitle);
+  const searchQuery = legislatorName
+    ? `${keyword} ${legislatorName}`
+    : keyword;
+  const googleNewsUrl = `https://news.google.com/search?q=${encodeURIComponent(searchQuery)}&hl=ko&gl=KR&ceid=KR:ko`;
+  const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}&hl=ko`;
+  const namuUrl = `https://namu.wiki/Search?q=${encodeURIComponent(keyword)}`;
 
   return (
     <div className="flex flex-col gap-2">
-      {signals && (
-        <div className="bg-slate-50 rounded-lg p-3 text-xs text-slate-600 flex flex-wrap gap-x-4 gap-y-1 border border-slate-200">
-          <span>
-            기사 수: <b className="text-slate-800">{articleCount ?? "-"}</b>
-          </span>
-          <span>
-            고유 언론사:{" "}
-            <b className="text-slate-800">{uniqueSourceCount ?? "-"}</b>
-          </span>
-          <span>
-            출처 다양성:{" "}
-            <b className="text-slate-800">{uniqueSourcesRatio ?? "-"}</b>
-          </span>
-          <span>
-            1차 출처 비율:{" "}
-            <b className="text-slate-800">{primarySourceRatio ?? "-"}</b>
-          </span>
-          <span>
-            정정·반박 비율:{" "}
-            <b className="text-slate-800">{correctionRatio ?? "-"}</b>
-          </span>
+      {/* 논란 모드: 요약/배경 우선 노출 */}
+      {isControversy && topicSummary && (
+        <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
+          <p className="text-xs font-semibold text-amber-800 mb-1">요약</p>
+          <p className="text-sm text-slate-800 leading-relaxed">
+            {topicSummary}
+          </p>
         </div>
       )}
+
       {representative.length > 0 && (
-        <div className="bg-blue-50/50 rounded-lg p-3 border border-blue-100">
+        <div
+          className={`rounded-lg p-3 border ${
+            isControversy
+              ? "bg-amber-50/40 border-amber-100"
+              : "bg-blue-50/50 border-blue-100"
+          }`}
+        >
           <p className="text-xs font-semibold text-slate-700 mb-2">
-            어떤 내용?
+            {isControversy ? "어떤 논란인가요?" : "어떤 내용?"}
           </p>
-          <ul className="flex flex-col gap-1.5">
+          <ul className="flex flex-col gap-2">
             {representative.map((a) => {
               const badge = stanceBadge(a.stance);
               return (
-                <li key={a.id} className="text-xs text-slate-700">
+                <li
+                  key={a.id}
+                  className="text-xs text-slate-700 pb-2 border-b border-slate-100 last:border-b-0 last:pb-0"
+                >
                   <div className="flex items-baseline gap-1.5 flex-wrap">
                     {badge && (
                       <span
@@ -250,9 +283,9 @@ function SignalsDetail({
                     </a>
                   </div>
                   {a.excerpt && (
-                    <p className="text-slate-500 mt-0.5 leading-relaxed line-clamp-2">
-                      {a.excerpt.slice(0, 160)}
-                      {a.excerpt.length > 160 ? "…" : ""}
+                    <p className="text-slate-600 mt-1 leading-relaxed">
+                      {a.excerpt.slice(0, excerptCap)}
+                      {a.excerpt.length > excerptCap ? "…" : ""}
                     </p>
                   )}
                 </li>
@@ -261,14 +294,90 @@ function SignalsDetail({
           </ul>
         </div>
       )}
+
+      {/* 논란 모드: 외부 출처에서 배경/맥락 직접 찾아보기 */}
+      {isControversy && (
+        <div className="rounded-lg p-3 bg-slate-50 border border-slate-200">
+          <p className="text-xs font-semibold text-slate-700 mb-1.5">
+            더 자세히 찾아보기
+          </p>
+          <p className="text-[11px] text-slate-500 mb-2">
+            "{keyword}"
+            {legislatorName ? ` · ${legislatorName}` : ""} 관련 외부 검색
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={googleNewsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline px-2 py-1 rounded border border-slate-200 bg-white"
+            >
+              <ExternalLink className="w-3 h-3" />
+              Google 뉴스
+            </a>
+            <a
+              href={googleUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline px-2 py-1 rounded border border-slate-200 bg-white"
+            >
+              <ExternalLink className="w-3 h-3" />
+              Google 검색
+            </a>
+            <a
+              href={namuUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline px-2 py-1 rounded border border-slate-200 bg-white"
+            >
+              <ExternalLink className="w-3 h-3" />
+              나무위키
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* 시그널 — 일반 모드에선 위, 논란 모드에선 아래(작게) */}
+      {signals && (
+        <div className="bg-slate-50 rounded-lg p-2.5 text-[11px] text-slate-600 flex flex-wrap gap-x-3 gap-y-0.5 border border-slate-200">
+          <span>
+            기사 수: <b className="text-slate-800">{articleCount ?? "-"}</b>
+          </span>
+          <span>
+            고유 언론사:{" "}
+            <b className="text-slate-800">{uniqueSourceCount ?? "-"}</b>
+          </span>
+          <span>
+            출처 다양성:{" "}
+            <b className="text-slate-800">{uniqueSourcesRatio ?? "-"}</b>
+          </span>
+          <span>
+            1차 출처 비율:{" "}
+            <b className="text-slate-800">{primarySourceRatio ?? "-"}</b>
+          </span>
+          <span>
+            정정·반박 비율:{" "}
+            <b className="text-slate-800">{correctionRatio ?? "-"}</b>
+          </span>
+        </div>
+      )}
     </div>
   );
 }
 
-function TopicCard({ topic }: { topic: ControversyTopicDTO }) {
+function TopicCard({
+  topic,
+  mode,
+  legislatorName,
+}: {
+  topic: ControversyTopicDTO;
+  mode: "general" | "controversy";
+  legislatorName?: string;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [showSignals, setShowSignals] = useState(false);
   const tone = credibilityColor(topic.credibility);
+  const isControversy = mode === "controversy";
 
   return (
     <div className={`rounded-xl border ${tone.border} bg-white overflow-hidden`}>
@@ -326,14 +435,26 @@ function TopicCard({ topic }: { topic: ControversyTopicDTO }) {
             <button
               type="button"
               onClick={() => setShowSignals((v) => !v)}
-              className="inline-flex items-center gap-1 text-blue-500 hover:text-blue-700 hover:underline ml-auto"
+              className={`inline-flex items-center gap-1 hover:underline ml-auto ${
+                isControversy
+                  ? "text-amber-700 hover:text-amber-800 font-medium"
+                  : "text-blue-500 hover:text-blue-700"
+              }`}
             >
-              <Info className="w-3 h-3" />왜 이 점수?
+              <Info className="w-3 h-3" />
+              {isControversy ? "논란 정보" : "왜 이 점수?"}
             </button>
           </div>
 
           {showSignals && (
-            <SignalsDetail signals={topic.signals} articles={topic.articles} />
+            <SignalsDetail
+              signals={topic.signals}
+              articles={topic.articles}
+              mode={mode}
+              topicTitle={topic.title}
+              legislatorName={legislatorName}
+              topicSummary={topic.summary}
+            />
           )}
 
           <button
@@ -370,6 +491,7 @@ function TopicCard({ topic }: { topic: ControversyTopicDTO }) {
 export function ControversiesTab({
   legislatorId,
   filter = "general",
+  legislatorName,
 }: ControversiesTabProps) {
   const [data, setData] = useState<ControversyTopicsResponseDTO | null>(null);
   const [loading, setLoading] = useState(true);
@@ -519,7 +641,12 @@ export function ControversiesTab({
       ) : (
         <div className="flex flex-col gap-3">
           {displayedTopics.map((topic) => (
-            <TopicCard key={topic.id} topic={topic} />
+            <TopicCard
+              key={topic.id}
+              topic={topic}
+              mode={filter}
+              legislatorName={legislatorName}
+            />
           ))}
         </div>
       )}

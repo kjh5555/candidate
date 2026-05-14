@@ -610,9 +610,17 @@ export default function LegislatorPage() {
           ) : tab === "votes" ? (
             <VotesTab legislatorId={id} />
           ) : tab === "controversies" ? (
-            <ControversiesTab legislatorId={id} filter="general" />
+            <ControversiesTab
+              legislatorId={id}
+              filter="general"
+              legislatorName={legislator.name}
+            />
           ) : (
-            <ControversiesTab legislatorId={id} filter="controversy" />
+            <ControversiesTab
+              legislatorId={id}
+              filter="controversy"
+              legislatorName={legislator.name}
+            />
           )}
         </div>
       ) : (
