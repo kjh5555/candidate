@@ -19,6 +19,7 @@ import type {
   SettlementReportDTO,
   SettlementUnitsResponseDTO,
   SettlementYearsResponseDTO,
+  RegionHubDTO,
 } from "@repo/shared";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -270,3 +271,15 @@ export function getSettlementReport(
 
 // 시·도 단위 (전 자치단체 합산) 결산서는 단일 PDF가 아니므로, sido는 본청 unitCode 사용.
 // UI에서는 unitCode가 있을 때만 호출.
+
+// ── Region Hub (지역 허브) ────────────────────────────────────
+
+export function getRegionHub(
+  sido: string,
+  wiwName: string
+): Promise<RegionHubDTO> {
+  const query = new URLSearchParams();
+  query.set("sido", sido);
+  query.set("wiwName", wiwName);
+  return apiFetch<RegionHubDTO>(`/api/region-hub?${query.toString()}`);
+}

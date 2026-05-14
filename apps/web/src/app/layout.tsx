@@ -2,9 +2,11 @@
 
 import { Noto_Sans_KR } from "next/font/google";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { Menu, X, Landmark } from "lucide-react";
+import { getMyRegion } from "@/lib/myRegion";
+import { MyRegionBanner } from "@/components/MyRegionBanner";
 import "./globals.css";
 
 const notoSansKR = Noto_Sans_KR({
@@ -14,35 +16,65 @@ const notoSansKR = Noto_Sans_KR({
   display: "swap",
 });
 
-const NAV_LINKS = [
+interface NavLinkConfig {
+  href: string;
+  label: string;
+  matcher?: RegExp;
+  /** If true, resolve href at click-time from localStorage region. */
+  resolveMyRegion?: boolean;
+}
+
+const NAV_LINKS: NavLinkConfig[] = [
   { href: "/", label: "홈" },
-  { href: "/?tab=national", label: "의원", matcher: /^\/(region|legislator|provincial)/ },
+  {
+    href: "/region-hub",
+    label: "내 지역",
+    matcher: /^\/region-hub/,
+    resolveMyRegion: true,
+  },
+  { href: "/?tab=national", label: "의원", matcher: /^\/(region|legislator|provincial|basic)/ },
   { href: "/?tab=local", label: "후보", matcher: /^\/(candidate)/ },
   { href: "/budget", label: "예산" },
   { href: "/about", label: "제도 알아보기" },
-] as const;
+];
 
 function NavLink({
   href,
   label,
   matcher,
+  resolveMyRegion,
   onClick,
-}: {
-  href: string;
-  label: string;
-  matcher?: RegExp;
+}: NavLinkConfig & {
   onClick?: () => void;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const isActive =
     (href === "/" && pathname === "/") ||
     (matcher && matcher.test(pathname)) ||
     (href !== "/" && !matcher && pathname.startsWith(href));
 
+  function handleClick(e: React.MouseEvent<HTMLAnchorElement>) {
+    if (resolveMyRegion) {
+      e.preventDefault();
+      const { sido, wiwName } = getMyRegion();
+      if (sido && wiwName) {
+        router.push(
+          `/region-hub?sido=${encodeURIComponent(sido)}&wiwName=${encodeURIComponent(wiwName)}`,
+        );
+      } else {
+        router.push("/");
+      }
+      if (onClick) onClick();
+    } else if (onClick) {
+      onClick();
+    }
+  }
+
   return (
     <Link
       href={href}
-      onClick={onClick}
+      onClick={handleClick}
       className={`relative px-1 py-0.5 text-sm font-medium transition-colors after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:rounded-full after:transition-transform after:duration-200 ${
         isActive
           ? "text-blue-700 after:bg-blue-700 after:scale-x-100"
@@ -56,6 +88,21 @@ function NavLink({
 
 function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const router = useRouter();
+
+  function handleMobileClick(link: NavLinkConfig) {
+    setMobileOpen(false);
+    if (link.resolveMyRegion) {
+      const { sido, wiwName } = getMyRegion();
+      if (sido && wiwName) {
+        router.push(
+          `/region-hub?sido=${encodeURIComponent(sido)}&wiwName=${encodeURIComponent(wiwName)}`,
+        );
+      } else {
+        router.push("/");
+      }
+    }
+  }
 
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
@@ -92,16 +139,31 @@ function Header() {
       {mobileOpen && (
         <div className="sm:hidden border-t border-slate-100 bg-white">
           <nav className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-1">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.label}
-                href={link.href}
-                onClick={() => setMobileOpen(false)}
-                className="px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
+            {NAV_LINKS.map((link) => {
+              // For the "내 지역" link, intercept to resolve from localStorage.
+              if (link.resolveMyRegion) {
+                return (
+                  <button
+                    key={link.label}
+                    type="button"
+                    onClick={() => handleMobileClick(link)}
+                    className="px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 transition-colors text-left"
+                  >
+                    {link.label}
+                  </button>
+                );
+              }
+              return (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  onClick={() => setMobileOpen(false)}
+                  className="px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-700 transition-colors"
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </nav>
         </div>
       )}
@@ -119,6 +181,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-slate-50 font-[family-name:var(--font-noto)]">
         <Header />
         <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <MyRegionBanner />
           {children}
         </main>
         <footer className="border-t border-slate-200 mt-16 py-8">

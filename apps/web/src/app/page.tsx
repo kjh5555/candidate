@@ -1,82 +1,76 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { DistrictPicker } from "@/components/DistrictPicker";
-import { CandidatePicker } from "@/components/CandidatePicker";
-import { ProvincialPicker } from "@/components/ProvincialPicker";
-import { BasicPicker } from "@/components/BasicPicker";
-import { Users, Vote, PieChart, ChevronRight, Building2 } from "lucide-react";
-
-type Tab = "national" | "provincial" | "basic" | "local";
-
-const FEATURE_CARDS = [
-  {
-    tab: "national" as Tab,
-    icon: Users,
-    title: "국회의원 찾기",
-    desc: "내 지역구 국회의원의 발의 법안과 표결 이력을 확인하세요.",
-    cta: "의원 조회",
-    accent: "blue",
-  },
-  {
-    tab: "provincial" as Tab,
-    icon: Vote,
-    title: "광역의회 의원",
-    desc: "시·도별 광역의회 의원 현황과 프로필을 한눈에 봅니다.",
-    cta: "광역의원 조회",
-    accent: "indigo",
-  },
-  {
-    tab: "basic" as Tab,
-    icon: Building2,
-    title: "기초의회 의원",
-    desc: "시·군·구의회 의원 약 3,000명의 프로필을 확인하세요.",
-    cta: "기초의원 조회",
-    accent: "teal",
-  },
-  {
-    tab: "local" as Tab,
-    icon: PieChart,
-    title: "지방선거 후보",
-    desc: "2026.6.3 지방선거 후보자의 전과·재산·공약 정보를 확인하세요.",
-    cta: "후보 조회",
-    accent: "violet",
-  },
-] as const;
-
-const ACCENT_STYLES = {
-  blue: {
-    icon: "bg-blue-100 text-blue-700",
-    border: "border-blue-500",
-    cta: "text-blue-700",
-  },
-  indigo: {
-    icon: "bg-indigo-100 text-indigo-700",
-    border: "border-indigo-500",
-    cta: "text-indigo-700",
-  },
-  teal: {
-    icon: "bg-teal-100 text-teal-700",
-    border: "border-teal-500",
-    cta: "text-teal-700",
-  },
-  violet: {
-    icon: "bg-violet-100 text-violet-700",
-    border: "border-violet-500",
-    cta: "text-violet-700",
-  },
-} as const;
-
-const TAB_LABEL: Record<Tab, string> = {
-  national: "내 지역구 국회의원 바로 찾기",
-  provincial: "광역의회 의원 바로 찾기",
-  basic: "기초의회 의원 바로 찾기",
-  local: "지방선거 후보 바로 찾기",
-};
+import { useRouter } from "next/navigation";
+import { MapPin, Search, Vote, Database, BookOpen, PieChart } from "lucide-react";
+import { getBasicRegions } from "@/lib/api";
+import { setMyRegion, getMyRegion } from "@/lib/myRegion";
+import type { BasicRegionDTO } from "@repo/shared";
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<Tab>("national");
+  const router = useRouter();
+  const [regions, setRegions] = useState<BasicRegionDTO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedSido, setSelectedSido] = useState<string>("");
+  const [selectedWiw, setSelectedWiw] = useState<string>("");
+
+  // Hydrate from localStorage so returning users see their region pre-selected.
+  useEffect(() => {
+    const stored = getMyRegion();
+    if (stored.sido) setSelectedSido(stored.sido);
+    if (stored.wiwName) setSelectedWiw(stored.wiwName);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getBasicRegions()
+      .then((res) => {
+        if (cancelled) return;
+        setRegions(res.regions);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRegions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const sidoList = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of regions) set.add(r.sido);
+    return Array.from(set).sort();
+  }, [regions]);
+
+  const wiwList = useMemo(() => {
+    if (!selectedSido) return [];
+    return regions
+      .filter((r) => r.sido === selectedSido)
+      .map((r) => r.wiwName)
+      .sort();
+  }, [regions, selectedSido]);
+
+  function handleSidoChange(sido: string) {
+    setSelectedSido(sido);
+    setSelectedWiw("");
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedSido || !selectedWiw) return;
+    setMyRegion(selectedSido, selectedWiw);
+    router.push(
+      `/region-hub?sido=${encodeURIComponent(selectedSido)}&wiwName=${encodeURIComponent(selectedWiw)}`,
+    );
+  }
+
+  const canSubmit = Boolean(selectedSido && selectedWiw);
 
   return (
     <div className="flex flex-col gap-12">
@@ -84,113 +78,154 @@ export default function HomePage() {
       <section className="pt-4 sm:pt-8">
         <div className="max-w-2xl">
           <p className="text-xs font-semibold tracking-widest text-blue-600 uppercase mb-3">
-            열린의회 · 시민 정보 서비스
+            열린의회 · 시민 거버넌스 허브
           </p>
           <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 leading-tight mb-4">
-            내 지역의 의원·후보·예산
+            내 지역 거버넌스를 5분 안에
           </h1>
           <p className="text-slate-500 text-base sm:text-lg leading-relaxed">
-            내 세금이 어디 쓰이고, 우리 지역 의원들이 무엇을 하는지 한눈에 확인하세요.
+            내 지역구 의원·후보·예산·법안을 한 페이지에서 확인하세요.
           </p>
         </div>
       </section>
 
-      {/* Feature cards */}
+      {/* 단일 입력 — 시·도 + 시·군·구 */}
       <section>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {FEATURE_CARDS.map((card) => {
-            const Icon = card.icon;
-            const styles = ACCENT_STYLES[card.accent];
-            const isActive = activeTab === card.tab;
-            return (
-              <button
-                key={card.tab}
-                onClick={() => setActiveTab(card.tab)}
-                className={`text-left bg-white rounded-xl border-2 p-5 transition-all cursor-pointer hover:shadow-md focus:outline-none ${
-                  isActive
-                    ? `${styles.border} shadow-sm`
-                    : "border-slate-200 hover:border-slate-300"
-                }`}
-              >
-                <div
-                  className={`inline-flex items-center justify-center w-10 h-10 rounded-lg mb-4 ${styles.icon}`}
+        <div className="w-full max-w-2xl mx-auto">
+          <form
+            onSubmit={handleSubmit}
+            className="bg-white border-2 border-slate-200 rounded-2xl shadow-sm p-5 sm:p-6"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <MapPin className="w-4 h-4 text-blue-600" />
+              <p className="text-sm font-semibold text-slate-700">내 지역 선택</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3">
+              {/* 시·도 */}
+              <div className="flex-1">
+                <label
+                  htmlFor="hub-sido-select"
+                  className="block text-xs font-medium text-slate-500 mb-1.5"
                 >
-                  <Icon className="w-5 h-5" />
-                </div>
-                <p className="font-semibold text-slate-900 mb-1.5">{card.title}</p>
-                <p className="text-sm text-slate-500 leading-relaxed mb-3">
-                  {card.desc}
-                </p>
-                <span
-                  className={`inline-flex items-center gap-1 text-xs font-semibold ${styles.cta}`}
+                  시/도
+                </label>
+                <select
+                  id="hub-sido-select"
+                  value={selectedSido}
+                  onChange={(e) => handleSidoChange(e.target.value)}
+                  disabled={loading}
+                  className="w-full px-3 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 text-base outline-none focus:border-blue-500 disabled:opacity-60"
                 >
-                  {card.cta}
-                  <ChevronRight className="w-3 h-3" />
-                </span>
-              </button>
-            );
-          })}
+                  <option value="">시/도 선택</option>
+                  {sidoList.map((sido) => (
+                    <option key={sido} value={sido}>
+                      {sido}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 시·군·구 */}
+              <div className="flex-1">
+                <label
+                  htmlFor="hub-wiw-select"
+                  className="block text-xs font-medium text-slate-500 mb-1.5"
+                >
+                  시/군/구
+                </label>
+                <select
+                  id="hub-wiw-select"
+                  value={selectedWiw}
+                  onChange={(e) => setSelectedWiw(e.target.value)}
+                  disabled={!selectedSido || loading}
+                  className="w-full px-3 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 text-base outline-none focus:border-blue-500 disabled:opacity-60"
+                >
+                  <option value="">시/군/구 선택</option>
+                  {wiwList.map((wiw) => (
+                    <option key={wiw} value={wiw}>
+                      {wiw}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="mt-5 w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-blue-600 text-white rounded-xl font-semibold text-base hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Search className="w-4 h-4" />내 지역 허브 보기
+            </button>
+          </form>
+
+          {/* 데이터 통계 */}
+          <p className="mt-4 text-xs text-slate-400 text-center">
+            286 국회의원 · 872 광역의원 · 2,987 기초의원 · 8,907 예산 항목
+          </p>
         </div>
       </section>
 
-      {/* Quick finder */}
-      <section>
-        <div className="flex items-center gap-3 mb-5">
-          <h2 className="text-lg font-semibold text-slate-800">
-            {TAB_LABEL[activeTab]}
-          </h2>
-          <div className="flex-1 h-px bg-slate-200" />
-        </div>
-        {activeTab === "national" ? (
-          <DistrictPicker />
-        ) : activeTab === "provincial" ? (
-          <ProvincialPicker />
-        ) : activeTab === "basic" ? (
-          <BasicPicker />
-        ) : (
-          <CandidatePicker />
-        )}
-      </section>
-
-      {/* About / civic education shortcut */}
-      <section>
+      {/* 보조 카드: 사이트 소개 · 데이터 출처 · 제도 알아보기 */}
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Link
           href="/about"
-          className="group flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl p-5 hover:border-blue-400 hover:shadow-sm transition-all"
+          className="group flex flex-col gap-2 bg-white border border-slate-200 rounded-xl p-5 hover:border-blue-300 hover:shadow-sm transition-all"
         >
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
-              <Vote className="w-5 h-5 text-blue-700" />
-            </div>
-            <div>
-              <p className="font-semibold text-slate-900">정치 제도가 궁금하다면?</p>
-              <p className="text-sm text-slate-500 mt-0.5">
-                국회의원·광역의원·기초의원이 무엇을 하는지, 지방선거에서 무엇을 뽑는지 알아보세요
-              </p>
-            </div>
+          <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
+            <BookOpen className="w-5 h-5 text-blue-700" />
           </div>
-          <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-blue-600 transition-colors shrink-0 ml-4" />
+          <p className="font-semibold text-slate-900">제도 알아보기</p>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            국회의원·광역·기초의원이 무엇을 하는지, 지방선거에서 무엇을 뽑는지
+            알아보세요.
+          </p>
         </Link>
-      </section>
 
-      {/* Budget shortcut */}
-      <section>
         <Link
           href="/budget"
-          className="group flex items-center justify-between bg-white border border-slate-200 rounded-xl p-5 hover:border-blue-300 hover:shadow-sm transition-all"
+          className="group flex flex-col gap-2 bg-white border border-slate-200 rounded-xl p-5 hover:border-emerald-300 hover:shadow-sm transition-all"
+        >
+          <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center">
+            <PieChart className="w-5 h-5 text-emerald-700" />
+          </div>
+          <p className="font-semibold text-slate-900">전체 예산 보기</p>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            국가·광역·기초 예산이 어디에 얼마나 쓰이는지 분야별로 확인하세요.
+          </p>
+        </Link>
+
+        <div className="flex flex-col gap-2 bg-white border border-slate-200 rounded-xl p-5">
+          <div className="w-9 h-9 rounded-lg bg-violet-100 flex items-center justify-center">
+            <Database className="w-5 h-5 text-violet-700" />
+          </div>
+          <p className="font-semibold text-slate-900">데이터 출처</p>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            국회·중앙선거관리위원회·지방재정365·공공데이터포털 기반
+            비영리 시민 정보 서비스.
+          </p>
+        </div>
+      </section>
+
+      {/* 보조: 지방선거 후보 검색 (추후 통합검색으로 확장 가능) */}
+      <section>
+        <Link
+          href="/candidates?electionId=20260603&positionType=ALL"
+          className="group flex items-center justify-between bg-violet-50 border border-violet-200 rounded-xl p-5 hover:border-violet-400 hover:shadow-sm transition-all"
         >
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
-              <PieChart className="w-5 h-5 text-emerald-700" />
+            <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
+              <Vote className="w-5 h-5 text-violet-700" />
             </div>
             <div>
-              <p className="font-semibold text-slate-900">예산 정보 보기</p>
+              <p className="font-semibold text-slate-900">
+                2026.6.3 지방선거 전체 후보 검색
+              </p>
               <p className="text-sm text-slate-500 mt-0.5">
-                국가·광역 예산이 어디에 얼마나 쓰이는지 분야별로 확인하세요
+                시·도지사·시장·군수·구청장 후보의 전과·재산·공약을 통합 검색하세요.
               </p>
             </div>
           </div>
-          <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-blue-600 transition-colors shrink-0 ml-4" />
         </Link>
       </section>
     </div>

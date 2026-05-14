@@ -375,6 +375,53 @@ export interface SettlementReportDTO {
   reportName: string | null;
 }
 
+// ── Region Hub (지역 허브) ─────────────────────────────────────
+//
+// Integrated single-page view for a citizen's region (sido + wiwName).
+// Aggregates legislators (national/provincial/basic), settlement (budget
+// expenditure), 2026 지방선거 candidates, and external links.
+
+export interface RegionHubLegislatorsDTO {
+  national: LegislatorSummaryDTO[];
+  provincial: LegislatorSummaryDTO[];
+  basic: LegislatorSummaryDTO[];
+}
+
+export interface RegionHubSettlementItemDTO {
+  field: string;
+  amount: string; // BigInt serialized as string (원)
+  percent: number; // 0-100, 2 decimals
+}
+
+export interface RegionHubSettlementDTO {
+  fiscalYear: number;
+  totalAmount: string; // BigInt serialized as string (원)
+  items: RegionHubSettlementItemDTO[];
+  reportUrl: string | null;
+  unitCode: string | null;
+  unitName: string | null;
+}
+
+export interface RegionHubCandidatesDTO {
+  mayor: CandidateSummaryDTO[];
+  governor: CandidateSummaryDTO[];
+}
+
+export interface RegionHubExternalLinksDTO {
+  sidoSite: string | null;
+  provincialCouncil: string | null;
+  sidoHomepage: string | null;
+}
+
+export interface RegionHubDTO {
+  sido: string;
+  wiwName: string;
+  legislators: RegionHubLegislatorsDTO;
+  settlement: RegionHubSettlementDTO | null;
+  candidates: RegionHubCandidatesDTO;
+  externalLinks: RegionHubExternalLinksDTO;
+}
+
 // ── Misc ──────────────────────────────────────────────────────
 
 export interface ApiErrorDTO {
