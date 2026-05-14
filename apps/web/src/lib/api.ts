@@ -69,12 +69,20 @@ export function getLegislators(params: {
   provincialDistrictId?: string;
   level?: "NATIONAL" | "PROVINCIAL" | "BASIC" | "ALL";
   region?: string;
+  name?: string;
+  party?: string;
+  limit?: number;
+  offset?: number;
 }): Promise<LegislatorsResponseDTO> {
   const query = new URLSearchParams();
   if (params.nationalDistrictId) query.set("nationalDistrictId", params.nationalDistrictId);
   if (params.provincialDistrictId) query.set("provincialDistrictId", params.provincialDistrictId);
   if (params.level) query.set("level", params.level);
   if (params.region) query.set("region", params.region);
+  if (params.name) query.set("name", params.name);
+  if (params.party) query.set("party", params.party);
+  if (params.limit !== undefined) query.set("limit", String(params.limit));
+  if (params.offset !== undefined) query.set("offset", String(params.offset));
   return apiFetch<LegislatorsResponseDTO>(`/api/legislators?${query.toString()}`);
 }
 

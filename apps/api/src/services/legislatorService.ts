@@ -47,6 +47,13 @@ export interface ListLegislatorsParams {
    * (e.g. region="서울특별시"). Applies as Legislator.region exact match.
    */
   region?: string;
+  /** 이름 contains 검색 */
+  name?: string;
+  /** 정당 exact match */
+  party?: string;
+  /** 페이지네이션 */
+  limit?: number;
+  offset?: number;
 }
 
 const summarySelect = {
@@ -83,12 +90,16 @@ function rowToSummary(
 
 export async function listLegislators(
   params: ListLegislatorsParams,
-): Promise<LegislatorSummaryDTO[]> {
+): Promise<{ legislators: LegislatorSummaryDTO[]; total: number }> {
   const {
     nationalDistrictId,
     provincialDistrictId,
     level = "ALL",
     region,
+    name,
+    party,
+    limit,
+    offset,
   } = params;
 
   const orConditions: Prisma.LegislatorWhereInput[] = [];
@@ -129,6 +140,12 @@ export async function listLegislators(
   if (orConditions.length === 0 && level !== "ALL") {
     extraConditions.push({ level });
   }
+  if (name && name.trim() !== "") {
+    extraConditions.push({ name: { contains: name.trim(), mode: "insensitive" } });
+  }
+  if (party && party.trim() !== "") {
+    extraConditions.push({ party });
+  }
 
   const where: Prisma.LegislatorWhereInput =
     extraConditions.length === 0
@@ -139,13 +156,21 @@ export async function listLegislators(
           : { AND: extraConditions }
         : { AND: [baseWhere, ...extraConditions] };
 
-  const rows = await prisma.legislator.findMany({
-    where,
-    select: summarySelect,
-    orderBy: [{ level: "asc" }, { name: "asc" }],
-  });
+  const resolvedLimit = limit && limit > 0 ? Math.min(limit, 200) : undefined;
+  const resolvedOffset = offset && offset > 0 ? offset : undefined;
 
-  return rows.map(rowToSummary);
+  const [rows, total] = await Promise.all([
+    prisma.legislator.findMany({
+      where,
+      select: summarySelect,
+      orderBy: [{ level: "asc" }, { name: "asc" }],
+      ...(resolvedLimit !== undefined ? { take: resolvedLimit } : {}),
+      ...(resolvedOffset !== undefined ? { skip: resolvedOffset } : {}),
+    }),
+    prisma.legislator.count({ where }),
+  ]);
+
+  return { legislators: rows.map(rowToSummary), total };
 }
 
 export async function getLegislatorDetail(

@@ -32,8 +32,8 @@ const NAV_LINKS: NavLinkConfig[] = [
     matcher: /^\/region-hub/,
     resolveMyRegion: true,
   },
-  { href: "/?tab=national", label: "의원", matcher: /^\/(region|legislator|provincial|basic)/ },
-  { href: "/?tab=local", label: "후보", matcher: /^\/(candidate)/ },
+  { href: "/legislators", label: "의원", matcher: /^\/(legislators|region|legislator|provincial|basic)/ },
+  { href: "/candidates", label: "후보", matcher: /^\/(candidates|candidate)/ },
   { href: "/budget", label: "예산" },
   { href: "/about", label: "제도 알아보기" },
 ];

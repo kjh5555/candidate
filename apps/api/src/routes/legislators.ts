@@ -14,6 +14,10 @@ interface ListQuery {
   provincialDistrictId?: string;
   level?: ListLevel;
   region?: string;
+  name?: string;
+  party?: string;
+  limit?: number;
+  offset?: number;
 }
 
 interface IdParams {
@@ -48,32 +52,41 @@ const legislatorRoutes: FastifyPluginAsync = async (fastify) => {
             provincialDistrictId: { type: "string" },
             level: { type: "string", enum: ["NATIONAL", "PROVINCIAL", "BASIC", "ALL"] },
             region: { type: "string" },
+            name: { type: "string" },
+            party: { type: "string" },
+            limit: { type: "integer", minimum: 1, maximum: 200, default: 24 },
+            offset: { type: "integer", minimum: 0, default: 0 },
           },
         },
       },
     },
     async (request, reply) => {
-      const { nationalDistrictId, provincialDistrictId, level, region } =
+      const { nationalDistrictId, provincialDistrictId, level, region, name, party, limit, offset } =
         request.query;
-      // Require at least one of: a district filter, OR a (level + region)
-      // tuple — the latter enables 광역의회 시·도 listings without a district.
+      // Require at least one of: a district filter, a (level + region) tuple,
+      // or a search param (name/party/level) for the /legislators browse page.
       const hasDistrict = !!nationalDistrictId || !!provincialDistrictId;
       const hasRegionScope = !!region && level && level !== "ALL";
-      if (!hasDistrict && !hasRegionScope) {
+      const hasSearch = !!name || !!party || (!!level && level !== "ALL") || (limit !== undefined);
+      if (!hasDistrict && !hasRegionScope && !hasSearch) {
         return reply.status(400).send({
           error: "MISSING_FILTER",
           message:
             "Provide at least one of nationalDistrictId / provincialDistrictId, " +
-            "or (level + region).",
+            "(level + region), or a search parameter (name, party, level).",
         });
       }
-      const legislators = await listLegislators({
+      const result = await listLegislators({
         nationalDistrictId,
         provincialDistrictId,
         level,
         region,
+        name,
+        party,
+        limit,
+        offset,
       });
-      return reply.send({ legislators, total: legislators.length });
+      return reply.send(result);
     },
   );
 
