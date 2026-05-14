@@ -1,14 +1,16 @@
 // LLM 클라이언트 — provider-agnostic.
 //
 // env 기반:
-//   LLM_PROVIDER=anthropic|openai|none   (기본: none)
+//   LLM_PROVIDER=anthropic|openai|gemini|none   (기본: none)
 //   LLM_API_KEY=...
-//   LLM_MODEL=...                        (옵션)
+//   LLM_MODEL=...                                 (옵션)
 //
 // LLM_PROVIDER가 "none"이거나 키가 없으면 모든 함수가 null을 반환 (graceful fallback).
 // 호출자는 fallback 휴리스틱을 사용해야 함.
+//
+// Gemini는 SDK 없이 fetch 호출로 처리하여 의존성 추가 없음.
 
-export type LlmProvider = "anthropic" | "openai" | "none";
+export type LlmProvider = "anthropic" | "openai" | "gemini" | "none";
 
 interface ArticleForCluster {
   id: string;
@@ -36,7 +38,9 @@ export interface TopicSummary {
 
 function getProvider(): LlmProvider {
   const raw = (process.env.LLM_PROVIDER ?? "none").toLowerCase().trim();
-  if (raw === "anthropic" || raw === "openai") return raw;
+  if (raw === "anthropic" || raw === "openai" || raw === "gemini") return raw;
+  // "google" 별칭도 gemini로 처리
+  if (raw === "google") return "gemini";
   return "none";
 }
 
@@ -50,6 +54,7 @@ function getModel(provider: LlmProvider): string {
   if (explicit) return explicit;
   if (provider === "anthropic") return "claude-haiku-4-5";
   if (provider === "openai") return "gpt-4o-mini";
+  if (provider === "gemini") return "gemini-2.0-flash";
   return "";
 }
 
@@ -114,6 +119,38 @@ async function callJson<T>(prompt: string, schemaHint: string): Promise<T | null
         response_format: { type: "json_object" },
       });
       const text = resp.choices[0]?.message?.content ?? null;
+      if (!text) return null;
+      return parseJson<T>(text);
+    }
+    if (provider === "gemini") {
+      // Google Gemini는 SDK 없이 fetch로 호출. v1beta generateContent 엔드포인트.
+      const url =
+        `https://generativelanguage.googleapis.com/v1beta/models/` +
+        `${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const body = {
+        systemInstruction: { parts: [{ text: systemMsg }] },
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0.3,
+        },
+      };
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        console.warn(
+          `[llmClient] Gemini call failed: ${res.status} ${errText.slice(0, 200)}`,
+        );
+        return null;
+      }
+      const data = (await res.json()) as {
+        candidates?: { content?: { parts?: { text?: string }[] } }[];
+      };
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
       if (!text) return null;
       return parseJson<T>(text);
     }
