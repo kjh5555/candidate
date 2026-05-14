@@ -31,9 +31,52 @@ const FETCH_TIMEOUT_MS = 15_000;
 // 1) 정치 활동 기사 전반을 디스앰비귀에이트 (동명이인 차단)
 // 2) 논란·의혹·해명 키워드 특화 (논란 카테고리 강화)
 // 두 결과를 URL 기준으로 dedup해서 합친다.
-const GENERAL_QUERY_SUFFIX = "(의원 OR 국회)";
 const CONTROVERSY_QUERY_SUFFIX =
   "(논란 OR 의혹 OR 비판 OR 폭로 OR 사퇴 OR 해명 OR 반박 OR 고발)";
+
+type LegislatorLevel = "NATIONAL" | "PROVINCIAL" | "BASIC";
+
+/**
+ * 의원 level + 의회명/지역 정보에 맞춘 검색 쿼리 생성.
+ *
+ * 국회의원은 "의원 OR 국회"만으로 충분하지만, 광역/기초의원은 동명이인
+ * 노이즈가 훨씬 크기 때문에 의회명("경기도의회"/"여주시의회")이나 지역명을
+ * 함께 검색해야 한다. councilName이 있으면 phrase 매칭으로 가장 정확.
+ */
+function buildSearchQueries(input: {
+  name: string;
+  level: LegislatorLevel;
+  councilName: string | null;
+  region: string | null;
+  party: string | null;
+}): { generalQuery: string; controversyQuery: string } {
+  const quotedName = `"${input.name}"`;
+  let disambiguator: string;
+
+  if (input.level === "NATIONAL") {
+    disambiguator = "(의원 OR 국회)";
+  } else {
+    const council = input.councilName?.trim();
+    const region = input.region?.trim();
+    if (council) {
+      // "경기도의회"·"여주시의회"는 phrase 매칭으로 가장 깔끔
+      disambiguator = `"${council}"`;
+    } else if (region) {
+      // 회 명칭이 없으면 지역명+의원·의회로 폭을 좁힌다
+      disambiguator = `(${region} OR "${region}의회" OR "${region}의원")`;
+    } else {
+      disambiguator =
+        input.level === "PROVINCIAL"
+          ? "(도의원 OR 시의원 OR 광역의원)"
+          : "(시의원 OR 군의원 OR 구의원 OR 기초의원)";
+    }
+  }
+
+  return {
+    generalQuery: `${quotedName} ${disambiguator}`,
+    controversyQuery: `${quotedName} ${disambiguator} ${CONTROVERSY_QUERY_SUFFIX}`,
+  };
+}
 
 export interface RssItem {
   title: string;
@@ -86,16 +129,20 @@ async function fetchRssWithQuery(rawQuery: string): Promise<RssItem[]> {
   return items;
 }
 
-export async function fetchGoogleNewsRss(
-  legislatorName: string,
-): Promise<RssItem[]> {
-  // 동명이인 차단을 위해 일반 쿼리에 (의원 OR 국회)를 함께 검색하고,
-  // 논란 카테고리 강화를 위해 키워드 특화 쿼리를 별도로 병렬 호출한 뒤
-  // URL 기준 dedup. 논란 쿼리 결과를 앞에 두어 우선 캡 보장.
-  const quotedName = `"${legislatorName}"`;
+export async function fetchGoogleNewsRss(input: {
+  name: string;
+  level: LegislatorLevel;
+  councilName: string | null;
+  region: string | null;
+  party: string | null;
+}): Promise<RssItem[]> {
+  // 동명이인 차단을 위해 level별 disambiguator를 쿼리에 포함, 논란 카테고리
+  // 강화를 위해 키워드 특화 쿼리를 별도로 병렬 호출한 뒤 URL 기준 dedup.
+  // 논란 쿼리 결과를 앞에 두어 우선 캡 보장.
+  const { generalQuery, controversyQuery } = buildSearchQueries(input);
   const [general, controversy] = await Promise.all([
-    fetchRssWithQuery(`${quotedName} ${GENERAL_QUERY_SUFFIX}`),
-    fetchRssWithQuery(`${quotedName} ${CONTROVERSY_QUERY_SUFFIX}`),
+    fetchRssWithQuery(generalQuery),
+    fetchRssWithQuery(controversyQuery),
   ]);
   const seen = new Set<string>();
   const merged: RssItem[] = [];
@@ -128,7 +175,7 @@ function stripSourceFromTitle(title: string): string {
 // 메타 description 등이 섞여 들어온다. 의원 본인 기사로 한정하기 위해
 // 의원 정보 기반 disambiguator(정당·위원회·지역구 등)를 함께 검사한다.
 
-const STATIC_DISAMBIGUATORS = ["의원", "국회"];
+const STATIC_DISAMBIGUATORS = ["의원", "국회", "의회"];
 
 const PHOTO_CAPTION_PATTERNS = [
   /^발언하는\s/,
@@ -150,7 +197,7 @@ const BOILERPLATE_TITLE_PATTERNS = [
 
 interface DisambiguatorContext {
   name: string;
-  tokens: string[]; // 정당/위원회/지역구를 토큰으로 분해한 set
+  tokens: string[]; // 정당/위원회/지역구/의회명/지역명을 토큰으로 분해한 set
 }
 
 function buildDisambiguator(input: {
@@ -158,8 +205,16 @@ function buildDisambiguator(input: {
   party: string | null;
   committee: string | null;
   electoralDistrictName: string | null;
+  councilName: string | null;
+  region: string | null;
 }): DisambiguatorContext {
-  const raw = [input.party, input.committee, input.electoralDistrictName]
+  const raw = [
+    input.party,
+    input.committee,
+    input.electoralDistrictName,
+    input.councilName,
+    input.region,
+  ]
     .filter((s): s is string => !!s && s.trim().length > 0)
     .join(" ");
   const tokens = raw
@@ -516,6 +571,8 @@ export async function ingestControversiesForLegislator(
       party: true,
       committee: true,
       electoralDistrictName: true,
+      councilName: true,
+      region: true,
     },
   });
   if (!legislator) {
@@ -527,6 +584,8 @@ export async function ingestControversiesForLegislator(
     party: legislator.party,
     committee: legislator.committee,
     electoralDistrictName: legislator.electoralDistrictName,
+    councilName: legislator.councilName,
+    region: legislator.region,
   });
 
   // 강제 새로고침: 기존 기사·토픽을 모두 삭제하고 새로 수집한다.
@@ -536,8 +595,14 @@ export async function ingestControversiesForLegislator(
     await prisma.controversyTopic.deleteMany({ where: { legislatorId } });
   }
 
-  // 1. RSS fetch — 1차로 제목·요약 기반 관련도 필터링
-  const rawRssItems = await fetchGoogleNewsRss(legislator.name);
+  // 1. RSS fetch — level별 쿼리로 동명이인 차단 + 논란 키워드 강화
+  const rawRssItems = await fetchGoogleNewsRss({
+    name: legislator.name,
+    level: legislator.level as LegislatorLevel,
+    councilName: legislator.councilName,
+    region: legislator.region,
+    party: legislator.party,
+  });
   const rssItems = rawRssItems.filter((it) => {
     // RSS 단계에선 본문이 없으므로 제목만으로 1차 필터
     if (isPhotoCaptionOrBoilerplate(it.title, null)) return false;

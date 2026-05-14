@@ -277,6 +277,17 @@ export default function LegislatorPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // 광역/기초의원은 발의 법안·표결 이력이 의미가 없으므로 기본 탭을 "주요 뉴스"로 전환
+  useEffect(() => {
+    if (!legislator) return;
+    if (
+      legislator.level !== "NATIONAL" &&
+      (tab === "bills" || tab === "votes")
+    ) {
+      setTab("controversies");
+    }
+  }, [legislator, tab]);
+
   if (loading) {
     return (
       <div className="flex flex-col gap-6">
@@ -571,59 +582,64 @@ export default function LegislatorPage() {
         </div>
       )}
 
-      {/* Bills / Votes / Controversies tabs (NATIONAL only — 광역·기초의원은 법률안 발의 X, 조례안 발의 O) */}
-      {legislator.level === "NATIONAL" ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <div className="flex gap-1 mb-6 border-b border-slate-200 -mx-6 px-6 overflow-x-auto">
-            {(["bills", "votes", "controversies", "issues"] as const).map((t) => {
-              const label =
-                t === "bills"
-                  ? "발의 법안"
-                  : t === "votes"
-                    ? "표결 이력"
-                    : t === "controversies"
-                      ? "주요 뉴스"
-                      : "논란";
-              return (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap inline-flex items-center gap-1.5 ${
-                    tab === t
-                      ? "border-blue-600 text-blue-700"
-                      : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"
-                  }`}
-                >
-                  {t === "controversies" && (
-                    <Newspaper className="w-3.5 h-3.5" />
-                  )}
-                  {t === "issues" && (
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                  )}
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-          {tab === "bills" ? (
-            <BillsTab legislatorId={id} />
-          ) : tab === "votes" ? (
-            <VotesTab legislatorId={id} />
-          ) : tab === "controversies" ? (
-            <ControversiesTab
-              legislatorId={id}
-              filter="general"
-              legislatorName={legislator.name}
-            />
-          ) : (
-            <ControversiesTab
-              legislatorId={id}
-              filter="controversy"
-              legislatorName={legislator.name}
-            />
-          )}
+      {/* Tabs — NATIONAL: 발의/표결/주요 뉴스/논란, 광역/기초: 주요 뉴스/논란 */}
+      <div className="bg-white rounded-xl border border-slate-200 p-6">
+        <div className="flex gap-1 mb-6 border-b border-slate-200 -mx-6 px-6 overflow-x-auto">
+          {(
+            legislator.level === "NATIONAL"
+              ? (["bills", "votes", "controversies", "issues"] as const)
+              : (["controversies", "issues"] as const)
+          ).map((t) => {
+            const label =
+              t === "bills"
+                ? "발의 법안"
+                : t === "votes"
+                  ? "표결 이력"
+                  : t === "controversies"
+                    ? "주요 뉴스"
+                    : "논란";
+            return (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap inline-flex items-center gap-1.5 ${
+                  tab === t
+                    ? "border-blue-600 text-blue-700"
+                    : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"
+                }`}
+              >
+                {t === "controversies" && (
+                  <Newspaper className="w-3.5 h-3.5" />
+                )}
+                {t === "issues" && (
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                )}
+                {label}
+              </button>
+            );
+          })}
         </div>
-      ) : (
+        {tab === "bills" && legislator.level === "NATIONAL" ? (
+          <BillsTab legislatorId={id} />
+        ) : tab === "votes" && legislator.level === "NATIONAL" ? (
+          <VotesTab legislatorId={id} />
+        ) : tab === "controversies" ? (
+          <ControversiesTab
+            legislatorId={id}
+            filter="general"
+            legislatorName={legislator.name}
+          />
+        ) : (
+          <ControversiesTab
+            legislatorId={id}
+            filter="controversy"
+            legislatorName={legislator.name}
+          />
+        )}
+      </div>
+
+      {/* 광역·기초의원: CLIK 의정활동 안내 카드 (탭 외) */}
+      {legislator.level !== "NATIONAL" && (
         <div className="bg-white rounded-xl border border-slate-200 p-6">
           <h2 className="text-lg font-semibold text-slate-900 mb-2">
             의정활동 (조례안·회의·출석)
