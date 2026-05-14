@@ -58,7 +58,11 @@ const controversyRoutes: FastifyPluginAsync = async (fastify) => {
       lastSyncByLegislator.set(legislatorId, now);
 
       try {
-        const result = await ingestControversiesForLegislator(legislatorId);
+        // 사용자가 명시적으로 "새로고침"을 누른 경우이므로 기존 기사도 폐기
+        // 후 새 필터·제목 규칙으로 재수집한다.
+        const result = await ingestControversiesForLegislator(legislatorId, {
+          forceRefresh: true,
+        });
         const data = await getControversyTopicsForLegislator(legislatorId);
         return reply.send({ ...data, ingest: result });
       } catch (err) {

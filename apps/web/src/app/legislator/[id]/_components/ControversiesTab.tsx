@@ -91,6 +91,18 @@ function formatDate(iso: string | null): string {
   return iso.slice(0, 10);
 }
 
+function topicDateRange(articles: NewsArticleDTO[]): string | null {
+  const dates = articles
+    .map((a) => a.publishedAt)
+    .filter((d): d is string => !!d)
+    .sort();
+  if (dates.length === 0) return null;
+  const first = dates[0]!.slice(0, 10);
+  const last = dates[dates.length - 1]!.slice(0, 10);
+  if (first === last) return last;
+  return `${first} ~ ${last}`;
+}
+
 function ArticleRow({ article }: { article: NewsArticleDTO }) {
   const badge = stanceBadge(article.stance);
   return (
@@ -207,10 +219,21 @@ function TopicCard({ topic }: { topic: ControversyTopicDTO }) {
             </p>
           )}
 
-          <div className="flex items-center gap-3 text-xs text-slate-400">
-            <span>마지막 동기화: {formatDate(topic.lastSyncedAt)}</span>
-            <span>·</span>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
+            {(() => {
+              const range = topicDateRange(topic.articles);
+              return range ? (
+                <>
+                  <span className="text-slate-600">
+                    보도 일자: <b className="text-slate-800">{range}</b>
+                  </span>
+                  <span>·</span>
+                </>
+              ) : null;
+            })()}
             <span>기사 {topic.articles.length}건</span>
+            <span>·</span>
+            <span>동기화: {formatDate(topic.lastSyncedAt)}</span>
             <button
               type="button"
               onClick={() => setShowSignals((v) => !v)}

@@ -92,6 +92,87 @@ function stripSourceFromTitle(title: string): string {
   return title.slice(0, idx).trim();
 }
 
+// ── 관련도(동명이인·잡음) 필터 ─────────────────────────────────────
+//
+// Google News는 의원 이름만으로 검색하기 때문에 동명이인 / 보도사진 / 사이트
+// 메타 description 등이 섞여 들어온다. 의원 본인 기사로 한정하기 위해
+// 의원 정보 기반 disambiguator(정당·위원회·지역구 등)를 함께 검사한다.
+
+const STATIC_DISAMBIGUATORS = ["의원", "국회"];
+
+const PHOTO_CAPTION_PATTERNS = [
+  /^발언하는\s/,
+  /^발언하고\s*있는\s/,
+  /^답변하는\s/,
+  /^답변하고\s*있는\s/,
+  /^인사하는\s/,
+  /^기념\s*촬영/,
+  /^회의\s*참석/,
+  /\s간사$/,
+  /\s위원장$/,
+];
+
+const BOILERPLATE_TITLE_PATTERNS = [
+  /^(정치|경제|사회|건강|의학|연예|스포츠)(\s*,\s*(정치|경제|사회|건강|의학|연예|스포츠|문화|국제|IT)){2,}/,
+  /등\s*정보\s*제공/,
+  /^홈\s*>/,
+];
+
+interface DisambiguatorContext {
+  name: string;
+  tokens: string[]; // 정당/위원회/지역구를 토큰으로 분해한 set
+}
+
+function buildDisambiguator(input: {
+  name: string;
+  party: string | null;
+  committee: string | null;
+  electoralDistrictName: string | null;
+}): DisambiguatorContext {
+  const raw = [input.party, input.committee, input.electoralDistrictName]
+    .filter((s): s is string => !!s && s.trim().length > 0)
+    .join(" ");
+  const tokens = raw
+    .replace(/[()·,/]/g, " ")
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2);
+  return { name: input.name, tokens: [...new Set(tokens)] };
+}
+
+function isRelevantArticle(
+  ctx: DisambiguatorContext,
+  title: string,
+  excerpt: string | null,
+): boolean {
+  const haystack = `${title}\n${excerpt ?? ""}`;
+  // 이름이 본문/제목에 없으면 관련성 없음
+  if (!haystack.includes(ctx.name)) return false;
+  // disambiguator 키워드(정당/위원회/지역구/정적 "의원·국회") 중 ≥1 매칭 필요
+  const all = [...ctx.tokens, ...STATIC_DISAMBIGUATORS];
+  return all.some((kw) => haystack.includes(kw));
+}
+
+function isPhotoCaptionOrBoilerplate(
+  title: string,
+  excerpt: string | null,
+): boolean {
+  const t = title.trim();
+  if (PHOTO_CAPTION_PATTERNS.some((re) => re.test(t))) return true;
+  if (BOILERPLATE_TITLE_PATTERNS.some((re) => re.test(t))) return true;
+  // 본문이 매우 빈약하고 제목이 짧은 캡션 형태
+  const exLen = (excerpt ?? "").trim().length;
+  if (exLen < 80 && t.length < 25) {
+    // 보도사진형 제목은 보통 동사+이름+직책 패턴
+    if (/(\s간사|\s위원장|\s대표|발언|기념|참석|촬영)/.test(t)) return true;
+  }
+  return false;
+}
+
+function looksLikeHomepageDescription(title: string): boolean {
+  return BOILERPLATE_TITLE_PATTERNS.some((re) => re.test(title));
+}
+
 // ── 2. 본문 추출 (Readability + jsdom) ────────────────────────
 
 export async function fetchAndExtractArticle(
@@ -394,17 +475,49 @@ function round2(n: number): number {
 
 export async function ingestControversiesForLegislator(
   legislatorId: string,
+  options: { forceRefresh?: boolean } = {},
 ): Promise<IngestResult> {
   const legislator = await prisma.legislator.findUnique({
     where: { id: legislatorId },
-    select: { id: true, name: true, level: true },
+    select: {
+      id: true,
+      name: true,
+      level: true,
+      party: true,
+      committee: true,
+      electoralDistrictName: true,
+    },
   });
   if (!legislator) {
     throw new Error(`Legislator not found: ${legislatorId}`);
   }
 
-  // 1. RSS fetch
-  const rssItems = await fetchGoogleNewsRss(legislator.name);
+  const ctx = buildDisambiguator({
+    name: legislator.name,
+    party: legislator.party,
+    committee: legislator.committee,
+    electoralDistrictName: legislator.electoralDistrictName,
+  });
+
+  // 강제 새로고침: 기존 기사·토픽을 모두 삭제하고 새로 수집한다.
+  // 사용자가 명시적으로 "새로고침" 버튼을 누른 경우 신규 필터로 재정리하려면 필수.
+  if (options.forceRefresh) {
+    await prisma.newsArticle.deleteMany({ where: { legislatorId } });
+    await prisma.controversyTopic.deleteMany({ where: { legislatorId } });
+  }
+
+  // 1. RSS fetch — 1차로 제목·요약 기반 관련도 필터링
+  const rawRssItems = await fetchGoogleNewsRss(legislator.name);
+  const rssItems = rawRssItems.filter((it) => {
+    // RSS 단계에선 본문이 없으므로 제목만으로 1차 필터
+    if (isPhotoCaptionOrBoilerplate(it.title, null)) return false;
+    if (!isRelevantArticle(ctx, it.title, null)) {
+      // 제목에 본인 이름·디스앰비귀에이터가 없으면 본문도 거의 무관
+      // 단, 본문에는 들어있을 가능성이 있어 본문 추출 후 한 번 더 검사
+      return true; // 보류 → 본문 검사 단계에서 한 번 더 거른다
+    }
+    return true;
+  });
 
   // 2. 본문 추출 — 새 URL만 처리
   const existing = await prisma.newsArticle.findMany({
@@ -423,55 +536,66 @@ export async function ingestControversiesForLegislator(
     newRssItems.map((rss) =>
       limit(async () => {
         const ext = await fetchAndExtractArticle(rss.link);
-        if (!ext) return null;
-        // RSS의 source(언론사명)가 더 정확. Readability는 redirector를 제대로
-        // 못 따라가는 경우 "Google 뉴스"로 잡힐 수 있어 RSS 메타데이터 우선.
+        // RSS의 source(언론사명)가 가장 정확. Readability는 redirector·메타
+        // 정보가 부실해 "Google 뉴스" / 사이트 description으로 잡히는 경우가
+        // 빈번하므로 RSS 우선.
         const rssSource = rss.source && rss.source.trim().length > 0
           ? rss.source.trim()
           : null;
-        const extSourceLooksGeneric =
-          !ext.source ||
-          /google/i.test(ext.source) ||
-          ext.source === "news.google.com";
-        // Title: Google News redirector는 본문 추출이 안 되어 "Google 뉴스" 같은
-        // 일반 제목이 잡힘. RSS title이 거의 항상 더 정확.
-        const extTitleLooksGeneric =
-          !ext.title ||
-          /^google\s*뉴스/i.test(ext.title) ||
-          /^google\s*news/i.test(ext.title) ||
-          ext.title.length < 5;
-        const finalTitle = extTitleLooksGeneric ? rss.title : ext.title;
-        // Excerpt: redirector면 본문도 의미 없음. "Google 뉴스" 류면 비움.
-        const finalExcerpt = extTitleLooksGeneric ? null : ext.excerpt;
+
+        // ── 제목: RSS title을 무조건 우선. Readability 제목은 "정치, 경제,
+        // 사회, 건강…" 같은 사이트 메타 description으로 잡히는 케이스가 많아
+        // 신뢰할 수 없음. RSS title은 Google News가 정규화한 실제 기사 제목.
+        const rssTitle = rss.title.trim();
+        const useRssTitle =
+          rssTitle.length > 0 &&
+          !/^google\s*뉴스/i.test(rssTitle) &&
+          !/^google\s*news/i.test(rssTitle);
+        const extTitle = ext?.title?.trim() ?? "";
+        const extTitleLooksBad =
+          extTitle.length === 0 ||
+          /^google\s*뉴스/i.test(extTitle) ||
+          /^google\s*news/i.test(extTitle) ||
+          extTitle.length < 5 ||
+          looksLikeHomepageDescription(extTitle);
+        const finalTitle = useRssTitle
+          ? rssTitle
+          : extTitleLooksBad
+            ? rssTitle || extTitle
+            : extTitle;
+
+        // ── Excerpt: 본문 추출이 사이트 description을 잡았다면 비운다.
+        const finalExcerpt =
+          ext && !extTitleLooksBad ? ext.excerpt : null;
+
+        const fallbackSource =
+          rssSource ??
+          (ext && ext.source && !/google/i.test(ext.source)
+            ? ext.source
+            : hostnameOf(rss.link));
+
         return {
-          ...ext,
-          source: rssSource ?? (extSourceLooksGeneric ? hostnameOf(rss.link) : ext.source),
-          publishedAt:
-            ext.publishedAt ??
-            (rss.pubDate ? new Date(rss.pubDate) : null),
+          url: rss.link,
+          source: fallbackSource,
           title: finalTitle,
           excerpt: finalExcerpt,
+          publishedAt:
+            ext?.publishedAt ??
+            (rss.pubDate ? new Date(rss.pubDate) : null),
         } as ExtractedArticle;
       }),
     ),
   );
 
-  // Readability 실패해도 RSS title+link은 유효 → fallback 저장
+  // 본문 추출 결과 + 2차 관련도/잡음 필터링
   const newExtracted: ExtractedArticle[] = [];
   for (let i = 0; i < newRssItems.length; i++) {
-    const rss = newRssItems[i]!;
     const ext = extractedNullable[i];
-    if (ext) {
-      newExtracted.push(ext);
-    } else {
-      newExtracted.push({
-        url: rss.link,
-        source: rss.source ?? hostnameOf(rss.link),
-        title: rss.title,
-        excerpt: null,
-        publishedAt: rss.pubDate ? new Date(rss.pubDate) : null,
-      });
-    }
+    if (!ext) continue;
+    // 보도사진·사이트 description·동명이인 등을 본문 단계에서 한 번 더 거름
+    if (isPhotoCaptionOrBoilerplate(ext.title, ext.excerpt)) continue;
+    if (!isRelevantArticle(ctx, ext.title, ext.excerpt)) continue;
+    newExtracted.push(ext);
   }
 
   // 3. 새 기사 라벨링 (LLM 또는 휴리스틱)
