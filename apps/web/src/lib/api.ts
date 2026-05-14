@@ -69,6 +69,7 @@ export function getLegislators(params: {
   provincialDistrictId?: string;
   level?: "NATIONAL" | "PROVINCIAL" | "BASIC" | "ALL";
   region?: string;
+  wiwName?: string;
   name?: string;
   party?: string;
   limit?: number;
@@ -79,6 +80,7 @@ export function getLegislators(params: {
   if (params.provincialDistrictId) query.set("provincialDistrictId", params.provincialDistrictId);
   if (params.level) query.set("level", params.level);
   if (params.region) query.set("region", params.region);
+  if (params.wiwName) query.set("wiwName", params.wiwName);
   if (params.name) query.set("name", params.name);
   if (params.party) query.set("party", params.party);
   if (params.limit !== undefined) query.set("limit", String(params.limit));

@@ -1,12 +1,12 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
-import { getLegislators } from "@/lib/api";
+import { getBasicRegions, getLegislators } from "@/lib/api";
 import { LegislatorCard } from "@/components/LegislatorCard";
 import { Pagination } from "@/components/Pagination";
-import type { LegislatorSummaryDTO } from "@repo/shared";
+import type { BasicRegionDTO, LegislatorSummaryDTO } from "@repo/shared";
 
 const LIMIT = 24;
 
@@ -82,6 +82,7 @@ function LegislatorsPageInner() {
 
   const level = (searchParams.get("level") as Level) || "ALL";
   const sido = searchParams.get("sido") || "전체";
+  const wiw = searchParams.get("wiw") || "전체";
   const party = searchParams.get("party") || "전체";
   const q = searchParams.get("q") || "";
   const page = Math.max(1, Number(searchParams.get("page") || "1"));
@@ -90,6 +91,36 @@ function LegislatorsPageInner() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [basicRegions, setBasicRegions] = useState<BasicRegionDTO[]>([]);
+
+  // Fetch basic regions once (used to populate 시·군·구 dropdown for 기초의원)
+  useEffect(() => {
+    let cancelled = false;
+    getBasicRegions()
+      .then((data) => {
+        if (cancelled) return;
+        setBasicRegions(data.regions);
+      })
+      .catch(() => {
+        // non-fatal — dropdown will just be empty
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 시·군·구 options filtered by selected 시·도 (only meaningful when level=BASIC)
+  const wiwOptions = useMemo(() => {
+    if (level !== "BASIC") return [] as string[];
+    const scoped =
+      sido === "전체"
+        ? basicRegions
+        : basicRegions.filter((r) => r.sido === sido);
+    const unique = Array.from(new Set(scoped.map((r) => r.wiwName))).sort((a, b) =>
+      a.localeCompare(b, "ko"),
+    );
+    return ["전체", ...unique];
+  }, [basicRegions, sido, level]);
 
   // Debounce input
   const [inputQ, setInputQ] = useState(q);
@@ -103,6 +134,10 @@ function LegislatorsPageInner() {
       } else {
         next.set(k, v);
       }
+    }
+    // Cascade resets: changing 시·도 or level invalidates the chosen 시·군·구
+    if ("sido" in updates || "level" in updates) {
+      next.delete("wiw");
     }
     // Reset page on filter change (unless page is the update)
     if (!("page" in updates)) next.delete("page");
@@ -127,6 +162,7 @@ function LegislatorsPageInner() {
     const params: Parameters<typeof getLegislators>[0] = {
       level: level === "ALL" ? undefined : level,
       region: sido === "전체" ? undefined : sido,
+      wiwName: level === "BASIC" && wiw !== "전체" ? wiw : undefined,
       party: party === "전체" ? undefined : party,
       name: q || undefined,
       limit: LIMIT,
@@ -152,7 +188,7 @@ function LegislatorsPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [level, sido, party, q, offset]);
+  }, [level, sido, wiw, party, q, offset]);
 
   // Keep inputQ in sync when URL changes externally
   useEffect(() => {
@@ -188,7 +224,7 @@ function LegislatorsPageInner() {
           ))}
         </div>
 
-        {/* Sido + Party dropdowns */}
+        {/* Sido + (시·군·구) + Party dropdowns */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
             <label className="block text-xs font-medium text-slate-500 mb-1">시·도</label>
@@ -204,6 +240,27 @@ function LegislatorsPageInner() {
               ))}
             </select>
           </div>
+          {level === "BASIC" && (
+            <div className="flex-1">
+              <label className="block text-xs font-medium text-slate-500 mb-1">시·군·구</label>
+              <select
+                value={wiw}
+                onChange={(e) => updateParams({ wiw: e.target.value })}
+                disabled={wiwOptions.length <= 1}
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-50 disabled:text-slate-400"
+              >
+                {wiwOptions.length === 0 ? (
+                  <option value="전체">전체</option>
+                ) : (
+                  wiwOptions.map((w) => (
+                    <option key={w} value={w}>
+                      {w}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+          )}
           <div className="flex-1">
             <label className="block text-xs font-medium text-slate-500 mb-1">정당</label>
             <select

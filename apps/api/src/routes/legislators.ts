@@ -14,6 +14,7 @@ interface ListQuery {
   provincialDistrictId?: string;
   level?: ListLevel;
   region?: string;
+  wiwName?: string;
   name?: string;
   party?: string;
   limit?: number;
@@ -52,6 +53,7 @@ const legislatorRoutes: FastifyPluginAsync = async (fastify) => {
             provincialDistrictId: { type: "string" },
             level: { type: "string", enum: ["NATIONAL", "PROVINCIAL", "BASIC", "ALL"] },
             region: { type: "string" },
+            wiwName: { type: "string" },
             name: { type: "string" },
             party: { type: "string" },
             limit: { type: "integer", minimum: 1, maximum: 200, default: 24 },
@@ -61,7 +63,7 @@ const legislatorRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const { nationalDistrictId, provincialDistrictId, level, region, name, party, limit, offset } =
+      const { nationalDistrictId, provincialDistrictId, level, region, wiwName, name, party, limit, offset } =
         request.query;
       // Require at least one of: a district filter, a (level + region) tuple,
       // or a search param (name/party/level) for the /legislators browse page.
@@ -81,6 +83,7 @@ const legislatorRoutes: FastifyPluginAsync = async (fastify) => {
         provincialDistrictId,
         level,
         region,
+        wiwName,
         name,
         party,
         limit,

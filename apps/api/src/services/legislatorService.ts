@@ -43,10 +43,13 @@ export interface ListLegislatorsParams {
   provincialDistrictId?: string;
   level?: ListLevel;
   /**
-   * 시·도 (region/sdName) filter, mainly used to scope 광역의회 의원 listings
-   * (e.g. region="서울특별시"). Applies as Legislator.region exact match.
+   * 시·도 filter. For PROVINCIAL: matches Legislator.region exact.
+   * For BASIC: matches rawSourceJson->>'sdName' (시·도 of the basic council).
+   * For ALL: matches either via OR.
    */
   region?: string;
+  /** 기초의원 시·군·구 (e.g. "여주시"). Only meaningful when level=BASIC. */
+  wiwName?: string;
   /** 이름 contains 검색 */
   name?: string;
   /** 정당 exact match */
@@ -96,6 +99,7 @@ export async function listLegislators(
     provincialDistrictId,
     level = "ALL",
     region,
+    wiwName,
     name,
     party,
     limit,
@@ -132,9 +136,35 @@ export async function listLegislators(
 
   // Layer additional filters: region (Legislator.region) and level-only listing.
   const extraConditions: Prisma.LegislatorWhereInput[] = [];
-  if (region && region.trim() !== "") {
-    extraConditions.push({ region });
+  const trimmedRegion = region && region.trim() !== "" ? region.trim() : undefined;
+  const trimmedWiwName = wiwName && wiwName.trim() !== "" ? wiwName.trim() : undefined;
+
+  if (trimmedRegion) {
+    if (level === "BASIC") {
+      // For BASIC level, Legislator.region holds the 시·군·구 (wiwName).
+      // The 시·도 is stored in rawSourceJson->>'sdName'.
+      extraConditions.push({
+        rawSourceJson: { path: ["sdName"], equals: trimmedRegion },
+      });
+    } else if (level === "ALL") {
+      // ALL: match either Legislator.region (NATIONAL/PROVINCIAL) or
+      // rawSourceJson.sdName (BASIC).
+      extraConditions.push({
+        OR: [
+          { region: trimmedRegion },
+          { rawSourceJson: { path: ["sdName"], equals: trimmedRegion } },
+        ],
+      });
+    } else {
+      extraConditions.push({ region: trimmedRegion });
+    }
   }
+
+  if (trimmedWiwName && level === "BASIC") {
+    // For BASIC level, region column equals 시·군·구 name.
+    extraConditions.push({ region: trimmedWiwName });
+  }
+
   // If no district filter was supplied but the caller passed a `level`, still
   // narrow on level so the frontend can do "all PROVINCIAL in 서울특별시".
   if (orConditions.length === 0 && level !== "ALL") {
