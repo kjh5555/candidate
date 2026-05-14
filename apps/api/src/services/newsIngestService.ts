@@ -24,8 +24,16 @@ const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
-const MAX_ARTICLES_PER_LEGISLATOR = 25;
+const MAX_ARTICLES_PER_LEGISLATOR = 30;
 const FETCH_TIMEOUT_MS = 15_000;
+
+// Google News 검색 쿼리는 두 가지를 병렬로 던진다:
+// 1) 정치 활동 기사 전반을 디스앰비귀에이트 (동명이인 차단)
+// 2) 논란·의혹·해명 키워드 특화 (논란 카테고리 강화)
+// 두 결과를 URL 기준으로 dedup해서 합친다.
+const GENERAL_QUERY_SUFFIX = "(의원 OR 국회)";
+const CONTROVERSY_QUERY_SUFFIX =
+  "(논란 OR 의혹 OR 비판 OR 폭로 OR 사퇴 OR 해명 OR 반박 OR 고발)";
 
 export interface RssItem {
   title: string;
@@ -54,18 +62,19 @@ const rssParser = new Parser({
   headers: { "User-Agent": USER_AGENT },
 });
 
-export async function fetchGoogleNewsRss(
-  legislatorName: string,
-): Promise<RssItem[]> {
-  const query = encodeURIComponent(`"${legislatorName}"`);
-  const url = `https://news.google.com/rss/search?q=${query}&hl=ko&gl=KR&ceid=KR:ko`;
-  const feed = await rssParser.parseURL(url);
+async function fetchRssWithQuery(rawQuery: string): Promise<RssItem[]> {
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(rawQuery)}&hl=ko&gl=KR&ceid=KR:ko`;
+  let feed;
+  try {
+    feed = await rssParser.parseURL(url);
+  } catch {
+    return [];
+  }
   const items: RssItem[] = [];
   for (const item of feed.items) {
     const link = item.link;
     const title = item.title;
     if (!link || !title) continue;
-    // Google News의 source 정보는 item.creator 또는 title 끝의 " - 언론사"
     const sourceFromTitle = extractSourceFromTitle(title);
     items.push({
       title: stripSourceFromTitle(title),
@@ -74,7 +83,28 @@ export async function fetchGoogleNewsRss(
       source: item.creator ?? sourceFromTitle ?? undefined,
     });
   }
-  return items.slice(0, MAX_ARTICLES_PER_LEGISLATOR);
+  return items;
+}
+
+export async function fetchGoogleNewsRss(
+  legislatorName: string,
+): Promise<RssItem[]> {
+  // 동명이인 차단을 위해 일반 쿼리에 (의원 OR 국회)를 함께 검색하고,
+  // 논란 카테고리 강화를 위해 키워드 특화 쿼리를 별도로 병렬 호출한 뒤
+  // URL 기준 dedup. 논란 쿼리 결과를 앞에 두어 우선 캡 보장.
+  const quotedName = `"${legislatorName}"`;
+  const [general, controversy] = await Promise.all([
+    fetchRssWithQuery(`${quotedName} ${GENERAL_QUERY_SUFFIX}`),
+    fetchRssWithQuery(`${quotedName} ${CONTROVERSY_QUERY_SUFFIX}`),
+  ]);
+  const seen = new Set<string>();
+  const merged: RssItem[] = [];
+  for (const it of [...controversy, ...general]) {
+    if (seen.has(it.link)) continue;
+    seen.add(it.link);
+    merged.push(it);
+  }
+  return merged.slice(0, MAX_ARTICLES_PER_LEGISLATOR);
 }
 
 function extractSourceFromTitle(title: string): string | null {
