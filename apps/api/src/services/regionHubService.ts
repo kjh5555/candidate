@@ -44,6 +44,30 @@ const SIDO_HOMEPAGES: Record<string, string> = {
   제주특별자치도: "https://www.jeju.go.kr",
 };
 
+// 국회 선거구 명칭은 보통 "<시·도 약칭> <시·군·구>[갑/을/병/정]" 형식
+// (예: "광주 남구갑", "경기 여주시·양평군"). wiwName(예: "남구")만 substring
+// 매칭하면 "강남구"·"하남구" 또는 다른 시·도의 같은 이름 시·군·구도 매치되어
+// 잘못된 국회의원이 노출된다. sido 약칭 + 공백 + wiwName 형태로 좁힌다.
+const SIDO_TO_SHORT: Record<string, string> = {
+  서울특별시: "서울",
+  부산광역시: "부산",
+  대구광역시: "대구",
+  인천광역시: "인천",
+  광주광역시: "광주",
+  대전광역시: "대전",
+  울산광역시: "울산",
+  세종특별자치시: "세종",
+  경기도: "경기",
+  강원특별자치도: "강원",
+  충청북도: "충북",
+  충청남도: "충남",
+  전북특별자치도: "전북",
+  전라남도: "전남",
+  경상북도: "경북",
+  경상남도: "경남",
+  제주특별자치도: "제주",
+};
+
 // 광역의회 (시·도의회) 홈페이지.
 const PROVINCIAL_COUNCIL_URLS: Record<string, string> = {
   서울특별시: "https://www.smc.seoul.kr",
@@ -181,21 +205,37 @@ export async function getRegionHub(
   const { sido, wiwName } = params;
 
   // ── 1. 국회의원 (NATIONAL) ───────────────────────────────────────────
-  // Match by electoralDistrictName CONTAINS wiwName. e.g.
-  //   wiwName="여주시" matches "경기 여주시·양평군".
+  // 선거구 명칭이 "<sido 약칭> <wiwName>[갑/을/병/정/·...]" 패턴이므로
+  // 두 가지 조건을 AND로 건다:
+  //   1) electoralDistrictName 이 sido 약칭(예: "광주")을 포함
+  //   2) electoralDistrictName 이 " <wiwName>" (앞 공백 포함)을 포함
+  //      → "남구"가 "강남구"·"하남구" 등의 substring으로 잘못 매칭되는 것을
+  //      차단. 동시에 "광주 남구"·"광주 남구갑"·"광주 남구을" 등은 모두 매치.
+  const sidoShort = SIDO_TO_SHORT[sido];
+  const nationalWhere: Prisma.LegislatorWhereInput = sidoShort
+    ? {
+        level: "NATIONAL",
+        AND: [
+          { electoralDistrictName: { contains: sidoShort } },
+          { electoralDistrictName: { contains: ` ${wiwName}` } },
+        ],
+      }
+    : {
+        // sido 매핑이 없으면 보수적으로 ` ${wiwName}` 만이라도 leading-space 적용
+        level: "NATIONAL",
+        electoralDistrictName: { contains: ` ${wiwName}` },
+      };
   const nationalRows = await prisma.legislator.findMany({
-    where: {
-      level: "NATIONAL",
-      electoralDistrictName: { contains: wiwName },
-    },
+    where: nationalWhere,
     select: SUMMARY_SELECT,
     orderBy: [{ name: "asc" }],
   });
 
   // ── 2. 광역의원 (PROVINCIAL) ─────────────────────────────────────────
-  // Filter by region (Legislator.region == sido) AND
-  //   (electoralDistrictName CONTAINS wiwName OR 비례대표).
-  // Ordering: 지역구 first (matches wiwName), then 비례.
+  // region (Legislator.region == sido)으로 시·도 단위 제약 + wiwName 매칭은
+  // 단순 contains로 충분 (region이 이미 시·도를 잠그므로 동명이인 광역구 위험
+  // 없음). 비례는 별도 OR로 포함. 광역 선거구 명칭은 형식이 다양해서 leading-
+  // space 강제는 하지 않음 (예: "남구1", "남구2" 같은 분할 선거구 존재).
   const provincialRows = await prisma.legislator.findMany({
     where: {
       level: "PROVINCIAL",
