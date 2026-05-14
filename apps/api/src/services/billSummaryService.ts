@@ -52,10 +52,24 @@ function toDto(bill: NonNullable<BillRow>): BillSummaryResponseDTO {
   };
 }
 
+/**
+ * 식별자(`idOrBillNo`)는 Bill.id (PRC_…) 우선, 못 찾으면 Bill.billNo로 fallback.
+ * Vote 테이블의 일부 안건(예산안·기금변경안 등)은 Bill.id 없이 billNo만 있는 경우가 있어
+ * UI에서 billId가 없을 때 billNo로 호출할 수 있도록 둔다.
+ */
+async function findBillByIdOrBillNo(idOrBillNo: string) {
+  const byId = await prisma.bill.findUnique({ where: { id: idOrBillNo } });
+  if (byId) return byId;
+  return prisma.bill.findFirst({
+    where: { billNo: idOrBillNo },
+    orderBy: { proposedDate: "desc" },
+  });
+}
+
 export async function getBillSummary(
-  billId: string,
+  idOrBillNo: string,
 ): Promise<BillSummaryResponseDTO | null> {
-  const bill = await prisma.bill.findUnique({ where: { id: billId } });
+  const bill = await findBillByIdOrBillNo(idOrBillNo);
   if (!bill) return null;
   return toDto(bill);
 }
@@ -68,9 +82,9 @@ export class LlmDisabledError extends Error {
 }
 
 export async function generateBillSummary(
-  billId: string,
+  idOrBillNo: string,
 ): Promise<BillSummaryResponseDTO | null> {
-  const bill = await prisma.bill.findUnique({ where: { id: billId } });
+  const bill = await findBillByIdOrBillNo(idOrBillNo);
   if (!bill) return null;
   if (!isLlmEnabled()) {
     throw new LlmDisabledError();
@@ -93,8 +107,9 @@ export async function generateBillSummary(
   const model = process.env.LLM_MODEL?.trim() || "gemini-2.5-flash";
   const now = new Date();
 
+  // 실제 Bill의 canonical id로 업데이트 (URL param이 billNo였을 수 있어 bill.id 사용)
   const updated = await prisma.bill.update({
-    where: { id: billId },
+    where: { id: bill.id },
     data: {
       aiSummary: result.summary,
       aiChanges: result.changes,

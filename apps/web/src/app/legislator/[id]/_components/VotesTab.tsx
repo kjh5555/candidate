@@ -109,7 +109,9 @@ export function VotesTab({ legislatorId }: VotesTabProps) {
 function VoteRow({ vote }: { vote: VoteRecordDTO }) {
   const billName = vote.billName ?? vote.billNo;
   const [expanded, setExpanded] = useState(false);
-  const canExpand = !!vote.billId;
+  // Bill.id 가 없으면 billNo로 fallback. 백엔드는 id → billNo 순서로 조회한다.
+  const billIdentifier = vote.billId ?? vote.billNo ?? null;
+  const canExpand = !!billIdentifier;
 
   return (
     <div className="border border-slate-200 rounded-lg px-4 py-3 hover:bg-slate-50 transition-colors">
@@ -203,8 +205,8 @@ function VoteRow({ vote }: { vote: VoteRecordDTO }) {
       </div>
 
       {/* Expanded: AI summary inline */}
-      {expanded && vote.billId && (
-        <VoteContentDetail billId={vote.billId} />
+      {expanded && billIdentifier && (
+        <VoteContentDetail billId={billIdentifier} />
       )}
     </div>
   );
