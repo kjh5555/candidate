@@ -21,6 +21,25 @@ import {
 
 interface ControversiesTabProps {
   legislatorId: string;
+  /** "general" = 일반 정치 활동 기사 | "controversy" = 논란/해명 기사 */
+  filter?: "general" | "controversy";
+}
+
+const CONTROVERSY_TITLE_PATTERN =
+  /(논란|의혹|비판|폭로|사퇴|해명|반박|고발|특혜|수사|기소|구속|영장|조사)/;
+
+function isControversyTopic(topic: ControversyTopicDTO): boolean {
+  const articles = topic.articles;
+  if (articles.length === 0) return false;
+  // 1) 제목에 명시적 논란 키워드가 있으면 즉시 controversy
+  if (CONTROVERSY_TITLE_PATTERN.test(topic.title)) return true;
+  // 2) 카테고리 라벨이 있으면 그대로 따른다
+  if (topic.category && CONTROVERSY_TITLE_PATTERN.test(topic.category)) return true;
+  // 3) 기사들의 stance에서 claim/explanation이 절반 이상이면 controversy
+  const issueCount = articles.filter(
+    (a) => a.stance === "claim" || a.stance === "explanation",
+  ).length;
+  return issueCount * 2 >= articles.length;
 }
 
 function credibilityColor(score: number | null): {
@@ -103,6 +122,16 @@ function topicDateRange(articles: NewsArticleDTO[]): string | null {
   return `${first} ~ ${last}`;
 }
 
+/** 토픽 내 가장 최근 기사 발행일 (ISO). 없으면 null. */
+function topicLatestDate(topic: ControversyTopicDTO): string | null {
+  let latest: string | null = null;
+  for (const a of topic.articles) {
+    if (!a.publishedAt) continue;
+    if (latest === null || a.publishedAt > latest) latest = a.publishedAt;
+  }
+  return latest;
+}
+
 function ArticleRow({ article }: { article: NewsArticleDTO }) {
   const badge = stanceBadge(article.stance);
   return (
@@ -133,11 +162,13 @@ function ArticleRow({ article }: { article: NewsArticleDTO }) {
 
 function SignalsDetail({
   signals,
+  articles,
 }: {
   signals: Record<string, unknown> | null;
+  articles: NewsArticleDTO[];
 }) {
-  if (!signals) return null;
   const get = (key: string): string | null => {
+    if (!signals) return null;
     const v = signals[key];
     if (v === null || v === undefined) return null;
     if (typeof v === "number") {
@@ -151,27 +182,85 @@ function SignalsDetail({
   const primarySourceRatio = get("primarySourceRatio");
   const correctionRatio = get("correctionRatio");
 
+  // 대표 기사 3건 (stance=claim/explanation 우선 → 최신순)
+  const representative = [...articles]
+    .sort((a, b) => {
+      const aw = a.stance === "claim" || a.stance === "explanation" ? 1 : 0;
+      const bw = b.stance === "claim" || b.stance === "explanation" ? 1 : 0;
+      if (aw !== bw) return bw - aw;
+      const ad = a.publishedAt ?? "";
+      const bd = b.publishedAt ?? "";
+      return bd.localeCompare(ad);
+    })
+    .slice(0, 3);
+
   return (
-    <div className="bg-slate-50 rounded-lg p-3 text-xs text-slate-600 flex flex-wrap gap-x-4 gap-y-1 border border-slate-200">
-      <span>
-        기사 수: <b className="text-slate-800">{articleCount ?? "-"}</b>
-      </span>
-      <span>
-        고유 언론사:{" "}
-        <b className="text-slate-800">{uniqueSourceCount ?? "-"}</b>
-      </span>
-      <span>
-        출처 다양성:{" "}
-        <b className="text-slate-800">{uniqueSourcesRatio ?? "-"}</b>
-      </span>
-      <span>
-        1차 출처 비율:{" "}
-        <b className="text-slate-800">{primarySourceRatio ?? "-"}</b>
-      </span>
-      <span>
-        정정·반박 비율:{" "}
-        <b className="text-slate-800">{correctionRatio ?? "-"}</b>
-      </span>
+    <div className="flex flex-col gap-2">
+      {signals && (
+        <div className="bg-slate-50 rounded-lg p-3 text-xs text-slate-600 flex flex-wrap gap-x-4 gap-y-1 border border-slate-200">
+          <span>
+            기사 수: <b className="text-slate-800">{articleCount ?? "-"}</b>
+          </span>
+          <span>
+            고유 언론사:{" "}
+            <b className="text-slate-800">{uniqueSourceCount ?? "-"}</b>
+          </span>
+          <span>
+            출처 다양성:{" "}
+            <b className="text-slate-800">{uniqueSourcesRatio ?? "-"}</b>
+          </span>
+          <span>
+            1차 출처 비율:{" "}
+            <b className="text-slate-800">{primarySourceRatio ?? "-"}</b>
+          </span>
+          <span>
+            정정·반박 비율:{" "}
+            <b className="text-slate-800">{correctionRatio ?? "-"}</b>
+          </span>
+        </div>
+      )}
+      {representative.length > 0 && (
+        <div className="bg-blue-50/50 rounded-lg p-3 border border-blue-100">
+          <p className="text-xs font-semibold text-slate-700 mb-2">
+            어떤 내용?
+          </p>
+          <ul className="flex flex-col gap-1.5">
+            {representative.map((a) => {
+              const badge = stanceBadge(a.stance);
+              return (
+                <li key={a.id} className="text-xs text-slate-700">
+                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                    {badge && (
+                      <span
+                        className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${badge.className}`}
+                      >
+                        {badge.label}
+                      </span>
+                    )}
+                    <span className="text-slate-400 shrink-0">
+                      {a.source} · {formatDate(a.publishedAt)}
+                    </span>
+                    <a
+                      href={a.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline font-medium break-keep"
+                    >
+                      {a.title}
+                    </a>
+                  </div>
+                  {a.excerpt && (
+                    <p className="text-slate-500 mt-0.5 leading-relaxed line-clamp-2">
+                      {a.excerpt.slice(0, 160)}
+                      {a.excerpt.length > 160 ? "…" : ""}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -243,7 +332,9 @@ function TopicCard({ topic }: { topic: ControversyTopicDTO }) {
             </button>
           </div>
 
-          {showSignals && <SignalsDetail signals={topic.signals} />}
+          {showSignals && (
+            <SignalsDetail signals={topic.signals} articles={topic.articles} />
+          )}
 
           <button
             type="button"
@@ -276,12 +367,35 @@ function TopicCard({ topic }: { topic: ControversyTopicDTO }) {
   );
 }
 
-export function ControversiesTab({ legislatorId }: ControversiesTabProps) {
+export function ControversiesTab({
+  legislatorId,
+  filter = "general",
+}: ControversiesTabProps) {
   const [data, setData] = useState<ControversyTopicsResponseDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+
+  // 필터 + 최신 뉴스 기준 정렬 (대표 뉴스의 publishedAt이 가장 최근인 토픽이 위로)
+  const displayedTopics = (data?.topics ?? [])
+    .filter((t) =>
+      filter === "controversy"
+        ? isControversyTopic(t)
+        : !isControversyTopic(t),
+    )
+    .sort((a, b) => {
+      const ad = topicLatestDate(a) ?? "";
+      const bd = topicLatestDate(b) ?? "";
+      if (ad === bd) {
+        // 동일 날짜면 신뢰도 desc, 그 다음 기사 수 desc로 안정 정렬
+        const ac = a.credibility ?? -1;
+        const bc = b.credibility ?? -1;
+        if (ac !== bc) return bc - ac;
+        return b.articles.length - a.articles.length;
+      }
+      return bd.localeCompare(ad);
+    });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -375,14 +489,20 @@ export function ControversiesTab({ legislatorId }: ControversiesTabProps) {
             />
           ))}
         </div>
-      ) : !data || data.topics.length === 0 ? (
+      ) : displayedTopics.length === 0 ? (
         <div className="py-12 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
           <AlertTriangle className="w-8 h-8 text-slate-300 mx-auto mb-3" />
           <p className="text-sm text-slate-600 mb-1">
-            수집된 기사가 없습니다.
+            {filter === "controversy"
+              ? "감지된 논란이 없습니다."
+              : data && data.topics.length > 0
+                ? "이 탭에 해당하는 기사가 없습니다."
+                : "수집된 기사가 없습니다."}
           </p>
           <p className="text-xs text-slate-400 mb-4">
-            새로고침을 눌러 최신 기사를 가져오세요.
+            {filter === "controversy"
+              ? "논란·의혹·해명 키워드 기사가 발견되면 자동으로 분류됩니다."
+              : "새로고침을 눌러 최신 기사를 가져오세요."}
           </p>
           <button
             type="button"
@@ -398,7 +518,7 @@ export function ControversiesTab({ legislatorId }: ControversiesTabProps) {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {data.topics.map((topic) => (
+          {displayedTopics.map((topic) => (
             <TopicCard key={topic.id} topic={topic} />
           ))}
         </div>

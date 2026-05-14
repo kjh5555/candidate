@@ -23,6 +23,7 @@ import {
   Receipt,
   ExternalLink,
   Newspaper,
+  AlertTriangle,
 } from "lucide-react";
 
 // ─── 의회 외부 링크 ──────────────────────────────────────────
@@ -261,7 +262,9 @@ export default function LegislatorPage() {
   const [legislator, setLegislator] = useState<LegislatorDetailDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"bills" | "votes" | "controversies">("bills");
+  const [tab, setTab] = useState<
+    "bills" | "votes" | "controversies" | "issues"
+  >("bills");
 
   useEffect(() => {
     if (!id) return;
@@ -572,13 +575,15 @@ export default function LegislatorPage() {
       {legislator.level === "NATIONAL" ? (
         <div className="bg-white rounded-xl border border-slate-200 p-6">
           <div className="flex gap-1 mb-6 border-b border-slate-200 -mx-6 px-6 overflow-x-auto">
-            {(["bills", "votes", "controversies"] as const).map((t) => {
+            {(["bills", "votes", "controversies", "issues"] as const).map((t) => {
               const label =
                 t === "bills"
                   ? "발의 법안"
                   : t === "votes"
                     ? "표결 이력"
-                    : "주요 뉴스";
+                    : t === "controversies"
+                      ? "주요 뉴스"
+                      : "논란";
               return (
                 <button
                   key={t}
@@ -592,6 +597,9 @@ export default function LegislatorPage() {
                   {t === "controversies" && (
                     <Newspaper className="w-3.5 h-3.5" />
                   )}
+                  {t === "issues" && (
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                  )}
                   {label}
                 </button>
               );
@@ -601,8 +609,10 @@ export default function LegislatorPage() {
             <BillsTab legislatorId={id} />
           ) : tab === "votes" ? (
             <VotesTab legislatorId={id} />
+          ) : tab === "controversies" ? (
+            <ControversiesTab legislatorId={id} filter="general" />
           ) : (
-            <ControversiesTab legislatorId={id} />
+            <ControversiesTab legislatorId={id} filter="controversy" />
           )}
         </div>
       ) : (
