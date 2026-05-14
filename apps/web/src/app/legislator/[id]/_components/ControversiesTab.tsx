@@ -222,7 +222,6 @@ function SignalsDetail({
   const searchQuery = legislatorName
     ? `${keyword} ${legislatorName}`
     : keyword;
-  const googleNewsUrl = `https://news.google.com/search?q=${encodeURIComponent(searchQuery)}&hl=ko&gl=KR&ceid=KR:ko`;
   const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}&hl=ko`;
   const namuUrl = `https://namu.wiki/Search?q=${encodeURIComponent(keyword)}`;
 
@@ -301,15 +300,6 @@ function SignalsDetail({
             {legislatorName ? ` · ${legislatorName}` : ""} 관련 외부 검색
           </p>
           <div className="flex flex-wrap gap-2">
-            <a
-              href={googleNewsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline px-2 py-1 rounded border border-slate-200 bg-white"
-            >
-              <ExternalLink className="w-3 h-3" />
-              Google 뉴스
-            </a>
             <a
               href={googleUrl}
               target="_blank"
