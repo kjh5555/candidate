@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Building2,
+  ChevronRight,
   ExternalLink,
   Landmark,
   MapPin,
@@ -13,8 +14,9 @@ import {
   User,
   Users,
   Vote,
+  X,
 } from "lucide-react";
-import { getRegionHub } from "@/lib/api";
+import { getRegionHub, getSettlementUnitFieldDetail } from "@/lib/api";
 import { LegislatorCard } from "@/components/LegislatorCard";
 import { PartyBadge } from "@/components/PartyBadge";
 import { EmptyState } from "@/components/EmptyState";
@@ -25,6 +27,7 @@ import type {
   LegislatorSummaryDTO,
   RegionHubDTO,
   RegionHubSettlementItemDTO,
+  SettlementFieldDetailDTO,
 } from "@repo/shared";
 
 function SectionHeader({
@@ -133,22 +136,39 @@ function CandidateMiniCard({
 
 function SettlementFieldList({
   items,
+  selectedField,
+  onSelectField,
 }: {
   items: RegionHubSettlementItemDTO[];
+  selectedField: string | null;
+  onSelectField: ((field: string) => void) | null;
 }) {
   const maxPercent = items.reduce((m, i) => Math.max(m, i.percent), 0);
+  const clickable = onSelectField !== null;
   return (
     <div className="space-y-1">
       {items.map((item) => {
         const widthPct = maxPercent > 0 ? (item.percent / maxPercent) * 100 : 0;
-        return (
-          <div
-            key={item.field}
-            className="rounded-lg px-3 py-2 hover:bg-slate-50 transition-colors"
-          >
+        const isSelected = selectedField === item.field;
+        const rowBase =
+          "w-full text-left rounded-lg px-3 py-2 transition-colors";
+        const rowState = isSelected
+          ? "bg-blue-50 ring-1 ring-blue-200"
+          : clickable
+            ? "hover:bg-slate-50 cursor-pointer"
+            : "";
+        const inner = (
+          <>
             <div className="flex items-baseline justify-between gap-3 mb-1.5">
-              <span className="text-sm font-medium text-slate-800 truncate">
+              <span className="text-sm font-medium text-slate-800 truncate flex items-center gap-1.5">
                 {item.field}
+                {clickable && (
+                  <ChevronRight
+                    className={`w-3.5 h-3.5 shrink-0 transition-transform ${
+                      isSelected ? "rotate-90 text-blue-600" : "text-slate-400"
+                    }`}
+                  />
+                )}
               </span>
               <span className="text-sm tabular-nums text-slate-600 shrink-0">
                 <Amount amount={item.amount} /> ({item.percent.toFixed(1)}%)
@@ -156,13 +176,116 @@ function SettlementFieldList({
             </div>
             <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
               <div
-                className="h-full rounded-full bg-blue-400"
+                className={`h-full rounded-full ${
+                  isSelected ? "bg-blue-600" : "bg-blue-400"
+                }`}
                 style={{ width: `${widthPct}%` }}
               />
             </div>
-          </div>
+          </>
+        );
+        if (!clickable) {
+          return (
+            <div key={item.field} className={`${rowBase} ${rowState}`}>
+              {inner}
+            </div>
+          );
+        }
+        return (
+          <button
+            key={item.field}
+            type="button"
+            onClick={() => onSelectField!(item.field)}
+            className={`${rowBase} ${rowState}`}
+          >
+            {inner}
+          </button>
         );
       })}
+    </div>
+  );
+}
+
+function SettlementFieldDetailPanel({
+  field,
+  loading,
+  error,
+  detail,
+  onClose,
+}: {
+  field: string;
+  loading: boolean;
+  error: string | null;
+  detail: SettlementFieldDetailDTO | null;
+  onClose: () => void;
+}) {
+  const maxPercent = detail
+    ? detail.items.reduce((m, i) => Math.max(m, i.percent), 0)
+    : 0;
+  return (
+    <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 h-full flex flex-col">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="min-w-0">
+          <p className="text-xs text-slate-500 mb-0.5">분야 세부사항</p>
+          <h3 className="text-lg font-bold text-slate-900 truncate">{field}</h3>
+          {detail && (
+            <p className="text-sm tabular-nums text-emerald-700 font-semibold mt-1">
+              <Amount amount={detail.totalAmount} />
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="닫기"
+          className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        {loading ? (
+          <div className="space-y-2 animate-pulse">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-10 rounded-lg bg-slate-200/60" />
+            ))}
+          </div>
+        ) : error ? (
+          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+            {error}
+          </div>
+        ) : !detail || detail.items.length === 0 ? (
+          <p className="text-sm text-slate-500">세부 항목이 없습니다.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {detail.items.map((it) => {
+              const widthPct =
+                maxPercent > 0 ? (it.percent / maxPercent) * 100 : 0;
+              return (
+                <li
+                  key={it.sector}
+                  className="bg-white rounded-lg border border-slate-200 px-3 py-2"
+                >
+                  <div className="flex items-baseline justify-between gap-3 mb-1.5">
+                    <span className="text-sm font-medium text-slate-800 truncate">
+                      {it.sector}
+                    </span>
+                    <span className="text-xs tabular-nums text-slate-600 shrink-0">
+                      <Amount amount={it.amount} /> ({it.percent.toFixed(1)}%)
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-emerald-500"
+                      style={{ width: `${widthPct}%` }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
@@ -228,6 +351,13 @@ function RegionHubInner() {
   const [resolvedSido, setResolvedSido] = useState<string | null>(null);
   const [resolvedWiwName, setResolvedWiwName] = useState<string | null>(null);
 
+  // 분야별 결산 drill-down state
+  const [selectedField, setSelectedField] = useState<string | null>(null);
+  const [fieldDetail, setFieldDetail] =
+    useState<SettlementFieldDetailDTO | null>(null);
+  const [fieldDetailLoading, setFieldDetailLoading] = useState(false);
+  const [fieldDetailError, setFieldDetailError] = useState<string | null>(null);
+
   useEffect(() => {
     // Resolve sido/wiwName from URL or fall back to localStorage
     const urlSido = searchParams.get("sido");
@@ -277,6 +407,45 @@ function RegionHubInner() {
       cancelled = true;
     };
   }, [searchParams, router]);
+
+  // Reset drill-down whenever the underlying settlement (unit/year) changes
+  const settlementUnitCode = data?.settlement?.unitCode ?? null;
+  const settlementYear = data?.settlement?.fiscalYear ?? null;
+  useEffect(() => {
+    setSelectedField(null);
+    setFieldDetail(null);
+    setFieldDetailError(null);
+  }, [settlementUnitCode, settlementYear]);
+
+  // Load sector drill-down when a field is selected
+  useEffect(() => {
+    if (!selectedField || !settlementUnitCode || !settlementYear) {
+      setFieldDetail(null);
+      setFieldDetailError(null);
+      return;
+    }
+    let cancelled = false;
+    setFieldDetailLoading(true);
+    setFieldDetailError(null);
+    setFieldDetail(null);
+    getSettlementUnitFieldDetail(settlementUnitCode, selectedField, settlementYear)
+      .then((res) => {
+        if (cancelled) return;
+        setFieldDetail(res);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setFieldDetailError(
+          err instanceof Error ? err.message : "세부 결산을 불러오지 못했습니다.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setFieldDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedField, settlementUnitCode, settlementYear]);
 
   if (loading || !resolvedSido || !resolvedWiwName) {
     return <HubSkeleton />;
@@ -409,33 +578,63 @@ function RegionHubInner() {
           accent="emerald"
         />
         {data.settlement && data.settlement.items.length > 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-5 sm:p-6">
-            <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-2 mb-4">
-              <div>
-                <p className="text-xs text-slate-500 mb-1">
-                  {data.settlement.fiscalYear}년 {data.settlement.unitName ?? data.wiwName} 총결산
-                </p>
-                <p className="text-2xl font-bold text-emerald-800">
-                  <Amount amount={data.settlement.totalAmount} />
-                </p>
+          (() => {
+            const canDrillDown = !!data.settlement.unitCode;
+            const isSplit = canDrillDown && selectedField !== null;
+            return (
+              <div
+                className={`grid gap-4 transition-all duration-300 ${
+                  isSplit ? "lg:grid-cols-2" : "grid-cols-1"
+                }`}
+              >
+                <div className="bg-white rounded-xl border border-slate-200 p-5 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-2 mb-4">
+                    <div>
+                      <p className="text-xs text-slate-500 mb-1">
+                        {data.settlement.fiscalYear}년 {data.settlement.unitName ?? data.wiwName} 총결산
+                      </p>
+                      <p className="text-2xl font-bold text-emerald-800">
+                        <Amount amount={data.settlement.totalAmount} />
+                      </p>
+                    </div>
+                    {data.settlement.reportUrl && (
+                      <a
+                        href={data.settlement.reportUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors self-start sm:self-auto"
+                      >
+                        <span>📄</span>
+                        <span className="font-medium">원본 결산서 PDF →</span>
+                      </a>
+                    )}
+                  </div>
+                  {canDrillDown && (
+                    <p className="text-xs text-slate-500 mb-2">
+                      분야를 클릭하면 부문별 세부 결산이 오른쪽에 표시됩니다.
+                    </p>
+                  )}
+                  <SettlementFieldList
+                    items={data.settlement.items}
+                    selectedField={selectedField}
+                    onSelectField={canDrillDown ? setSelectedField : null}
+                  />
+                  <p className="text-xs text-slate-400 mt-4 text-right">
+                    출처: 지방재정365 (lofin365.go.kr)
+                  </p>
+                </div>
+                {isSplit && (
+                  <SettlementFieldDetailPanel
+                    field={selectedField}
+                    loading={fieldDetailLoading}
+                    error={fieldDetailError}
+                    detail={fieldDetail}
+                    onClose={() => setSelectedField(null)}
+                  />
+                )}
               </div>
-              {data.settlement.reportUrl && (
-                <a
-                  href={data.settlement.reportUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors self-start sm:self-auto"
-                >
-                  <span>📄</span>
-                  <span className="font-medium">원본 결산서 PDF →</span>
-                </a>
-              )}
-            </div>
-            <SettlementFieldList items={data.settlement.items} />
-            <p className="text-xs text-slate-400 mt-4 text-right">
-              출처: 지방재정365 (lofin365.go.kr)
-            </p>
-          </div>
+            );
+          })()
         ) : (
           <EmptyState
             message="해당 지역 결산 데이터가 아직 적재되지 않았습니다."
