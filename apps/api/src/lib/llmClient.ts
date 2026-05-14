@@ -228,6 +228,173 @@ export async function summarizeTopic(
   return resp;
 }
 
+// ── 4. 법안 AI 요약 (Gemini googleSearch grounding) ───────────
+//
+// Gemini 2.5의 built-in google_search tool을 사용해 web 검색 결과를
+// 근거로 법안의 제안이유·주요내용을 요약. 개정안은 변경점도 별도 정리.
+//
+// 중요: googleSearch grounding은 responseMimeType=application/json과
+// 함께 사용할 수 없으므로, system prompt에서 JSON 형식을 강제하고
+// 응답에서 JSON 블록을 추출(parseJson)한다.
+
+export interface BillForSummary {
+  name: string;
+  billNo?: string | null;
+  primaryProposerName?: string | null;
+  proposedDate?: string | null;
+  committee?: string | null;
+  linkUrl?: string | null;
+}
+
+export interface BillAiSourceSnippet {
+  uri: string;
+  title?: string;
+}
+
+export interface BillSummaryResult {
+  summary: string;
+  changes: string | null;
+  sources: BillAiSourceSnippet[];
+}
+
+export async function summarizeBillWithGrounding(
+  bill: BillForSummary,
+): Promise<BillSummaryResult | null> {
+  const provider = getProvider();
+  const apiKey = getApiKey();
+  if (provider !== "gemini" || !apiKey) {
+    // googleSearch grounding은 Gemini 2.5 전용이므로 다른 provider는 미지원.
+    if (provider !== "none") {
+      console.warn(
+        `[llmClient] summarizeBillWithGrounding requires Gemini (provider=${provider}); skipping.`,
+      );
+    }
+    return null;
+  }
+  const model = getModel(provider);
+
+  const systemMsg =
+    "당신은 한국 국회 법안 분석가입니다. 검색 결과를 종합해 다음 정보를 한국어로 작성하세요. " +
+    "1) 법안의 제안이유와 주요내용을 1-3문단으로 중립 요약. " +
+    "2) 개정안이면 변경되는 조항과 변경 내용을 별도로 정리. " +
+    "3) 단정적 평가('좋다/나쁘다')는 피하고 사실 위주로. " +
+    "응답은 반드시 다음 JSON 형식으로만 답하세요 (다른 텍스트·코드펜스 금지): " +
+    '{"summary": "...", "changes": "..." 또는 null, "sources": [{"uri":"...","title":"..."}]}';
+
+  const userPrompt =
+    "다음 법안을 요약해주세요. 의안정보시스템(likms.assembly.go.kr) 또는 관련 보도를 검색해 출처와 함께 정리하세요.\n\n" +
+    `- 법안명: ${bill.name}\n` +
+    `- 의안번호: ${bill.billNo ?? "미상"}\n` +
+    `- 발의자: ${bill.primaryProposerName ?? "미상"}\n` +
+    `- 발의일: ${bill.proposedDate ?? "미상"}\n` +
+    `- 소관위원회: ${bill.committee ?? "미상"}\n` +
+    `- 원문 링크: ${bill.linkUrl ?? "미상"}`;
+
+  try {
+    const url =
+      `https://generativelanguage.googleapis.com/v1beta/models/` +
+      `${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const body = {
+      systemInstruction: { parts: [{ text: systemMsg }] },
+      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+      tools: [{ google_search: {} }],
+      generationConfig: {
+        // responseMimeType은 grounding과 호환되지 않음 — 사용하지 않음
+        temperature: 0.3,
+      },
+    };
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      console.warn(
+        `[llmClient] summarizeBillWithGrounding failed: ${res.status} ${errText.slice(0, 300)}`,
+      );
+      return null;
+    }
+    const data = (await res.json()) as {
+      candidates?: {
+        content?: { parts?: { text?: string }[] };
+        groundingMetadata?: {
+          groundingChunks?: { web?: { uri?: string; title?: string } }[];
+        };
+      }[];
+    };
+    const candidate = data.candidates?.[0];
+    const parts = candidate?.content?.parts ?? [];
+    const text = parts.map((p) => p.text ?? "").join("").trim();
+    if (!text) return null;
+
+    // JSON 추출 (코드펜스 제거 + 첫 { ~ 마지막 } 사이 추출 fallback)
+    type ParsedShape = {
+      summary?: string;
+      changes?: string | null;
+      sources?: { uri?: string; title?: string }[];
+    };
+    let parsed = parseJson<ParsedShape>(text);
+    if (!parsed) {
+      const first = text.indexOf("{");
+      const last = text.lastIndexOf("}");
+      if (first !== -1 && last > first) {
+        parsed = parseJson<ParsedShape>(text.slice(first, last + 1));
+      }
+    }
+    if (!parsed || typeof parsed.summary !== "string" || !parsed.summary.trim()) {
+      console.warn(
+        "[llmClient] summarizeBillWithGrounding: JSON parse failed or empty summary",
+      );
+      return null;
+    }
+
+    // sources: parsed.sources (LLM 출력) + groundingMetadata.groundingChunks (Gemini 자동) 병합
+    const sourceMap = new Map<string, BillAiSourceSnippet>();
+    if (Array.isArray(parsed.sources)) {
+      for (const s of parsed.sources) {
+        const uri = typeof s?.uri === "string" ? s.uri.trim() : "";
+        if (!uri) continue;
+        sourceMap.set(uri, {
+          uri,
+          title: typeof s.title === "string" && s.title.trim() ? s.title.trim() : undefined,
+        });
+      }
+    }
+    const chunks = candidate?.groundingMetadata?.groundingChunks ?? [];
+    for (const c of chunks) {
+      const uri = typeof c?.web?.uri === "string" ? c.web.uri.trim() : "";
+      if (!uri) continue;
+      if (!sourceMap.has(uri)) {
+        sourceMap.set(uri, {
+          uri,
+          title:
+            typeof c.web?.title === "string" && c.web.title.trim()
+              ? c.web.title.trim()
+              : undefined,
+        });
+      }
+    }
+
+    const changes =
+      typeof parsed.changes === "string" && parsed.changes.trim()
+        ? parsed.changes.trim()
+        : null;
+
+    return {
+      summary: parsed.summary.trim(),
+      changes,
+      sources: Array.from(sourceMap.values()),
+    };
+  } catch (err) {
+    console.warn(
+      "[llmClient] summarizeBillWithGrounding error:",
+      err instanceof Error ? err.message : err,
+    );
+    return null;
+  }
+}
+
 // ── 3. 기사별 라벨링 ──────────────────────────────────────────
 
 export async function analyzeArticle(

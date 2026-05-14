@@ -3,8 +3,9 @@ import Image from "next/image";
 import { getBillDetail } from "@/lib/api";
 import { BillResultBadge } from "@/components/BillResultBadge";
 import { PartyBadge } from "@/components/PartyBadge";
+import { BillAiSummary } from "@/components/BillAiSummary";
 import { ArrowLeft, User, ExternalLink, FileText } from "lucide-react";
-import type { ProposerDTO } from "@repo/shared";
+import type { ProposerDTO, BillSummaryResponseDTO } from "@repo/shared";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +91,22 @@ export default async function BillPage({ params }: BillPageProps) {
   const co = bill.proposers.filter((p) => p.role === "CO");
   const vs = bill.votesSummary;
 
+  // AI 요약 초기 상태 (서버에서 캐시된 값만 — 생성은 클라이언트에서 트리거)
+  const initialSummary: BillSummaryResponseDTO = {
+    billId: bill.id,
+    billNo: bill.billNo ?? null,
+    name: bill.name,
+    proposedDate: bill.proposedDate,
+    primaryProposerName: bill.primaryProposerNameText,
+    committee: bill.committee,
+    linkUrl: bill.linkUrl,
+    aiSummary: bill.aiSummary ?? null,
+    aiChanges: bill.aiChanges ?? null,
+    aiSourceSnippets: bill.aiSourceSnippets ?? null,
+    aiGeneratedAt: bill.aiGeneratedAt ?? null,
+    aiModel: bill.aiModel ?? null,
+  };
+
   return (
     <div className="flex flex-col gap-6">
       {/* Back */}
@@ -139,6 +156,9 @@ export default async function BillPage({ params }: BillPageProps) {
           <ExternalLink className="w-3 h-3" />
         </a>
       </div>
+
+      {/* AI 요약 (Gemini grounding) */}
+      <BillAiSummary billId={bill.id} initial={initialSummary} />
 
       {/* Bill Content Info Card */}
       <div className="bg-amber-50 rounded-xl border border-amber-200 p-5">

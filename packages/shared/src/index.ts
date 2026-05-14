@@ -170,6 +170,35 @@ export interface BillDetailDTO {
   votesSummary: VotesSummaryDTO;
   primaryProposerNameText: string | null;
   coProposerNamesText: string[];
+  // ── AI 요약 (Gemini grounding) ──
+  aiSummary?: string | null;
+  aiChanges?: string | null;
+  aiSourceSnippets?: BillAiSourceDTO[] | null;
+  aiGeneratedAt?: string | null;
+  aiModel?: string | null;
+}
+
+// ── AI 법안 요약 ──────────────────────────────────────────────
+
+export interface BillAiSourceDTO {
+  uri: string;
+  title?: string;
+}
+
+export interface BillSummaryResponseDTO {
+  billId: string;
+  billNo: string | null;
+  name: string;
+  proposedDate: string | null; // ISO
+  primaryProposerName: string | null;
+  committee: string | null;
+  linkUrl: string | null;
+  // AI 생성 필드
+  aiSummary: string | null;
+  aiChanges: string | null; // 개정안 변경점 (해당없으면 null)
+  aiSourceSnippets: BillAiSourceDTO[] | null;
+  aiGeneratedAt: string | null; // ISO
+  aiModel: string | null;
 }
 
 export interface BillsResponseDTO {

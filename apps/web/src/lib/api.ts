@@ -5,6 +5,7 @@ import type {
   BillsResponseDTO,
   VotesResponseDTO,
   BillDetailDTO,
+  BillSummaryResponseDTO,
   DistrictsResponseDTO,
   CandidatesResponseDTO,
   CandidateDetailDTO,
@@ -117,6 +118,23 @@ export function getLegislatorVotes(
 
 export function getBillDetail(billId: string): Promise<BillDetailDTO> {
   return apiFetch<BillDetailDTO>(`/api/bills/${billId}`);
+}
+
+export function getBillSummary(
+  billId: string,
+): Promise<BillSummaryResponseDTO> {
+  return apiFetch<BillSummaryResponseDTO>(
+    `/api/bills/${encodeURIComponent(billId)}/summary`,
+  );
+}
+
+export function generateBillSummary(
+  billId: string,
+): Promise<BillSummaryResponseDTO> {
+  return apiFetch<BillSummaryResponseDTO>(
+    `/api/bills/${encodeURIComponent(billId)}/summary/generate`,
+    { method: "POST" },
+  );
 }
 
 export function getDistricts(

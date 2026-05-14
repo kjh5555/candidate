@@ -1,5 +1,6 @@
 import type {
   BillDetailDTO,
+  BillAiSourceDTO,
   ProposerDTO,
   VotesSummaryDTO,
 } from "@repo/shared";
@@ -82,6 +83,25 @@ export async function getBillDetail(
       ]
     : [];
 
+  // AI sources 정규화
+  let aiSourceSnippets: BillAiSourceDTO[] | null = null;
+  const rawSources = bill.aiSourceSnippets;
+  if (Array.isArray(rawSources)) {
+    aiSourceSnippets = rawSources
+      .map((s): BillAiSourceDTO | null => {
+        if (!s || typeof s !== "object") return null;
+        const obj = s as { uri?: unknown; title?: unknown };
+        const uri = typeof obj.uri === "string" ? obj.uri : null;
+        if (!uri) return null;
+        const out: BillAiSourceDTO = { uri };
+        if (typeof obj.title === "string" && obj.title.trim()) {
+          out.title = obj.title;
+        }
+        return out;
+      })
+      .filter((s): s is BillAiSourceDTO => s !== null);
+  }
+
   return {
     id: bill.id,
     billNo: bill.billNo,
@@ -97,5 +117,10 @@ export async function getBillDetail(
     votesSummary,
     primaryProposerNameText: bill.primaryProposerName ?? null,
     coProposerNamesText,
+    aiSummary: bill.aiSummary ?? null,
+    aiChanges: bill.aiChanges ?? null,
+    aiSourceSnippets,
+    aiGeneratedAt: bill.aiGeneratedAt ? bill.aiGeneratedAt.toISOString() : null,
+    aiModel: bill.aiModel ?? null,
   };
 }
