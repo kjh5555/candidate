@@ -16,6 +16,10 @@ export interface ListCandidatesParams {
   positionType?: ListPositionType;
   sido?: string;
   wiwName?: string;
+  /** 이름 contains (insensitive) */
+  name?: string;
+  /** 지역구 이름 contains (insensitive). districtName 컬럼 또는 wiwName 컬럼 OR 매칭. */
+  districtName?: string;
 }
 
 const summarySelect = {
@@ -51,13 +55,35 @@ function rowToSummary(
 export async function listCandidates(
   params: ListCandidatesParams,
 ): Promise<CandidateSummaryDTO[]> {
-  const { electionId, positionType = "ALL", sido, wiwName } = params;
+  const {
+    electionId,
+    positionType = "ALL",
+    sido,
+    wiwName,
+    name,
+    districtName,
+  } = params;
+
+  const trimmedName = name?.trim();
+  const trimmedDistrict = districtName?.trim();
 
   const where: Prisma.CandidateWhereInput = {
     electionId,
     ...(positionType !== "ALL" ? { positionType } : {}),
     ...(sido ? { sido } : {}),
     ...(wiwName ? { wiwName } : {}),
+    ...(trimmedName && trimmedName.length > 0
+      ? { name: { contains: trimmedName, mode: "insensitive" } }
+      : {}),
+    ...(trimmedDistrict && trimmedDistrict.length > 0
+      ? {
+          OR: [
+            { districtName: { contains: trimmedDistrict, mode: "insensitive" } },
+            { wiwName: { contains: trimmedDistrict, mode: "insensitive" } },
+            { sido: { contains: trimmedDistrict, mode: "insensitive" } },
+          ],
+        }
+      : {}),
   };
 
   const rows = await prisma.candidate.findMany({

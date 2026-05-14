@@ -1,9 +1,9 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, User } from "lucide-react";
+import { ArrowLeft, MapPin, Search, User } from "lucide-react";
 import { getCandidates } from "@/lib/api";
 import { PartyBadge } from "@/components/PartyBadge";
 import { EmptyState } from "@/components/EmptyState";
@@ -113,17 +113,60 @@ function CandidatesPageInner() {
     "ALL";
   const sido = params.get("sido") ?? undefined;
   const wiwName = params.get("wiwName") ?? undefined;
+  const q = params.get("q") ?? "";
+  const district = params.get("district") ?? "";
 
   const [candidates, setCandidates] = useState<CandidateSummaryDTO[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 디바운스용 로컬 input 상태
+  const [inputQ, setInputQ] = useState(q);
+  const [inputDistrict, setInputDistrict] = useState(district);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // URL이 외부 변경되면 input도 동기화 (예: 뒤로가기)
+  useEffect(() => {
+    setInputQ(q);
+  }, [q]);
+  useEffect(() => {
+    setInputDistrict(district);
+  }, [district]);
+
+  function updateParams(updates: Record<string, string>) {
+    const next = new URLSearchParams(params.toString());
+    for (const [k, v] of Object.entries(updates)) {
+      if (v === "") {
+        next.delete(k);
+      } else {
+        next.set(k, v);
+      }
+    }
+    router.push(`/candidates?${next.toString()}`);
+  }
+
+  function handleSearchChange(key: "q" | "district", value: string) {
+    if (key === "q") setInputQ(value);
+    else setInputDistrict(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      updateParams({ [key]: value });
+    }, 300);
+  }
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    getCandidates({ electionId, positionType, sido, wiwName })
+    getCandidates({
+      electionId,
+      positionType,
+      sido,
+      wiwName,
+      name: q || undefined,
+      districtName: district || undefined,
+    })
       .then((data) => {
         if (cancelled) return;
         setCandidates(data.candidates);
@@ -141,7 +184,7 @@ function CandidatesPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [electionId, positionType, sido, wiwName]);
+  }, [electionId, positionType, sido, wiwName, q, district]);
 
   const breadcrumbParts: string[] = ["지방선거"];
   if (sido) breadcrumbParts.push(sido);
@@ -174,6 +217,30 @@ function CandidatesPageInner() {
             총 <span className="font-semibold text-slate-700">{total}</span>명의 후보가 등록되었습니다.
           </p>
         )}
+      </div>
+
+      {/* 검색 — 이름 + 지역구 */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col sm:flex-row gap-3">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            value={inputQ}
+            onChange={(e) => handleSearchChange("q", e.target.value)}
+            placeholder="이름으로 검색..."
+            className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+        <div className="flex-1 relative">
+          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            value={inputDistrict}
+            onChange={(e) => handleSearchChange("district", e.target.value)}
+            placeholder="지역(시·도, 시·군·구, 지역구)..."
+            className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
       </div>
 
       {loading ? (

@@ -11,6 +11,8 @@ interface ListQuery {
   positionType?: ListPositionType;
   sido?: string;
   wiwName?: string;
+  name?: string;
+  districtName?: string;
 }
 
 interface RegionsQuery {
@@ -39,6 +41,8 @@ const candidateRoutes: FastifyPluginAsync = async (fastify) => {
             },
             sido: { type: "string" },
             wiwName: { type: "string" },
+            name: { type: "string" },
+            districtName: { type: "string" },
           },
         },
       },
@@ -49,12 +53,16 @@ const candidateRoutes: FastifyPluginAsync = async (fastify) => {
         positionType = "ALL",
         sido,
         wiwName,
+        name,
+        districtName,
       } = request.query;
       const candidates = await listCandidates({
         electionId,
         positionType,
         sido,
         wiwName,
+        name,
+        districtName,
       });
       return reply.send({ candidates, total: candidates.length });
     },

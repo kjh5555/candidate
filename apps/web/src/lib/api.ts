@@ -160,12 +160,16 @@ export function getCandidates(params: {
   positionType?: CandidatePositionType | "ALL";
   sido?: string;
   wiwName?: string;
+  name?: string;
+  districtName?: string;
 }): Promise<CandidatesResponseDTO> {
   const query = new URLSearchParams();
   query.set("electionId", params.electionId ?? "20260603");
   if (params.positionType) query.set("positionType", params.positionType);
   if (params.sido) query.set("sido", params.sido);
   if (params.wiwName) query.set("wiwName", params.wiwName);
+  if (params.name) query.set("name", params.name);
+  if (params.districtName) query.set("districtName", params.districtName);
   return apiFetch<CandidatesResponseDTO>(
     `/api/candidates?${query.toString()}`
   );
