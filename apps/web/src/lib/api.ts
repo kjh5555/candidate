@@ -20,6 +20,7 @@ import type {
   SettlementUnitsResponseDTO,
   SettlementYearsResponseDTO,
   RegionHubDTO,
+  ControversyTopicsResponseDTO,
 } from "@repo/shared";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -292,4 +293,23 @@ export function getRegionHub(
   query.set("sido", sido);
   query.set("wiwName", wiwName);
   return apiFetch<RegionHubDTO>(`/api/region-hub?${query.toString()}`);
+}
+
+// ── Controversies (논란·해명) ─────────────────────────────────
+
+export function getLegislatorControversies(
+  id: string
+): Promise<ControversyTopicsResponseDTO> {
+  return apiFetch<ControversyTopicsResponseDTO>(
+    `/api/legislators/${encodeURIComponent(id)}/controversies`
+  );
+}
+
+export function syncLegislatorControversies(
+  id: string
+): Promise<ControversyTopicsResponseDTO> {
+  return apiFetch<ControversyTopicsResponseDTO>(
+    `/api/legislators/${encodeURIComponent(id)}/controversies/sync`,
+    { method: "POST" }
+  );
 }

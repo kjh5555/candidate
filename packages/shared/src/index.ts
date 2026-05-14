@@ -422,6 +422,40 @@ export interface RegionHubDTO {
   externalLinks: RegionHubExternalLinksDTO;
 }
 
+// ── Controversy / News (논란·해명) ─────────────────────────────
+
+export type NewsStance = "claim" | "explanation" | "neutral";
+
+export interface NewsArticleDTO {
+  id: string;
+  url: string;
+  source: string;
+  title: string;
+  excerpt: string | null;
+  publishedAt: string | null; // ISO
+  stance: NewsStance | null;
+  hasPrimarySource: boolean | null;
+  hasCorrection: boolean | null;
+}
+
+export interface ControversyTopicDTO {
+  id: string;
+  legislatorId: string;
+  title: string;
+  summary: string | null;
+  category: string | null;
+  credibility: number | null;
+  signals: Record<string, unknown> | null;
+  firstSeenAt: string;
+  lastSyncedAt: string;
+  articles: NewsArticleDTO[];
+}
+
+export interface ControversyTopicsResponseDTO {
+  topics: ControversyTopicDTO[];
+  lastSyncedAt: string | null;
+}
+
 // ── Misc ──────────────────────────────────────────────────────
 
 export interface ApiErrorDTO {

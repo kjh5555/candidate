@@ -8,6 +8,7 @@ import { getLegislatorDetail } from "@/lib/api";
 import { PartyBadge } from "@/components/PartyBadge";
 import { BillsTab } from "./_components/BillsTab";
 import { VotesTab } from "./_components/VotesTab";
+import { ControversiesTab } from "./_components/ControversiesTab";
 import type { LegislatorDetailDTO } from "@repo/shared";
 import {
   ArrowLeft,
@@ -21,6 +22,7 @@ import {
   Shield,
   Receipt,
   ExternalLink,
+  AlertTriangle,
 } from "lucide-react";
 
 // ─── 의회 외부 링크 ──────────────────────────────────────────
@@ -259,7 +261,7 @@ export default function LegislatorPage() {
   const [legislator, setLegislator] = useState<LegislatorDetailDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"bills" | "votes">("bills");
+  const [tab, setTab] = useState<"bills" | "votes" | "controversies">("bills");
 
   useEffect(() => {
     if (!id) return;
@@ -566,28 +568,41 @@ export default function LegislatorPage() {
         </div>
       )}
 
-      {/* Bills / Votes tabs (NATIONAL only — 광역·기초의원은 법률안 발의 X, 조례안 발의 O) */}
+      {/* Bills / Votes / Controversies tabs (NATIONAL only — 광역·기초의원은 법률안 발의 X, 조례안 발의 O) */}
       {legislator.level === "NATIONAL" ? (
         <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <div className="flex gap-1 mb-6 border-b border-slate-200 -mx-6 px-6">
-            {(["bills", "votes"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                  tab === t
-                    ? "border-blue-600 text-blue-700"
-                    : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"
-                }`}
-              >
-                {t === "bills" ? "발의 법안" : "표결 이력"}
-              </button>
-            ))}
+          <div className="flex gap-1 mb-6 border-b border-slate-200 -mx-6 px-6 overflow-x-auto">
+            {(["bills", "votes", "controversies"] as const).map((t) => {
+              const label =
+                t === "bills"
+                  ? "발의 법안"
+                  : t === "votes"
+                    ? "표결 이력"
+                    : "논란·해명";
+              return (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap inline-flex items-center gap-1.5 ${
+                    tab === t
+                      ? "border-blue-600 text-blue-700"
+                      : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300"
+                  }`}
+                >
+                  {t === "controversies" && (
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                  )}
+                  {label}
+                </button>
+              );
+            })}
           </div>
           {tab === "bills" ? (
             <BillsTab legislatorId={id} />
-          ) : (
+          ) : tab === "votes" ? (
             <VotesTab legislatorId={id} />
+          ) : (
+            <ControversiesTab legislatorId={id} />
           )}
         </div>
       ) : (

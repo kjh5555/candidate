@@ -8,6 +8,7 @@ import districtRoutes from "./districts.js";
 import candidateRoutes from "./candidates.js";
 import budgetRoutes from "./budget.js";
 import settlementRoutes from "./settlement.js";
+import controversyRoutes from "./controversies.js";
 
 const apiRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(healthRoute);
@@ -19,6 +20,8 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(candidateRoutes, { prefix: "/candidates" });
   await fastify.register(budgetRoutes, { prefix: "/budget" });
   await fastify.register(settlementRoutes, { prefix: "/settlement" });
+  // 논란·해명 — /legislators/:id/controversies 형식이므로 prefix 없이 등록
+  await fastify.register(controversyRoutes);
 };
 
 export default apiRoutes;

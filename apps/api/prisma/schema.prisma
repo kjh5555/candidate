@@ -190,6 +190,8 @@ model Legislator {
 
   billProposers BillProposer[]
   votes         Vote[]
+  controversyTopics ControversyTopic[]
+  newsArticles      NewsArticle[]
 
   @@index([level])
   @@index([party])
@@ -197,6 +199,49 @@ model Legislator {
   @@index([electoralDistrictId])
   @@index([assemblyAge])
   @@index([huboid])
+}
+
+// ─── Controversy / News (논란·해명) ────────────────────────────
+//
+// 의원별 자동수집된 뉴스 기사 + 토픽 클러스터. 큐레이션 X. 사용자 투표 X.
+// Google News RSS로 의원 이름 검색 → 본문 추출 → 휴리스틱(또는 LLM) 분류 →
+// 신뢰도 점수 산출. 점수는 출처 시그널 집계로 산출(투명).
+
+model ControversyTopic {
+  id           String     @id @default(cuid())
+  legislatorId String
+  legislator   Legislator @relation(fields: [legislatorId], references: [id], onDelete: Cascade)
+  title        String     // 토픽 제목 (휴리스틱 또는 LLM 산출)
+  summary      String?    // 중립 요약 (LLM 있을 때만)
+  category     String?    // "발언" | "정책" | "사법" | "기타" 등
+  credibility  Int?       // 0-100 신뢰도 점수
+  signals      Json?      // 점수 산출 시그널 원본 (투명성)
+  firstSeenAt  DateTime   @default(now())
+  lastSyncedAt DateTime   @default(now())
+  articles     NewsArticle[]
+
+  @@index([legislatorId, lastSyncedAt])
+  @@index([legislatorId, credibility])
+}
+
+model NewsArticle {
+  id               String            @id @default(cuid())
+  topicId          String?
+  topic            ControversyTopic? @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  legislatorId     String
+  legislator       Legislator        @relation(fields: [legislatorId], references: [id], onDelete: Cascade)
+  url              String            @unique
+  source           String            // 언론사명
+  title            String
+  excerpt          String?           // Readability 추출 본문 요약 (또는 LLM 요약)
+  publishedAt      DateTime?
+  stance           String?           // "claim" | "explanation" | "neutral"
+  hasPrimarySource Boolean?          // 1차 출처 인용 여부
+  hasCorrection    Boolean?          // 정정/반박 표현 존재
+  fetchedAt        DateTime          @default(now())
+
+  @@index([legislatorId, publishedAt])
+  @@index([topicId])
 }
 
 model Bill {
