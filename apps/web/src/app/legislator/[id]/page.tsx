@@ -22,7 +22,7 @@ import {
   Shield,
   Receipt,
   ExternalLink,
-  AlertTriangle,
+  Newspaper,
 } from "lucide-react";
 
 // ─── 의회 외부 링크 ──────────────────────────────────────────
@@ -578,7 +578,7 @@ export default function LegislatorPage() {
                   ? "발의 법안"
                   : t === "votes"
                     ? "표결 이력"
-                    : "논란·해명";
+                    : "주요 뉴스";
               return (
                 <button
                   key={t}
@@ -590,7 +590,7 @@ export default function LegislatorPage() {
                   }`}
                 >
                   {t === "controversies" && (
-                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <Newspaper className="w-3.5 h-3.5" />
                   )}
                   {label}
                 </button>
