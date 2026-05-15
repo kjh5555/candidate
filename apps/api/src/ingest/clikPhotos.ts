@@ -90,13 +90,11 @@ async function searchAssemblyInfo(
       console.warn(`  CLIK list 오류: ${res.status}`);
       return [];
     }
-    const data = await res.json() as {
-      SERVICE: string;
-      RESULT_CODE: string;
-      LIST?: { ROW: AssemblyInfoRow }[];
-    };
-    if (data.RESULT_CODE !== "SUCCESS" || !data.LIST) return [];
-    return data.LIST.map((x) => x.ROW);
+    // CLIK 응답은 [{SERVICE, RESULT_CODE, LIST, ...}] 형태의 배열로 감싸져 옴
+    const raw = await res.json();
+    const data = Array.isArray(raw) ? raw[0] : raw;
+    if (!data || data.RESULT_CODE !== "SUCCESS" || !data.LIST) return [];
+    return (data.LIST as { ROW: AssemblyInfoRow }[]).map((x) => x.ROW);
   } catch (e) {
     console.warn(`  fetch 실패 (name=${name}):`, e);
     return [];
