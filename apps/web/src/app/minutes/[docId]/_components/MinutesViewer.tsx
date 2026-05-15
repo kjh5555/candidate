@@ -370,9 +370,9 @@ export function MinutesViewer({ initial }: MinutesViewerProps) {
           </button>
           {showFullBody && (
             <div className="px-5 pb-5 border-t border-slate-100">
-              <pre className="whitespace-pre-wrap text-sm text-slate-800 leading-relaxed font-sans mt-4 max-h-[600px] overflow-y-auto bg-slate-50 p-4 rounded-lg border border-slate-100">
-                {data.bodyText}
-              </pre>
+              <div className="mt-4 max-h-[600px] overflow-y-auto bg-slate-50 p-4 rounded-lg border border-slate-100">
+                <ChatView bodyText={data.bodyText ?? ""} />
+              </div>
               <div className="flex justify-end mt-2">
                 <button
                   type="button"
@@ -387,6 +387,159 @@ export function MinutesViewer({ initial }: MinutesViewerProps) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── 채팅 스타일 회의록 뷰어 ─────────────────────────────────
+
+interface ChatTurn {
+  role: string;
+  name: string;
+  content: string;
+}
+
+/**
+ * bodyText를 발언 단위로 파싱.
+ * 패턴: `○{role} {name} {speech}` 또는 `○{name} 의원 {speech}` 또는
+ *       `○{role} {name}: {speech}` (정규화 후).
+ * 다음 ○ 마커까지가 한 turn.
+ */
+function parseTurns(bodyText: string): ChatTurn[] {
+  const turns: ChatTurn[] = [];
+  const lines = bodyText.split("\n");
+  let current: { role: string; name: string; lines: string[] } | null = null;
+
+  // 의원 역할로 인식할 토큰들
+  const ROLES_AS_SECOND = new Set([
+    "의원", "부의장", "위원장", "간사", "위원",
+  ]);
+
+  const flush = () => {
+    if (current) {
+      const content = current.lines.join("\n").trim();
+      if (content.length > 0) {
+        turns.push({ role: current.role, name: current.name, content });
+      }
+    }
+  };
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    // 발언 시작 마커: ○로 시작
+    const m = line.match(/^○([^\s]+)\s+([^\s:]+)(?::|\s+)(.*)$/);
+    if (m) {
+      flush();
+      const [, w1, w2, rest] = m;
+      // "○{name} 의원" 패턴 vs "○{role} {name}" 패턴 구분
+      if (ROLES_AS_SECOND.has(w2 ?? "")) {
+        current = {
+          role: w2 ?? "",
+          name: w1 ?? "",
+          lines: rest ? [rest] : [],
+        };
+      } else {
+        current = {
+          role: w1 ?? "",
+          name: w2 ?? "",
+          lines: rest ? [rest] : [],
+        };
+      }
+      continue;
+    }
+    // ◎자유발언(...) 같은 섹션 마커는 건너뜀 (시각적 잡음)
+    if (/^◎/.test(line)) continue;
+    // 빈 줄·머리부 메타정보(일시·의사일정·부의된 안건)는 그대로 무시
+    if (current) {
+      // 연속 라인은 발언 본문에 추가 (앞 공백 1칸 제거)
+      current.lines.push(line.replace(/^\s/, ""));
+    }
+  }
+  flush();
+  return turns;
+}
+
+/**
+ * 발언자별 일관된 색상을 위해 이름 해시로 팔레트 선택.
+ */
+const BUBBLE_PALETTES = [
+  "bg-blue-100 text-blue-900 border-blue-200",
+  "bg-emerald-100 text-emerald-900 border-emerald-200",
+  "bg-amber-100 text-amber-900 border-amber-200",
+  "bg-violet-100 text-violet-900 border-violet-200",
+  "bg-rose-100 text-rose-900 border-rose-200",
+  "bg-cyan-100 text-cyan-900 border-cyan-200",
+  "bg-teal-100 text-teal-900 border-teal-200",
+  "bg-fuchsia-100 text-fuchsia-900 border-fuchsia-200",
+];
+
+function paletteFor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+  return BUBBLE_PALETTES[Math.abs(h) % BUBBLE_PALETTES.length]!;
+}
+
+function avatarFor(name: string): string {
+  // 이름 마지막 두 글자 (예: "이상숙" → "상숙", "박두형" → "두형")
+  return name.length >= 2 ? name.slice(-2) : name;
+}
+
+function ChatView({ bodyText }: { bodyText: string }) {
+  const turns = parseTurns(bodyText);
+  if (turns.length === 0) {
+    return (
+      <p className="text-sm text-slate-500 italic">
+        본문에서 발언을 인식하지 못했습니다.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {turns.map((turn, i) => {
+        // 의장/부의장은 오른쪽 (KakaoTalk "self") — 회의를 이끌어가는 진행자
+        const isChair = turn.role === "의장" || turn.role === "부의장";
+        const palette = isChair
+          ? "bg-yellow-100 text-yellow-900 border-yellow-200"
+          : paletteFor(turn.name);
+        const avatar = avatarFor(turn.name);
+
+        return (
+          <div
+            key={i}
+            className={`flex gap-2 items-start ${isChair ? "flex-row-reverse" : ""}`}
+          >
+            {/* 아바타 */}
+            <div
+              className={`w-9 h-9 rounded-full border flex items-center justify-center text-[11px] font-bold shrink-0 ${palette}`}
+              title={`${turn.role} ${turn.name}`}
+            >
+              {avatar}
+            </div>
+            <div
+              className={`flex flex-col max-w-[80%] sm:max-w-[70%] ${isChair ? "items-end" : "items-start"}`}
+            >
+              <div
+                className={`text-[11px] text-slate-500 mb-1 px-1 ${isChair ? "text-right" : ""}`}
+              >
+                <span className="font-semibold text-slate-700">{turn.name}</span>
+                {turn.role && (
+                  <span className="ml-1 text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                    {turn.role}
+                  </span>
+                )}
+              </div>
+              <div
+                className={`px-3 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words border ${palette} ${
+                  isChair ? "rounded-tr-sm" : "rounded-tl-sm"
+                }`}
+              >
+                {turn.content}
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
