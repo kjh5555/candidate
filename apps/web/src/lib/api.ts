@@ -22,6 +22,8 @@ import type {
   SettlementYearsResponseDTO,
   RegionHubDTO,
   ControversyTopicsResponseDTO,
+  CouncilMinutesResponseDTO,
+  CouncilBillsResponseDTO,
 } from "@repo/shared";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -333,5 +335,33 @@ export function syncLegislatorControversies(
   return apiFetch<ControversyTopicsResponseDTO>(
     `/api/legislators/${encodeURIComponent(id)}/controversies/sync`,
     { method: "POST" }
+  );
+}
+
+// ── CLIK 의정활동 (광역·기초의원 회의록·의안) ─────────────────
+
+export function getCouncilMinutes(
+  rasmblyNm: string,
+  params: { limit?: number; offset?: number } = {}
+): Promise<CouncilMinutesResponseDTO> {
+  const query = new URLSearchParams();
+  query.set("rasmblyNm", rasmblyNm);
+  if (params.limit !== undefined) query.set("limit", String(params.limit));
+  if (params.offset !== undefined) query.set("offset", String(params.offset));
+  return apiFetch<CouncilMinutesResponseDTO>(
+    `/api/council/minutes?${query.toString()}`
+  );
+}
+
+export function getCouncilBills(
+  rasmblyNm: string,
+  params: { limit?: number; offset?: number } = {}
+): Promise<CouncilBillsResponseDTO> {
+  const query = new URLSearchParams();
+  query.set("rasmblyNm", rasmblyNm);
+  if (params.limit !== undefined) query.set("limit", String(params.limit));
+  if (params.offset !== undefined) query.set("offset", String(params.offset));
+  return apiFetch<CouncilBillsResponseDTO>(
+    `/api/council/bills?${query.toString()}`
   );
 }

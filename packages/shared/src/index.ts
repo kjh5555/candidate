@@ -485,6 +485,44 @@ export interface ControversyTopicsResponseDTO {
   lastSyncedAt: string | null;
 }
 
+// ── CLIK 의정활동 (회의록·의안) ────────────────────────────────
+//
+// Source: 국회도서관 지방의정포털 (clik.nanet.go.kr) OpenAPI.
+// 광역·기초의원 상세 페이지에서 의회 단위로 표시.
+
+export interface CouncilMinutesDTO {
+  id: string;
+  docId: string;
+  rasmblyNm: string;
+  mtgDe: string | null;   // YYYY-MM-DD
+  sesn: string | null;
+  numpr: string | null;
+  mtgNm: string | null;
+  viewUrl: string | null;
+}
+
+export interface CouncilBillDTO {
+  id: string;
+  docId: string;
+  rasmblyNm: string | null;
+  biKndNm: string | null;  // 조례안, 건의안 등
+  biNo: string | null;
+  biSj: string;            // 안건제목
+  itncDe: string | null;   // YYYY-MM-DD
+  propsr: string | null;
+  viewUrl: string | null;
+}
+
+export interface CouncilMinutesResponseDTO {
+  minutes: CouncilMinutesDTO[];
+  total: number;
+}
+
+export interface CouncilBillsResponseDTO {
+  bills: CouncilBillDTO[];
+  total: number;
+}
+
 // ── Misc ──────────────────────────────────────────────────────
 
 export interface ApiErrorDTO {

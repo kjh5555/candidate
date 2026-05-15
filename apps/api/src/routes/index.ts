@@ -9,6 +9,7 @@ import candidateRoutes from "./candidates.js";
 import budgetRoutes from "./budget.js";
 import settlementRoutes from "./settlement.js";
 import controversyRoutes from "./controversies.js";
+import clikRoutes from "./clik.js";
 
 const apiRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(healthRoute);
@@ -20,6 +21,8 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(candidateRoutes, { prefix: "/candidates" });
   await fastify.register(budgetRoutes, { prefix: "/budget" });
   await fastify.register(settlementRoutes, { prefix: "/settlement" });
+  // CLIK 회의록·의안 (광역·기초의원 의정활동)
+  await fastify.register(clikRoutes, { prefix: "/council" });
   // 논란·해명 — /legislators/:id/controversies 형식이므로 prefix 없이 등록
   await fastify.register(controversyRoutes);
 };

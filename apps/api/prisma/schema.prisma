@@ -497,3 +497,50 @@ model SettlementSummary {
   @@unique([fiscalYear, level, groupKey, groupValue])
   @@index([fiscalYear, level])
 }
+
+// ─── CLIK 회의록·의안정보 (국회도서관 지방의정포털) ───────────────
+//
+// Source: clik.nanet.go.kr OpenAPI
+//   - /openapi/minutes.do — 회의록
+//   - /openapi/bill.do    — 의안정보 (조례안·건의안 등)
+//
+// 광역의회·기초의회 의원의 의정활동 (조례안 발의, 본회의·상임위 회의록)
+// 데이터를 의회명(`rasmblyNm`)을 키로 보관한다. 의원별 정확 매칭은 어렵지만
+// 의회 단위로 묶어 의원 상세 페이지에서 보여준다.
+
+model CouncilMinutes {
+  id            String   @id @default(cuid())
+  docId         String   @unique
+  rasmblyId     String
+  rasmblyNm     String
+  sesn          String?
+  mtgDe         String? // YYYYMMDD
+  numpr         String?
+  mitsOdr       String?
+  mtgNm         String?
+  viewUrl       String?
+  rawSourceJson Json?
+  syncedAt      DateTime @default(now())
+
+  @@index([rasmblyNm, mtgDe])
+  @@index([rasmblyId, mtgDe])
+}
+
+model CouncilBill {
+  id            String   @id @default(cuid())
+  docId         String   @unique
+  rasmblyId     String
+  rasmblyNm     String?
+  biKndNm       String? // 조례안, 건의안 등
+  biNo          String?
+  biSj          String // 안건제목
+  itncDe        String? // YYYYMMDD
+  numpr         String?
+  propsr        String? // 제안자
+  viewUrl       String?
+  rawSourceJson Json?
+  syncedAt      DateTime @default(now())
+
+  @@index([rasmblyNm, itncDe])
+  @@index([rasmblyId, itncDe])
+}
