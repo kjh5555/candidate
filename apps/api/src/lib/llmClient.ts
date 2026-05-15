@@ -395,6 +395,111 @@ export async function summarizeBillWithGrounding(
   }
 }
 
+// ── 5. 회의록 분석 (Gemini JSON 응답) ─────────────────────────
+//
+// CLIK 회의록 본문을 Gemini 로 요약. 전체 요약·발언자별 요약·핵심 주제 키워드.
+// 본문은 최대 30000자로 truncate.
+
+export interface MinutesAnalysisInput {
+  meetingName: string;
+  date: string;
+  bodyText: string;
+  speakers: { role: string; name: string }[];
+}
+
+export interface MinutesSpeakerSummary {
+  name: string;
+  role: string;
+  summary: string;
+}
+
+export interface MinutesAnalysisResult {
+  summary: string;
+  speakerSummaries: MinutesSpeakerSummary[];
+  keyTopics: string[];
+  model: string;
+}
+
+export async function analyzeMinutes(
+  input: MinutesAnalysisInput,
+): Promise<MinutesAnalysisResult | null> {
+  const provider = getProvider();
+  const apiKey = getApiKey();
+  if (provider === "none" || !apiKey) return null;
+  const model = getModel(provider);
+
+  const MAX_BODY = 30000;
+  const truncated = input.bodyText.length > MAX_BODY;
+  const body = truncated
+    ? input.bodyText.slice(0, MAX_BODY) + "\n\n[...본문이 너무 길어 일부만 분석됩니다...]"
+    : input.bodyText;
+
+  // 상위 발언자만 (LLM 토큰 절약)
+  const topSpeakers = input.speakers.slice(0, 20);
+
+  const prompt =
+    `다음 한국 지방의회 회의록을 분석해주세요.\n\n` +
+    `회의명: ${input.meetingName}\n` +
+    `회의일: ${input.date}\n\n` +
+    `[발언자 명단]\n` +
+    topSpeakers.map((s) => `- ${s.role} ${s.name}`).join("\n") +
+    "\n\n" +
+    `[회의록 본문]\n${body}\n\n` +
+    `다음 JSON 형식으로 응답해주세요:\n` +
+    `{\n` +
+    `  "summary": "회의 전체에 대한 1~3문단 중립 요약 (한국어, 사실 위주, '~라고 말했다', '~안건이 다뤄졌다' 형식)",\n` +
+    `  "speakerSummaries": [{"name":"이상숙","role":"의원","summary":"2~4문장으로 이 발언자가 이번 회의에서 무엇을 발언했는지 요약"}, ...],\n` +
+    `  "keyTopics": ["저출산", "지방재정", "교통", ...] (3~7개)\n` +
+    `}\n\n` +
+    `규칙: 단정적 평가 금지. 발언자 요약은 발언이 있는 사람만 포함. 발언자 이름·역할은 위 명단과 정확히 일치해야 함.`;
+
+  const schema =
+    '{ summary: string, speakerSummaries: { name: string, role: string, summary: string }[], keyTopics: string[] }';
+
+  type Resp = {
+    summary?: string;
+    speakerSummaries?: { name?: string; role?: string; summary?: string }[];
+    keyTopics?: string[];
+  };
+
+  const resp = await callJson<Resp>(prompt, schema);
+  if (!resp || typeof resp.summary !== "string" || !resp.summary.trim()) {
+    return null;
+  }
+
+  const speakerSummaries: MinutesSpeakerSummary[] = Array.isArray(
+    resp.speakerSummaries,
+  )
+    ? resp.speakerSummaries
+        .filter(
+          (s): s is { name: string; role: string; summary: string } =>
+            typeof s?.name === "string" &&
+            typeof s?.role === "string" &&
+            typeof s?.summary === "string" &&
+            s.summary.trim().length > 0,
+        )
+        .map((s) => ({
+          name: s.name.trim(),
+          role: s.role.trim(),
+          summary: s.summary.trim(),
+        }))
+    : [];
+
+  const keyTopics: string[] = Array.isArray(resp.keyTopics)
+    ? resp.keyTopics
+        .filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+        .map((t) => t.trim())
+        .slice(0, 10)
+    : [];
+
+  return {
+    summary: resp.summary.trim(),
+    speakerSummaries,
+    keyTopics,
+    model,
+  };
+}
+
 // ── 3. 기사별 라벨링 ──────────────────────────────────────────
 
 export async function analyzeArticle(

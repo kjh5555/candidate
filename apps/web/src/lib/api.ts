@@ -24,6 +24,7 @@ import type {
   ControversyTopicsResponseDTO,
   CouncilMinutesResponseDTO,
   CouncilBillsResponseDTO,
+  CouncilMinutesDetailDTO,
 } from "@repo/shared";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -363,5 +364,35 @@ export function getCouncilBills(
   if (params.offset !== undefined) query.set("offset", String(params.offset));
   return apiFetch<CouncilBillsResponseDTO>(
     `/api/council/bills?${query.toString()}`
+  );
+}
+
+// ── CLIK 회의록 상세 (본문 + AI 요약) ─────────────────────────
+
+export function getMinutesDetail(
+  docId: string,
+): Promise<CouncilMinutesDetailDTO> {
+  return apiFetch<CouncilMinutesDetailDTO>(
+    `/api/council/minutes/${encodeURIComponent(docId)}`,
+  );
+}
+
+export function fetchMinutesContent(
+  docId: string,
+  force = false,
+): Promise<CouncilMinutesDetailDTO> {
+  const qs = force ? "?force=true" : "";
+  return apiFetch<CouncilMinutesDetailDTO>(
+    `/api/council/minutes/${encodeURIComponent(docId)}/fetch${qs}`,
+    { method: "POST" },
+  );
+}
+
+export function analyzeMinutes(
+  docId: string,
+): Promise<CouncilMinutesDetailDTO> {
+  return apiFetch<CouncilMinutesDetailDTO>(
+    `/api/council/minutes/${encodeURIComponent(docId)}/analyze`,
+    { method: "POST" },
   );
 }

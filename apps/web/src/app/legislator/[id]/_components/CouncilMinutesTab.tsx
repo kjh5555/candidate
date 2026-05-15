@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { getCouncilMinutes } from "@/lib/api";
 import { Pagination } from "@/components/Pagination";
 import { EmptyState } from "@/components/EmptyState";
 import type { CouncilMinutesDTO } from "@repo/shared";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, FileText } from "lucide-react";
 
 const LIMIT = 20;
 
@@ -127,16 +128,16 @@ export function CouncilMinutesTab({
               const rawNm = m.mtgNm?.replace(/\n/g, " ") ?? "";
               const isTemp = rawNm.includes("[임시]");
               const cleanNm = rawNm.replace(/\s*\[임시\]\s*/g, "").trim() || "(이름 없음)";
+              const detailHref = `/minutes/${encodeURIComponent(m.docId)}`;
               return (
                 <tr
                   key={m.id}
-                  className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer"
-                  onClick={() => {
-                    if (m.viewUrl) window.open(m.viewUrl, "_blank", "noopener,noreferrer");
-                  }}
+                  className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
                 >
                   <td className="py-2 px-3 text-slate-700 whitespace-nowrap">
-                    {m.mtgDe ?? "-"}
+                    <Link href={detailHref} className="block">
+                      {m.mtgDe ?? "-"}
+                    </Link>
                   </td>
                   <td className="py-2 px-3 text-slate-500 hidden sm:table-cell whitespace-nowrap">
                     {m.sesn ? `${m.sesn}회` : "-"}
@@ -151,19 +152,24 @@ export function CouncilMinutesTab({
                           임시
                         </span>
                       )}
-                      {m.viewUrl ? (
+                      <Link
+                        href={detailHref}
+                        className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                      >
+                        <FileText className="w-3.5 h-3.5 shrink-0" />
+                        {cleanNm}
+                      </Link>
+                      {m.viewUrl && (
                         <a
                           href={m.viewUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                          className="text-[11px] text-slate-400 hover:text-slate-600 inline-flex items-center gap-0.5"
+                          title="CLIK 원본 보기"
                         >
-                          {cleanNm}
-                          <ExternalLink className="w-3 h-3 shrink-0" />
+                          원본
+                          <ExternalLink className="w-2.5 h-2.5 shrink-0" />
                         </a>
-                      ) : (
-                        <span>{cleanNm}</span>
                       )}
                     </div>
                   </td>

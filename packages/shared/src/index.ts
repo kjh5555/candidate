@@ -523,6 +523,50 @@ export interface CouncilBillsResponseDTO {
   total: number;
 }
 
+// ── CLIK 회의록 상세 (본문 + AI 요약) ────────────────────────
+
+export interface CouncilMinutesAgendaItemDTO {
+  ord: number;
+  title: string;
+}
+
+export interface CouncilMinutesSpeakerDTO {
+  role: string;
+  name: string;
+  totalChars: number;
+}
+
+export interface CouncilMinutesSpeakerSummaryDTO {
+  name: string;
+  role: string;
+  summary: string;
+}
+
+export interface CouncilMinutesDetailDTO {
+  id: string;
+  docId: string;
+  rasmblyId: string;
+  rasmblyNm: string;
+  sesn: string | null;
+  mtgDe: string | null;     // YYYY-MM-DD
+  numpr: string | null;
+  mtgNm: string | null;
+  viewUrl: string | null;
+
+  // 본문
+  bodyText: string | null;
+  agenda: CouncilMinutesAgendaItemDTO[];
+  speakers: CouncilMinutesSpeakerDTO[];
+  fetchedAt: string | null;
+
+  // AI
+  aiSummary: string | null;
+  aiSpeakerSummaries: CouncilMinutesSpeakerSummaryDTO[];
+  aiKeyTopics: string[];
+  aiGeneratedAt: string | null;
+  aiModel: string | null;
+}
+
 // ── Misc ──────────────────────────────────────────────────────
 
 export interface ApiErrorDTO {
