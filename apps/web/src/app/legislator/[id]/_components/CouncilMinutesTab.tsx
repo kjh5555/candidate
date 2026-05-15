@@ -46,6 +46,22 @@ export function CouncilMinutesTab({
     legislatorName,
   )}`;
 
+  // 같은 날짜·회기·차수·회의명에서 "[임시]" 제거 후 중복 제거
+  // (CLIK이 동일 회의를 "본회의"·"본회의 [임시]"로 이중 등록하는 경우가 있음)
+  const deduped = (() => {
+    const seen = new Set<string>();
+    return minutes.filter((m) => {
+      const cleanedNm = (m.mtgNm ?? "")
+        .replace(/\n/g, " ")
+        .replace(/\s*\[임시\]\s*/g, "")
+        .trim();
+      const key = `${m.mtgDe ?? ""}|${m.sesn ?? ""}|${m.numpr ?? ""}|${cleanedNm}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  })();
+
   if (loading) {
     return (
       <div className="space-y-2">
@@ -107,41 +123,53 @@ export function CouncilMinutesTab({
             </tr>
           </thead>
           <tbody>
-            {minutes.map((m) => (
-              <tr
-                key={m.id}
-                className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer"
-                onClick={() => {
-                  if (m.viewUrl) window.open(m.viewUrl, "_blank", "noopener,noreferrer");
-                }}
-              >
-                <td className="py-2 px-3 text-slate-700 whitespace-nowrap">
-                  {m.mtgDe ?? "-"}
-                </td>
-                <td className="py-2 px-3 text-slate-500 hidden sm:table-cell whitespace-nowrap">
-                  {m.sesn ? `${m.sesn}회` : "-"}
-                </td>
-                <td className="py-2 px-3 text-slate-500 hidden md:table-cell whitespace-nowrap">
-                  {m.numpr ? `${m.numpr}차` : "-"}
-                </td>
-                <td className="py-2 px-3">
-                  {m.viewUrl ? (
-                    <a
-                      href={m.viewUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-blue-600 hover:underline inline-flex items-center gap-1"
-                    >
-                      {m.mtgNm?.replace(/\n/g, " ") ?? "(이름 없음)"}
-                      <ExternalLink className="w-3 h-3 shrink-0" />
-                    </a>
-                  ) : (
-                    <span>{m.mtgNm?.replace(/\n/g, " ") ?? "(이름 없음)"}</span>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {deduped.map((m) => {
+              const rawNm = m.mtgNm?.replace(/\n/g, " ") ?? "";
+              const isTemp = rawNm.includes("[임시]");
+              const cleanNm = rawNm.replace(/\s*\[임시\]\s*/g, "").trim() || "(이름 없음)";
+              return (
+                <tr
+                  key={m.id}
+                  className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer"
+                  onClick={() => {
+                    if (m.viewUrl) window.open(m.viewUrl, "_blank", "noopener,noreferrer");
+                  }}
+                >
+                  <td className="py-2 px-3 text-slate-700 whitespace-nowrap">
+                    {m.mtgDe ?? "-"}
+                  </td>
+                  <td className="py-2 px-3 text-slate-500 hidden sm:table-cell whitespace-nowrap">
+                    {m.sesn ? `${m.sesn}회` : "-"}
+                  </td>
+                  <td className="py-2 px-3 text-slate-500 hidden md:table-cell whitespace-nowrap">
+                    {m.numpr ? `${m.numpr}차` : "-"}
+                  </td>
+                  <td className="py-2 px-3">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {isTemp && (
+                        <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium shrink-0">
+                          임시
+                        </span>
+                      )}
+                      {m.viewUrl ? (
+                        <a
+                          href={m.viewUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                        >
+                          {cleanNm}
+                          <ExternalLink className="w-3 h-3 shrink-0" />
+                        </a>
+                      ) : (
+                        <span>{cleanNm}</span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

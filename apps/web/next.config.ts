@@ -14,6 +14,11 @@ const nextConfig: NextConfig = {
         hostname: "www.assembly.go.kr",
         pathname: "/static/portal/img/openassm/**",
       },
+      {
+        protocol: "https",
+        hostname: "clik.nanet.go.kr",
+        pathname: "/clikr-collection/**",
+      },
     ],
   },
 };
