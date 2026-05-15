@@ -236,6 +236,9 @@ async function processLegislator(input: {
 
 async function main() {
   const modeArg = process.argv[2] ?? "all";
+  // 두 번째 인자: 최대 처리 의원 수 (테스트용). 미지정 시 한도까지.
+  const limitArg = process.argv[3] ? parseInt(process.argv[3], 10) : Infinity;
+
   const levelClause =
     modeArg === "basic"
       ? { level: "BASIC" as const }
@@ -243,7 +246,9 @@ async function main() {
         ? { level: "PROVINCIAL" as const }
         : { level: { in: ["BASIC", "PROVINCIAL"] as ("BASIC" | "PROVINCIAL")[] } };
 
-  console.log(`\n📸 CLIK 의원 사진 ingest 시작 (모드: ${modeArg})`);
+  console.log(
+    `\n📸 CLIK 의원 사진 ingest 시작 (모드: ${modeArg}${Number.isFinite(limitArg) ? `, 최대 ${limitArg}명` : ""})`,
+  );
 
   const legislators = await prisma.legislator.findMany({
     where: {
@@ -295,12 +300,15 @@ async function main() {
   let notFound = 0;
   let groupIdx = 0;
 
-  for (const grp of groups.values()) {
+  outer: for (const grp of groups.values()) {
     groupIdx++;
     if (apiCallsToday >= MAX_API_CALLS) {
       console.warn(
         `\n⚠️ API 호출 한도 ${MAX_API_CALLS}회 근접. 오늘 종료. (처리: ${updated}명 / ${groupIdx - 1}/${groupCount}개 그룹)`,
       );
+      break;
+    }
+    if (updated + notFound >= limitArg) {
       break;
     }
 
@@ -324,6 +332,10 @@ async function main() {
 
     for (const m of grp.members) {
       if (apiCallsToday >= MAX_API_CALLS) break;
+      if (updated + notFound >= limitArg) {
+        console.log(`\n  ⏸️  테스트 한도 ${limitArg}명 도달, 종료.`);
+        break outer;
+      }
       const res = await processLegislator({
         id: m.id,
         name: m.name,
