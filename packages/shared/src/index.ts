@@ -533,6 +533,24 @@ export interface CouncilBillsResponseDTO {
   total: number;
 }
 
+// ── CLIK 의안 AI 요약 ──────────────────────────────────────────
+
+export interface CouncilBillSummaryDTO {
+  docId: string;
+  biSj: string;
+  biKndNm: string | null;
+  biNo: string | null;
+  rasmblyNm: string | null;
+  itncDe: string | null;     // YYYY-MM-DD
+  propsr: string | null;
+  viewUrl: string | null;
+  aiSummary: string | null;
+  aiChanges: string | null;
+  aiSourceSnippets: BillAiSourceDTO[];
+  aiGeneratedAt: string | null;  // ISO
+  aiModel: string | null;
+}
+
 // ── CLIK 회의록 상세 (본문 + AI 요약) ────────────────────────
 
 export interface CouncilMinutesAgendaItemDTO {

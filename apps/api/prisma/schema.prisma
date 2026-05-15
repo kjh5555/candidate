@@ -555,6 +555,13 @@ model CouncilBill {
   rawSourceJson Json?
   syncedAt      DateTime @default(now())
 
+  // ── AI 요약 (Gemini grounding 기반 — 온디맨드 생성·캐시) ──
+  aiSummary        String?   @db.Text // 1~3 문단 중립 요약
+  aiChanges        String?   @db.Text // 개정안의 경우 변경점 (해당없으면 null)
+  aiSourceSnippets Json? // Gemini grounding sources (URL 리스트)
+  aiGeneratedAt    DateTime?
+  aiModel          String? // 사용된 모델명 (예: "gemini-2.5-flash")
+
   @@index([rasmblyNm, itncDe])
   @@index([rasmblyId, itncDe])
 }

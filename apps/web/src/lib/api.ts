@@ -26,6 +26,7 @@ import type {
   CouncilBillsResponseDTO,
   CouncilMinutesDetailDTO,
   CouncilLegislatorPhotosResponseDTO,
+  CouncilBillSummaryDTO,
 } from "@repo/shared";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -402,6 +403,25 @@ export function analyzeMinutes(
 ): Promise<CouncilMinutesDetailDTO> {
   return apiFetch<CouncilMinutesDetailDTO>(
     `/api/council/minutes/${encodeURIComponent(docId)}/analyze`,
+    { method: "POST" },
+  );
+}
+
+// ── CLIK 의안 AI 요약 (조례안·건의안) ─────────────────────────
+
+export function getCouncilBillSummary(
+  docId: string,
+): Promise<CouncilBillSummaryDTO> {
+  return apiFetch<CouncilBillSummaryDTO>(
+    `/api/council/bills/${encodeURIComponent(docId)}/summary`,
+  );
+}
+
+export function generateCouncilBillSummary(
+  docId: string,
+): Promise<CouncilBillSummaryDTO> {
+  return apiFetch<CouncilBillSummaryDTO>(
+    `/api/council/bills/${encodeURIComponent(docId)}/summary/generate`,
     { method: "POST" },
   );
 }

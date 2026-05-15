@@ -395,6 +395,158 @@ export async function summarizeBillWithGrounding(
   }
 }
 
+// ── 4-b. 조례안·건의안 AI 요약 (Gemini googleSearch grounding) ──
+//
+// CLIK API는 메타데이터(제목·제안자·일자)만 제공하며 본문 텍스트는 없다.
+// Gemini 2.5 googleSearch grounding으로 의안정보시스템·언론 보도 등을
+// 검색해 한국어 중립 요약과 (개정안일 때) 변경점을 생성한다.
+
+export interface CouncilBillForSummary {
+  rasmblyNm: string;        // 의회명 (예: "경기도 여주시의회")
+  biKndNm: string | null;   // 조례안/건의안 등
+  biSj: string;             // 안건제목
+  biNo: string | null;
+  propsr: string | null;
+  itncDe: string | null;
+}
+
+export async function summarizeCouncilBillWithGrounding(
+  input: CouncilBillForSummary,
+): Promise<BillSummaryResult | null> {
+  const provider = getProvider();
+  const apiKey = getApiKey();
+  if (provider !== "gemini" || !apiKey) {
+    if (provider !== "none") {
+      console.warn(
+        `[llmClient] summarizeCouncilBillWithGrounding requires Gemini (provider=${provider}); skipping.`,
+      );
+    }
+    return null;
+  }
+  const model = getModel(provider);
+
+  const systemMsg =
+    "당신은 한국 지방의회 조례·건의안 분석가입니다. 검색 결과를 종합해 " +
+    "다음을 한국어로 작성하세요. " +
+    "1) 의안의 핵심 내용·취지를 1-2문단으로 중립 요약. " +
+    "2) 개정안이면 어떤 조항·조문이 어떻게 바뀌는지 정리(개정안이 아니면 null). " +
+    "3) 출처는 의회 의안정보시스템·관련 보도·정책 자료 등 검색 결과를 사용. " +
+    "단정적 평가('좋다/나쁘다')는 피하고 사실 위주로 작성. " +
+    "응답은 반드시 다음 JSON 형식으로만 답하세요 (다른 텍스트·코드펜스 금지): " +
+    '{"summary": "...", "changes": "..." 또는 null, "sources": [{"uri":"...","title":"..."}]}';
+
+  const userPrompt =
+    "다음 지방의회 의안을 요약해주세요. 해당 의회 의안정보시스템, 지방의정포털(clik.nanet.go.kr), 관련 보도·정책 자료를 검색해 출처와 함께 정리하세요.\n\n" +
+    `- 의회명: ${input.rasmblyNm}\n` +
+    `- 의안종류: ${input.biKndNm ?? "미상"}\n` +
+    `- 안건제목: ${input.biSj}\n` +
+    `- 의안번호: ${input.biNo ?? "미상"}\n` +
+    `- 제안자: ${input.propsr ?? "미상"}\n` +
+    `- 접수일: ${input.itncDe ?? "미상"}`;
+
+  try {
+    const url =
+      `https://generativelanguage.googleapis.com/v1beta/models/` +
+      `${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const body = {
+      systemInstruction: { parts: [{ text: systemMsg }] },
+      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+      tools: [{ google_search: {} }],
+      generationConfig: {
+        // responseMimeType은 grounding과 호환되지 않음 — 사용하지 않음
+        temperature: 0.3,
+      },
+    };
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      console.warn(
+        `[llmClient] summarizeCouncilBillWithGrounding failed: ${res.status} ${errText.slice(0, 300)}`,
+      );
+      return null;
+    }
+    const data = (await res.json()) as {
+      candidates?: {
+        content?: { parts?: { text?: string }[] };
+        groundingMetadata?: {
+          groundingChunks?: { web?: { uri?: string; title?: string } }[];
+        };
+      }[];
+    };
+    const candidate = data.candidates?.[0];
+    const parts = candidate?.content?.parts ?? [];
+    const text = parts.map((p) => p.text ?? "").join("").trim();
+    if (!text) return null;
+
+    type ParsedShape = {
+      summary?: string;
+      changes?: string | null;
+      sources?: { uri?: string; title?: string }[];
+    };
+    let parsed = parseJson<ParsedShape>(text);
+    if (!parsed) {
+      const first = text.indexOf("{");
+      const last = text.lastIndexOf("}");
+      if (first !== -1 && last > first) {
+        parsed = parseJson<ParsedShape>(text.slice(first, last + 1));
+      }
+    }
+    if (!parsed || typeof parsed.summary !== "string" || !parsed.summary.trim()) {
+      console.warn(
+        "[llmClient] summarizeCouncilBillWithGrounding: JSON parse failed or empty summary",
+      );
+      return null;
+    }
+
+    const sourceMap = new Map<string, BillAiSourceSnippet>();
+    if (Array.isArray(parsed.sources)) {
+      for (const s of parsed.sources) {
+        const uri = typeof s?.uri === "string" ? s.uri.trim() : "";
+        if (!uri) continue;
+        sourceMap.set(uri, {
+          uri,
+          title: typeof s.title === "string" && s.title.trim() ? s.title.trim() : undefined,
+        });
+      }
+    }
+    const chunks = candidate?.groundingMetadata?.groundingChunks ?? [];
+    for (const c of chunks) {
+      const uri = typeof c?.web?.uri === "string" ? c.web.uri.trim() : "";
+      if (!uri) continue;
+      if (!sourceMap.has(uri)) {
+        sourceMap.set(uri, {
+          uri,
+          title:
+            typeof c.web?.title === "string" && c.web.title.trim()
+              ? c.web.title.trim()
+              : undefined,
+        });
+      }
+    }
+
+    const changes =
+      typeof parsed.changes === "string" && parsed.changes.trim()
+        ? parsed.changes.trim()
+        : null;
+
+    return {
+      summary: parsed.summary.trim(),
+      changes,
+      sources: Array.from(sourceMap.values()),
+    };
+  } catch (err) {
+    console.warn(
+      "[llmClient] summarizeCouncilBillWithGrounding error:",
+      err instanceof Error ? err.message : err,
+    );
+    return null;
+  }
+}
+
 // ── 5. 회의록 분석 (Gemini JSON 응답) ─────────────────────────
 //
 // CLIK 회의록 본문을 Gemini 로 요약. 전체 요약·발언자별 요약·핵심 주제 키워드.

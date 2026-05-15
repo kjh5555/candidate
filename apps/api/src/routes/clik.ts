@@ -22,6 +22,11 @@ import type {
 } from "@repo/shared";
 import { getOrFetchMinutesContent } from "../services/minutesContentService.js";
 import { analyzeMinutes } from "../lib/llmClient.js";
+import {
+  getCouncilBillSummary,
+  generateCouncilBillSummary,
+  CouncilBillLlmDisabledError,
+} from "../services/councilBillSummaryService.js";
 
 interface CouncilQuery {
   rasmblyNm: string;
@@ -382,6 +387,101 @@ const clikRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(500).send({
           error: "ANALYZE_FAILED",
           message: err instanceof Error ? err.message : "AI 분석에 실패했습니다.",
+        });
+      }
+    },
+  );
+
+  // ── 의안 AI 요약 (조례안·건의안) ──────────────────────────────
+
+  // 의안 요약 생성 쿨다운 (docId당 60초)
+  const billSummaryCooldown = new Map<string, number>();
+  const BILL_SUMMARY_COOLDOWN_MS = 60_000;
+
+  // GET /bills/:docId/summary — 캐시 우선 반환 (없으면 null 필드)
+  fastify.get<{ Params: { docId: string } }>(
+    "/bills/:docId/summary",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["docId"],
+          properties: { docId: { type: "string", minLength: 1 } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { docId } = request.params;
+      const dto = await getCouncilBillSummary(docId);
+      if (!dto) {
+        return reply.status(404).send({
+          error: "NOT_FOUND",
+          message: "의안을 찾을 수 없습니다.",
+        });
+      }
+      return reply.send(dto);
+    },
+  );
+
+  // POST /bills/:docId/summary/generate — Gemini 호출, 강제 생성·캐시 갱신
+  fastify.post<{ Params: { docId: string } }>(
+    "/bills/:docId/summary/generate",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["docId"],
+          properties: { docId: { type: "string", minLength: 1 } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { docId } = request.params;
+
+      // 쿨다운 체크
+      const last = billSummaryCooldown.get(docId) ?? 0;
+      const now = Date.now();
+      if (now - last < BILL_SUMMARY_COOLDOWN_MS) {
+        const remain = Math.ceil(
+          (BILL_SUMMARY_COOLDOWN_MS - (now - last)) / 1000,
+        );
+        return reply.status(429).send({
+          error: "COOLDOWN",
+          message: `요약 생성은 ${remain}초 후에 다시 시도할 수 있습니다.`,
+        });
+      }
+
+      billSummaryCooldown.set(docId, now);
+      try {
+        const dto = await generateCouncilBillSummary(docId);
+        if (!dto) {
+          // 의안이 없거나 LLM 응답이 비어 null 반환된 경우. 의안 존재 여부 재확인.
+          const existing = await getCouncilBillSummary(docId);
+          if (!existing) {
+            return reply.status(404).send({
+              error: "NOT_FOUND",
+              message: "의안을 찾을 수 없습니다.",
+            });
+          }
+          return reply.status(503).send({
+            error: "LLM_UNAVAILABLE",
+            message:
+              "LLM 요약 생성이 실패했습니다. 잠시 후 다시 시도해주세요.",
+          });
+        }
+        return reply.send(dto);
+      } catch (err) {
+        if (err instanceof CouncilBillLlmDisabledError) {
+          return reply.status(503).send({
+            error: "LLM_UNAVAILABLE",
+            message: "LLM이 설정되지 않아 요약을 생성할 수 없습니다.",
+          });
+        }
+        request.log.error({ err, docId }, "의안 AI 요약 생성 실패");
+        return reply.status(500).send({
+          error: "GENERATE_FAILED",
+          message:
+            err instanceof Error ? err.message : "AI 요약 생성에 실패했습니다.",
         });
       }
     },

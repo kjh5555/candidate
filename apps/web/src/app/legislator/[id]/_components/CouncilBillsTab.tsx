@@ -1,11 +1,22 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getCouncilBills } from "@/lib/api";
+import {
+  getCouncilBills,
+  getCouncilBillSummary,
+  generateCouncilBillSummary,
+} from "@/lib/api";
 import { Pagination } from "@/components/Pagination";
 import { EmptyState } from "@/components/EmptyState";
-import type { CouncilBillDTO } from "@repo/shared";
-import { ExternalLink } from "lucide-react";
+import type { CouncilBillDTO, CouncilBillSummaryDTO } from "@repo/shared";
+import {
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  Sparkles,
+  FileText,
+} from "lucide-react";
 
 const LIMIT = 20;
 
@@ -104,68 +115,10 @@ export function CouncilBillsTab({
         </a>
         을 이용하세요.
       </p>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-200">
-              <th className="text-left py-2 px-3 text-slate-500 font-medium hidden sm:table-cell whitespace-nowrap">번호</th>
-              <th className="text-left py-2 px-3 text-slate-500 font-medium whitespace-nowrap">종류</th>
-              <th className="text-left py-2 px-3 text-slate-500 font-medium">안건제목</th>
-              <th className="text-left py-2 px-3 text-slate-500 font-medium hidden md:table-cell whitespace-nowrap">접수일</th>
-              <th className="text-left py-2 px-3 text-slate-500 font-medium hidden lg:table-cell">제안자</th>
-            </tr>
-          </thead>
-          <tbody>
-            {bills.map((b) => (
-              <tr
-                key={b.id}
-                className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer"
-                onClick={() => {
-                  if (b.viewUrl) window.open(b.viewUrl, "_blank", "noopener,noreferrer");
-                }}
-              >
-                <td className="py-2 px-3 text-slate-500 hidden sm:table-cell whitespace-nowrap">
-                  {b.biNo ?? "-"}
-                </td>
-                <td className="py-2 px-3 whitespace-nowrap">
-                  {b.biKndNm ? (
-                    <span
-                      className={`inline-flex text-xs font-medium px-2 py-0.5 rounded-full border ${billKindClass(b.biKndNm)}`}
-                    >
-                      {b.biKndNm}
-                    </span>
-                  ) : (
-                    "-"
-                  )}
-                </td>
-                <td className="py-2 px-3">
-                  {b.viewUrl ? (
-                    <a
-                      href={b.viewUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-blue-600 hover:underline inline-flex items-center gap-1"
-                    >
-                      <span className="line-clamp-2">{b.biSj}</span>
-                      <ExternalLink className="w-3 h-3 shrink-0" />
-                    </a>
-                  ) : (
-                    <span className="line-clamp-2">{b.biSj}</span>
-                  )}
-                </td>
-                <td className="py-2 px-3 text-slate-500 hidden md:table-cell whitespace-nowrap">
-                  {b.itncDe ?? "-"}
-                </td>
-                <td className="py-2 px-3 text-slate-500 hidden lg:table-cell">
-                  <span className="line-clamp-1 max-w-[16rem]">
-                    {b.propsr ?? "-"}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="space-y-2">
+        {bills.map((b) => (
+          <CouncilBillRow key={b.id} bill={b} />
+        ))}
       </div>
       <Pagination
         offset={offset}
@@ -174,6 +127,206 @@ export function CouncilBillsTab({
         onPrev={() => setOffset((o) => Math.max(0, o - LIMIT))}
         onNext={() => setOffset((o) => o + LIMIT)}
       />
+    </div>
+  );
+}
+
+function CouncilBillRow({ bill }: { bill: CouncilBillDTO }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="border border-slate-200 rounded-lg px-4 py-3 hover:bg-slate-50 transition-colors">
+      {/* 상단: 종류 배지 + 안건제목 */}
+      <div className="flex items-start gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center flex-wrap gap-2 mb-1">
+            {bill.biKndNm && (
+              <span
+                className={`inline-flex text-xs font-medium px-2 py-0.5 rounded-full border ${billKindClass(bill.biKndNm)}`}
+              >
+                {bill.biKndNm}
+              </span>
+            )}
+            {bill.biNo && (
+              <span className="text-xs text-slate-500">{bill.biNo}</span>
+            )}
+          </div>
+          <p className="text-sm font-medium text-slate-800 leading-snug">
+            {bill.biSj}
+          </p>
+        </div>
+      </div>
+
+      {/* 메타 */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+        {bill.itncDe && <span>{bill.itncDe}</span>}
+        {bill.itncDe && bill.propsr && <span className="text-slate-300">·</span>}
+        {bill.propsr && (
+          <span className="line-clamp-1 max-w-[20rem]">{bill.propsr}</span>
+        )}
+      </div>
+
+      {/* 액션 */}
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="inline-flex items-center gap-1 text-xs text-slate-600 hover:text-blue-600 transition-colors"
+        >
+          {expanded ? (
+            <>
+              <ChevronUp className="w-3 h-3" /> 내용 접기
+            </>
+          ) : (
+            <>
+              <ChevronDown className="w-3 h-3" /> 내용 보기
+            </>
+          )}
+        </button>
+        {bill.viewUrl && (
+          <a
+            href={bill.viewUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-slate-400 hover:text-blue-500 transition-colors inline-flex items-center gap-1"
+          >
+            CLIK 원문 보기 <ExternalLink className="w-3 h-3" />
+          </a>
+        )}
+      </div>
+
+      {expanded && <CouncilBillSummary docId={bill.docId} />}
+    </div>
+  );
+}
+
+function CouncilBillSummary({ docId }: { docId: string }) {
+  const [data, setData] = useState<CouncilBillSummaryDTO | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    getCouncilBillSummary(docId)
+      .then((res) => {
+        if (cancelled) return;
+        setData(res);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(
+          err instanceof Error ? err.message : "요약을 불러오지 못했습니다.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [docId]);
+
+  async function handleGenerate() {
+    setGenerating(true);
+    setError(null);
+    try {
+      const fresh = await generateCouncilBillSummary(docId);
+      setData(fresh);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "생성에 실패했습니다.");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="mt-3 px-3 py-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-500 inline-flex items-center gap-2">
+        <Loader2 className="w-3.5 h-3.5 animate-spin" /> 요약 불러오는 중…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mt-3 px-3 py-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
+        {error}
+      </div>
+    );
+  }
+
+  if (!data || !data.aiSummary) {
+    return (
+      <div className="mt-3 px-3 py-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+        <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+        <div className="flex-1">
+          <p className="mb-2">
+            아직 AI 요약이 없습니다. Gemini가 web 검색으로 5~15초 안에 생성합니다.
+          </p>
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={generating}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-amber-600 text-white text-xs font-medium hover:bg-amber-700 disabled:opacity-50"
+          >
+            {generating ? (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin" /> 생성 중…
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3 h-3" /> AI 요약 생성하기
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 rounded-lg bg-slate-50 border border-slate-200 p-3 space-y-3 text-xs">
+      <div>
+        <div className="flex items-center gap-1 mb-1.5 text-slate-600 font-semibold">
+          <FileText className="w-3.5 h-3.5" /> 요약
+        </div>
+        <p className="text-slate-800 leading-relaxed whitespace-pre-wrap">
+          {data.aiSummary}
+        </p>
+      </div>
+      {data.aiChanges && (
+        <div className="rounded-md bg-amber-50 border border-amber-200 p-2">
+          <p className="text-amber-900 font-semibold mb-1">개정 변경점</p>
+          <p className="text-amber-900 leading-relaxed whitespace-pre-wrap">
+            {data.aiChanges}
+          </p>
+        </div>
+      )}
+      {data.aiSourceSnippets && data.aiSourceSnippets.length > 0 && (
+        <div>
+          <p className="text-slate-500 mb-1">출처</p>
+          <ul className="space-y-0.5">
+            {data.aiSourceSnippets.slice(0, 5).map((s, i) => (
+              <li key={i}>
+                <a
+                  href={s.uri}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                >
+                  {s.title ?? s.uri} <ExternalLink className="w-3 h-3" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <p className="text-[10px] text-slate-400 leading-relaxed">
+        AI 자동 요약입니다 ({data.aiModel ?? "Gemini"}). 정확성은 CLIK 원본 보기를 권장합니다.
+      </p>
     </div>
   );
 }
