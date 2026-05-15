@@ -340,12 +340,34 @@ export function getLegislatorControversies(
   );
 }
 
+export type ControversySyncStatus =
+  | { state: "idle" }
+  | { state: "running"; startedAt: number; message?: string }
+  | {
+      state: "completed";
+      startedAt: number;
+      completedAt: number;
+      topicsCreated: number;
+      articlesAdded: number;
+    }
+  | { state: "failed"; startedAt: number; failedAt: number; error: string };
+
+// 백그라운드 수집 시작 (202 응답: state="running"). 페이지 떠나도 서버에서 계속 실행.
 export function syncLegislatorControversies(
-  id: string
-): Promise<ControversyTopicsResponseDTO> {
-  return apiFetch<ControversyTopicsResponseDTO>(
+  id: string,
+): Promise<ControversySyncStatus> {
+  return apiFetch<ControversySyncStatus>(
     `/api/legislators/${encodeURIComponent(id)}/controversies/sync`,
-    { method: "POST" }
+    { method: "POST" },
+  );
+}
+
+// 진행 상태 폴링용 — running/completed/failed/idle
+export function getLegislatorControversiesSyncStatus(
+  id: string,
+): Promise<ControversySyncStatus> {
+  return apiFetch<ControversySyncStatus>(
+    `/api/legislators/${encodeURIComponent(id)}/controversies/sync-status`,
   );
 }
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   getLegislatorControversies,
   syncLegislatorControversies,
+  getLegislatorControversiesSyncStatus,
 } from "@/lib/api";
 import type {
   ControversyTopicsResponseDTO,
@@ -534,21 +535,68 @@ export function ControversiesTab({
     load();
   }, [load]);
 
+  // 페이지 진입 시 서버에 진행 중인 sync가 있는지 확인 (다른 탭/페이지에서 시작했을 수 있음)
+  useEffect(() => {
+    let cancelled = false;
+    getLegislatorControversiesSyncStatus(legislatorId)
+      .then((s) => {
+        if (cancelled) return;
+        if (s.state === "running") {
+          setSyncing(true);
+          setInfo("백그라운드에서 수집 중입니다…");
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [legislatorId]);
+
+  // syncing 상태일 때 3초마다 서버 상태 폴링
+  useEffect(() => {
+    if (!syncing) return;
+    let cancelled = false;
+    const id = setInterval(async () => {
+      try {
+        const s = await getLegislatorControversiesSyncStatus(legislatorId);
+        if (cancelled) return;
+        if (s.state === "completed") {
+          setSyncing(false);
+          setInfo(
+            `수집 완료: 토픽 ${s.topicsCreated}개, 기사 ${s.articlesAdded}건 추가됨`,
+          );
+          await load();
+        } else if (s.state === "failed") {
+          setSyncing(false);
+          setError(`수집 실패: ${s.error}`);
+        } else if (s.state === "idle") {
+          // 서버 재시작 등으로 상태 사라짐 — 그냥 종료
+          setSyncing(false);
+        }
+      } catch {
+        // 일시적 네트워크 오류는 무시
+      }
+    }, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [syncing, legislatorId, load]);
+
   async function handleSync() {
     setSyncing(true);
     setError(null);
-    setInfo(null);
+    setInfo("수집을 시작했습니다. 다른 페이지로 이동해도 계속 진행됩니다.");
     try {
-      const res = await syncLegislatorControversies(legislatorId);
-      setData(res);
-      setInfo("최신 기사를 가져왔습니다.");
+      await syncLegislatorControversies(legislatorId);
+      // 폴링 effect가 완료까지 추적
     } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : "수집에 실패했습니다.",
-      );
-    } finally {
       setSyncing(false);
+      setError(
+        err instanceof Error ? err.message : "수집 시작에 실패했습니다.",
+      );
     }
+    // 성공 시 syncing은 폴링 effect가 완료까지 유지
   }
 
   return (
