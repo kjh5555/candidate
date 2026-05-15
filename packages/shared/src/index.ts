@@ -314,6 +314,16 @@ export interface BasicRegionsResponseDTO {
   regions: BasicRegionDTO[];
 }
 
+// 의회별 의원 이름·사진 (회의록 채팅 뷰의 아바타용)
+export interface CouncilLegislatorPhotoDTO {
+  name: string;
+  photoUrl: string | null;
+}
+
+export interface CouncilLegislatorPhotosResponseDTO {
+  photos: CouncilLegislatorPhotoDTO[];
+}
+
 // ── Budget (예산 정보) ─────────────────────────────────────────
 
 export type BudgetLevel = "NATIONAL" | "METROPOLITAN";

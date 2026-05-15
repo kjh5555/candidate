@@ -24,6 +24,48 @@ export interface BasicRegionRow {
  * ordered by sido then wiwName.
  * sdName is extracted from rawSourceJson (stored at ingest time).
  */
+/**
+ * 의회 이름(rasmblyNm)으로 소속 의원 이름·사진 조회.
+ * CLIK rasmblyNm은 "경기도 여주시의회" 같은 형식이고 Legislator.councilName은
+ * "여주시의회"·"경기도의회" 같은 형식이라 여러 단계로 fuzzy match한다.
+ */
+export interface CouncilLegislatorPhoto {
+  name: string;
+  photoUrl: string | null;
+}
+
+export async function listLegislatorsByCouncilName(
+  rasmblyNm: string,
+): Promise<CouncilLegislatorPhoto[]> {
+  const tokens = rasmblyNm.trim().split(/\s+/);
+  const lastToken = tokens[tokens.length - 1] ?? "";
+  const sido = tokens.length > 1 ? tokens[0] : null;
+
+  // 1) councilName 정확 일치
+  let rows = await prisma.legislator.findMany({
+    where: { councilName: rasmblyNm },
+    select: { name: true, photoUrl: true },
+  });
+  // 2) councilName이 마지막 토큰과 일치 (BASIC: "여주시의회")
+  if (rows.length === 0) {
+    rows = await prisma.legislator.findMany({
+      where: { councilName: lastToken },
+      select: { name: true, photoUrl: true },
+    });
+  }
+  // 3) PROVINCIAL: 시·도 매칭 + 의회 키워드
+  if (rows.length === 0 && sido) {
+    rows = await prisma.legislator.findMany({
+      where: {
+        level: "PROVINCIAL",
+        region: sido,
+      },
+      select: { name: true, photoUrl: true },
+    });
+  }
+  return rows;
+}
+
 export async function listBasicRegions(): Promise<BasicRegionRow[]> {
   const rows = await prisma.$queryRaw<{ sido: string; wiwName: string }[]>`
     SELECT DISTINCT

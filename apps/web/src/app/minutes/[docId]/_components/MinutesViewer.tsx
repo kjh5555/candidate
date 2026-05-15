@@ -12,9 +12,11 @@ import {
   ListOrdered,
   Hash,
 } from "lucide-react";
+import Image from "next/image";
 import {
   fetchMinutesContent,
   analyzeMinutes,
+  getCouncilLegislatorPhotos,
   ApiError,
 } from "@/lib/api";
 import type { CouncilMinutesDetailDTO } from "@repo/shared";
@@ -31,6 +33,31 @@ export function MinutesViewer({ initial }: MinutesViewerProps) {
   const [aiError, setAiError] = useState<string | null>(null);
   const [showFullBody, setShowFullBody] = useState(false);
   const [openSpeaker, setOpenSpeaker] = useState<string | null>(null);
+  // 발언자 이름 → 사진 URL 매핑 (없는 의원은 누락. 채팅 아바타용)
+  const [speakerPhotos, setSpeakerPhotos] = useState<Record<string, string>>({});
+
+  // 의회 소속 의원 사진 조회 (있는 만큼만 사용, 실패해도 무시)
+  useEffect(() => {
+    if (!data.rasmblyNm) return;
+    let cancelled = false;
+    getCouncilLegislatorPhotos(data.rasmblyNm)
+      .then((res) => {
+        if (cancelled) return;
+        const map: Record<string, string> = {};
+        for (const p of res.photos) {
+          if (p.photoUrl && p.photoUrl.length > 0) {
+            map[p.name] = p.photoUrl;
+          }
+        }
+        setSpeakerPhotos(map);
+      })
+      .catch(() => {
+        // 사진 없는 경우는 정상 동작 — 텍스트 아바타로 대체됨
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [data.rasmblyNm]);
 
   // 본문이 없으면 자동으로 한 번 fetch 시도
   const autoFetchedRef = useRef(false);
@@ -371,7 +398,10 @@ export function MinutesViewer({ initial }: MinutesViewerProps) {
           {showFullBody && (
             <div className="px-5 pb-5 border-t border-slate-100">
               <div className="mt-4 max-h-[600px] overflow-y-auto bg-slate-50 p-4 rounded-lg border border-slate-100">
-                <ChatView bodyText={data.bodyText ?? ""} />
+                <ChatView
+                  bodyText={data.bodyText ?? ""}
+                  speakerPhotos={speakerPhotos}
+                />
               </div>
               <div className="flex justify-end mt-2">
                 <button
@@ -484,7 +514,69 @@ function avatarFor(name: string): string {
   return name.length >= 2 ? name.slice(-2) : name;
 }
 
-function ChatView({ bodyText }: { bodyText: string }) {
+/**
+ * 긴 발언을 읽기 좋은 단락으로 분리.
+ * - 이미 \n으로 단락이 있으면 그대로 사용
+ * - 없으면 마침표·느낌표·물음표 + 공백 기준으로 분리해 3~4문장씩 묶음
+ * - "존경하는 ... 여러분!" "이상으로 ..." "감사합니다" 등은 단락 경계로 인식
+ */
+function chunkContent(content: string): string[] {
+  const trimmed = content.trim();
+  if (trimmed.length === 0) return [];
+
+  // 이미 명시적 줄바꿈이 있으면 우선 사용
+  if (/\n\s*\n/.test(trimmed) || trimmed.split("\n").length >= 4) {
+    return trimmed
+      .split(/\n+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+  }
+
+  // 문장 단위 분리 (한국어 마침표·느낌표·물음표 + 공백 기준)
+  const sentences = trimmed
+    .split(/(?<=[.!?。])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+  if (sentences.length <= 2) return [trimmed];
+
+  // 단락 경계 단서 — 호명·맺음말은 새 단락으로
+  const PARA_HINTS = [
+    /^(존경하는|사랑하는|안녕하십니까|친애하는|먼저)/,
+    /^(이상으로|마지막으로|결론적으로|끝으로|감사합니다)/,
+    /^(첫째,|둘째,|셋째,|넷째,)/,
+    /^(따라서|그러나|하지만|즉|또한|아울러|그래서|그리고)/,
+    /^(이에|이를|이번|오늘은?)/,
+  ];
+
+  const paragraphs: string[] = [];
+  let buf: string[] = [];
+  const MAX_SENTENCES = 3;
+
+  const flush = () => {
+    if (buf.length > 0) {
+      paragraphs.push(buf.join(" "));
+      buf = [];
+    }
+  };
+
+  for (const s of sentences) {
+    const hintMatched = PARA_HINTS.some((re) => re.test(s));
+    if (hintMatched && buf.length > 0) flush();
+    buf.push(s);
+    if (buf.length >= MAX_SENTENCES) flush();
+  }
+  flush();
+  return paragraphs;
+}
+
+function ChatView({
+  bodyText,
+  speakerPhotos = {},
+}: {
+  bodyText: string;
+  speakerPhotos?: Record<string, string>;
+}) {
   const turns = parseTurns(bodyText);
   if (turns.length === 0) {
     return (
@@ -496,50 +588,124 @@ function ChatView({ bodyText }: { bodyText: string }) {
 
   return (
     <div className="flex flex-col gap-3">
-      {turns.map((turn, i) => {
-        // 의장/부의장은 오른쪽 (KakaoTalk "self") — 회의를 이끌어가는 진행자
-        const isChair = turn.role === "의장" || turn.role === "부의장";
-        const palette = isChair
-          ? "bg-yellow-100 text-yellow-900 border-yellow-200"
-          : paletteFor(turn.name);
-        const avatar = avatarFor(turn.name);
+      {turns.map((turn, i) => (
+        <ChatBubble
+          key={i}
+          turn={turn}
+          photoUrl={speakerPhotos[turn.name] ?? null}
+        />
+      ))}
+    </div>
+  );
+}
 
-        return (
-          <div
-            key={i}
-            className={`flex gap-2 items-start ${isChair ? "flex-row-reverse" : ""}`}
-          >
-            {/* 아바타 */}
-            <div
-              className={`w-9 h-9 rounded-full border flex items-center justify-center text-[11px] font-bold shrink-0 ${palette}`}
-              title={`${turn.role} ${turn.name}`}
+/**
+ * 채팅 버블 1개. 긴 발언은 단락으로 자동 분리 + "더 보기" 토글.
+ */
+function ChatBubble({
+  turn,
+  photoUrl,
+}: {
+  turn: ChatTurn;
+  photoUrl?: string | null;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const isChair = turn.role === "의장" || turn.role === "부의장";
+  const palette = isChair
+    ? "bg-yellow-100 text-yellow-900 border-yellow-200"
+    : paletteFor(turn.name);
+  const avatar = avatarFor(turn.name);
+
+  const paragraphs = chunkContent(turn.content);
+  const TOTAL = turn.content.length;
+  const LONG_THRESHOLD = 600; // 600자 이상이면 접기 토글
+  const isLong = TOTAL > LONG_THRESHOLD;
+  // 접힌 상태에선 첫 2단락(또는 첫 ~400자)만 노출
+  let visibleParagraphs = paragraphs;
+  if (isLong && !expanded) {
+    let chars = 0;
+    visibleParagraphs = [];
+    for (const p of paragraphs) {
+      if (chars > 0 && chars + p.length > 400) break;
+      visibleParagraphs.push(p);
+      chars += p.length;
+    }
+    if (visibleParagraphs.length === 0) visibleParagraphs = [paragraphs[0] ?? ""];
+  }
+
+  return (
+    <div
+      className={`flex gap-2 items-start ${isChair ? "flex-row-reverse" : ""}`}
+    >
+      {photoUrl ? (
+        <div
+          className="w-9 h-9 rounded-full border border-slate-200 overflow-hidden shrink-0 bg-slate-100 relative"
+          title={`${turn.role} ${turn.name}`}
+        >
+          <Image
+            src={photoUrl}
+            alt={turn.name}
+            fill
+            sizes="36px"
+            className="object-cover"
+            unoptimized
+          />
+        </div>
+      ) : (
+        <div
+          className={`w-9 h-9 rounded-full border flex items-center justify-center text-[11px] font-bold shrink-0 ${palette}`}
+          title={`${turn.role} ${turn.name}`}
+        >
+          {avatar}
+        </div>
+      )}
+      <div
+        className={`flex flex-col max-w-[80%] sm:max-w-[70%] ${isChair ? "items-end" : "items-start"}`}
+      >
+        <div
+          className={`text-[11px] text-slate-500 mb-1 px-1 ${isChair ? "text-right" : ""}`}
+        >
+          <span className="font-semibold text-slate-700">{turn.name}</span>
+          {turn.role && (
+            <span className="ml-1 text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+              {turn.role}
+            </span>
+          )}
+          {isLong && (
+            <span className="ml-1 text-[10px] text-slate-400">
+              ({TOTAL.toLocaleString()}자)
+            </span>
+          )}
+        </div>
+        <div
+          className={`px-4 py-3 rounded-2xl text-sm leading-[1.75] break-words border ${palette} ${
+            isChair ? "rounded-tr-sm" : "rounded-tl-sm"
+          }`}
+        >
+          {visibleParagraphs.map((p, i) => (
+            <p
+              key={i}
+              className={i > 0 ? "mt-2.5" : ""}
+              style={{ wordBreak: "keep-all" }}
             >
-              {avatar}
-            </div>
-            <div
-              className={`flex flex-col max-w-[80%] sm:max-w-[70%] ${isChair ? "items-end" : "items-start"}`}
+              {p}
+            </p>
+          ))}
+          {isLong && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className={`mt-2 text-xs font-medium underline underline-offset-2 ${
+                isChair
+                  ? "text-yellow-800 hover:text-yellow-900"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
             >
-              <div
-                className={`text-[11px] text-slate-500 mb-1 px-1 ${isChair ? "text-right" : ""}`}
-              >
-                <span className="font-semibold text-slate-700">{turn.name}</span>
-                {turn.role && (
-                  <span className="ml-1 text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
-                    {turn.role}
-                  </span>
-                )}
-              </div>
-              <div
-                className={`px-3 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words border ${palette} ${
-                  isChair ? "rounded-tr-sm" : "rounded-tl-sm"
-                }`}
-              >
-                {turn.content}
-              </div>
-            </div>
-          </div>
-        );
-      })}
+              {expanded ? "접기 ▲" : `더 보기 (${paragraphs.length - visibleParagraphs.length}단락 더) ▼`}
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

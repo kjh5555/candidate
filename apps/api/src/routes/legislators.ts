@@ -5,6 +5,7 @@ import {
   listLegislatorBills,
   listLegislatorVotes,
   listLegislators,
+  listLegislatorsByCouncilName,
   type ListLevel,
 } from "../services/legislatorService.js";
 import type { BillResult, ProposerRole, VoteResult } from "@repo/shared";
@@ -90,6 +91,31 @@ const legislatorRoutes: FastifyPluginAsync = async (fastify) => {
         offset,
       });
       return reply.send(result);
+    },
+  );
+
+  // GET /legislators/by-council?rasmblyNm=... — 의회 소속 의원 이름·사진 목록
+  fastify.get<{ Querystring: { rasmblyNm?: string } }>(
+    "/by-council",
+    {
+      schema: {
+        querystring: {
+          type: "object",
+          properties: { rasmblyNm: { type: "string", minLength: 1 } },
+          required: ["rasmblyNm"],
+        },
+      },
+    },
+    async (request, reply) => {
+      const rasmblyNm = request.query.rasmblyNm ?? "";
+      if (!rasmblyNm) {
+        return reply.status(400).send({
+          error: "MISSING_RASMBLY_NM",
+          message: "rasmblyNm 쿼리가 필요합니다.",
+        });
+      }
+      const photos = await listLegislatorsByCouncilName(rasmblyNm);
+      return reply.send({ photos });
     },
   );
 

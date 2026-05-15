@@ -25,6 +25,7 @@ import type {
   CouncilMinutesResponseDTO,
   CouncilBillsResponseDTO,
   CouncilMinutesDetailDTO,
+  CouncilLegislatorPhotosResponseDTO,
 } from "@repo/shared";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -67,6 +68,14 @@ export function getRegionMatch(address: string): Promise<RegionMatchResponseDTO>
 
 export function getBasicRegions(): Promise<BasicRegionsResponseDTO> {
   return apiFetch<BasicRegionsResponseDTO>("/api/legislators/basic-regions");
+}
+
+export function getCouncilLegislatorPhotos(
+  rasmblyNm: string,
+): Promise<CouncilLegislatorPhotosResponseDTO> {
+  return apiFetch<CouncilLegislatorPhotosResponseDTO>(
+    `/api/legislators/by-council?rasmblyNm=${encodeURIComponent(rasmblyNm)}`,
+  );
 }
 
 export function getLegislators(params: {
