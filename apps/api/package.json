@@ -19,7 +19,7 @@
     "ingest:local-candidates": "tsx src/ingest/index.ts local-candidates 20260603",
     "ingest:candidate-backgrounds": "tsx src/ingest/index.ts candidate-backgrounds 20260603",
     "ingest:link-districts": "tsx src/ingest/index.ts link-districts 22",
-    "cron:daily": "tsx src/ingest/index.ts local-candidates 20260603 && tsx src/ingest/index.ts candidate-backgrounds 20260603",
+    "cron:daily": "tsx src/ingest/index.ts local-candidates 20260603; tsx src/ingest/index.ts candidate-backgrounds 20260603; tsx src/ingest/clikPhotos.ts all",
     "cron:weekly": "tsx src/ingest/index.ts legislators 22 && tsx src/ingest/index.ts link-districts 22",
     "ingest:clik": "tsx src/ingest/clikIngest.ts",
     "ingest:clik-minutes": "tsx src/ingest/clikIngest.ts minutes",
