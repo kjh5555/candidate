@@ -7,6 +7,7 @@ import { ArrowLeft, MapPin, Search, User } from "lucide-react";
 import { getCandidates } from "@/lib/api";
 import { PartyBadge } from "@/components/PartyBadge";
 import { EmptyState } from "@/components/EmptyState";
+import { getMyRegion } from "@/lib/myRegion";
 import type {
   CandidatePositionType,
   CandidateStatus,
@@ -133,6 +134,23 @@ function CandidatesPageInner() {
   useEffect(() => {
     setInputDistrict(district);
   }, [district]);
+
+  // 페이지 진입 시 "내 지역"이 설정되어 있고 URL에 지역 필터가 없으면
+  // localStorage의 지역으로 자동 필터 (URL replace). 사용자가 명시적으로
+  // 다른 지역/전체로 바꾸면 그 의도를 존중하므로 mount 시 1회만 적용.
+  const regionApplyRef = useRef(false);
+  useEffect(() => {
+    if (regionApplyRef.current) return;
+    regionApplyRef.current = true;
+    // URL에 이미 sido/wiwName이 명시되어 있으면 그대로 둠
+    if (sido || wiwName) return;
+    const my = getMyRegion();
+    if (!my.sido && !my.wiwName) return;
+    const next = new URLSearchParams(params.toString());
+    if (my.sido) next.set("sido", my.sido);
+    if (my.wiwName) next.set("wiwName", my.wiwName);
+    router.replace(`/candidates?${next.toString()}`);
+  }, [sido, wiwName, params, router]);
 
   function updateParams(updates: Record<string, string>) {
     const next = new URLSearchParams(params.toString());

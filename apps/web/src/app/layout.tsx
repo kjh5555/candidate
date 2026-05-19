@@ -33,7 +33,7 @@ const NAV_LINKS: NavLinkConfig[] = [
     resolveMyRegion: true,
   },
   { href: "/legislators", label: "의원", matcher: /^\/(legislators|region|legislator|provincial|basic)/ },
-  { href: "/candidates", label: "후보", matcher: /^\/(candidates|candidate)/ },
+  { href: "/candidates", label: "6.3 지방선거 후보", matcher: /^\/(candidates|candidate)/ },
   { href: "/budget", label: "예산" },
   { href: "/about", label: "제도 알아보기" },
 ];
