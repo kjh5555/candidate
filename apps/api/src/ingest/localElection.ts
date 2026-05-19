@@ -1,11 +1,16 @@
 // Ingest 제9회 전국동시지방선거 candidates (2026-06-03) from data.go.kr
 // PofelcddInfoInqireService.
 //
-// Scope (Option A):
-//   - 시·도지사 (GOVERNOR)      sgTypecode=3
-//   - 시장·군수·구청장 (MAYOR)   sgTypecode=4
+// Scope (all 7 position types for 지방선거):
+//   - 시·도지사            (GOVERNOR)                     sgTypecode=3
+//   - 시장·군수·구청장      (MAYOR)                        sgTypecode=4
+//   - 광역의원 지역구      (PROVINCIAL_COUNCILOR)         sgTypecode=5
+//   - 기초의원 지역구      (BASIC_COUNCILOR)              sgTypecode=6
+//   - 교육감              (SUPERINTENDENT)               sgTypecode=7
+//   - 광역의원 비례        (PROVINCIAL_COUNCILOR_PROP)    sgTypecode=8
+//   - 기초의원 비례        (BASIC_COUNCILOR_PROP)         sgTypecode=9
 //
-// Skips: 광역의원, 기초의원, 교육감
+// 국회의원 (sgTypecode=2) 은 지선 대상이 아니므로 제외.
 //
 // Pledge ingestion (getCnddtElecPrmsInfoInqire) is a TODO — we just create the
 // CandidatePledge schema; wiring is deferred.
@@ -17,8 +22,27 @@ import { fetchAllNecPages } from "./utils/necClient.js";
 const SERVICE_PATH = "PofelcddInfoInqireService";
 const REGISTER_METHOD = "getPoelpcddRegistSttusInfoInqire";
 
-const SG_TYPECODE_GOVERNOR = "3"; // 시·도지사
-const SG_TYPECODE_MAYOR = "4"; // 시장·군수·구청장
+type CandidatePositionType =
+  | "GOVERNOR"
+  | "MAYOR"
+  | "PROVINCIAL_COUNCILOR"
+  | "BASIC_COUNCILOR"
+  | "SUPERINTENDENT"
+  | "PROVINCIAL_COUNCILOR_PROP"
+  | "BASIC_COUNCILOR_PROP";
+
+// sgTypecode → positionType + 한국어 라벨 매핑 (확정값, 2022년 8회·NEC API
+// 기준으로 검증됨. WinnerInfoInqireService2 응답으로 sgTypecode 5/6/8/9 의
+// 의미 확인 완료).
+const SG_TYPECODES: ReadonlyArray<readonly [string, CandidatePositionType, string]> = [
+  ["3", "GOVERNOR", "시·도지사"],
+  ["4", "MAYOR", "시장·군수·구청장"],
+  ["5", "PROVINCIAL_COUNCILOR", "광역의원(지역구)"],
+  ["6", "BASIC_COUNCILOR", "기초의원(지역구)"],
+  ["7", "SUPERINTENDENT", "교육감"],
+  ["8", "PROVINCIAL_COUNCILOR_PROP", "광역의원(비례)"],
+  ["9", "BASIC_COUNCILOR_PROP", "기초의원(비례)"],
+] as const;
 
 const DEFAULT_ELECTION_ID = "20260603";
 
@@ -105,21 +129,32 @@ function mapStatus(raw: string | undefined): "REGISTERED" | "WITHDRAWN" | "CANCE
 async function ingestPositionType(
   electionId: string,
   sgTypecode: string,
-  positionType: "GOVERNOR" | "MAYOR",
+  positionType: CandidatePositionType,
+  label: string,
 ): Promise<{ total: number; success: number }> {
-  const label = positionType === "GOVERNOR" ? "시·도지사" : "시장·군수·구청장";
   console.log(
     `[local-candidates] Fetching ${label} (sgId=${electionId}, sgTypecode=${sgTypecode})...`,
   );
 
-  const rows = await fetchAllNecPages<NecCandidateRow>(
-    SERVICE_PATH,
-    REGISTER_METHOD,
-    {
-      sgId: electionId,
-      sgTypecode,
-    },
-  );
+  let rows: NecCandidateRow[] = [];
+  try {
+    rows = await fetchAllNecPages<NecCandidateRow>(
+      SERVICE_PATH,
+      REGISTER_METHOD,
+      {
+        sgId: electionId,
+        sgTypecode,
+      },
+    );
+  } catch (err) {
+    // NEC API 응답이 INFO-03 등 "데이터 없음"인 경우는 fetchAllNecPages 내부에서
+    // 비어있는 배열 반환이지만, 외부 네트워크/인증 오류는 throw 됨. 직위별로 격리.
+    console.error(
+      `[local-candidates] Failed to fetch ${label}:`,
+      (err as Error).message,
+    );
+    return { total: 0, success: 0 };
+  }
 
   console.log(
     `[local-candidates] Got ${rows.length} ${label} rows. Upserting...`,
@@ -174,7 +209,8 @@ async function ingestPositionType(
 }
 
 /**
- * Ingest all 시·도지사 and 시장·군수·구청장 candidates for the given election.
+ * Ingest all 7 지방선거 직위 후보 (시·도지사, 시·군·구청장, 광역/기초의원
+ * 지역구·비례, 교육감) for the given election.
  *
  * Pledges are NOT ingested here — that's a separate API
  * (getCnddtElecPrmsInfoInqire) and we'll wire it in a follow-up.
@@ -186,12 +222,19 @@ export async function ingestLocalCandidates(
     `[local-candidates] Starting ingestion for election ${electionId}.`,
   );
 
-  await ingestPositionType(electionId, SG_TYPECODE_GOVERNOR, "GOVERNOR");
-  await ingestPositionType(electionId, SG_TYPECODE_MAYOR, "MAYOR");
+  const summary: Array<{ label: string; total: number; success: number }> = [];
+  for (const [tc, pt, label] of SG_TYPECODES) {
+    const result = await ingestPositionType(electionId, tc, pt, label);
+    summary.push({ label, ...result });
+  }
+
+  console.log(`[local-candidates] All done for election ${electionId}.`);
+  console.log("[local-candidates] Summary:");
+  for (const s of summary) {
+    console.log(`  - ${s.label}: ${s.success}/${s.total}`);
+  }
 
   // TODO: ingest pledges via PofelcddInfoInqireService/getCnddtElecPrmsInfoInqire
   // for each candidate (huboid). Stubbed for now — CandidatePledge table exists
   // but is left empty.
-
-  console.log(`[local-candidates] All done for election ${electionId}.`);
 }

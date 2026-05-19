@@ -203,8 +203,14 @@ export async function fetchAllNecPages<T>(
       extractItems(envelope);
 
     if (resultCode && resultCode !== "00" && resultCode !== "INFO-00") {
-      // "INFO-200" or similar may indicate "no data"; treat as empty.
-      if (resultCode === "INFO-200" || resultMsg?.includes("NODATA")) {
+      // "INFO-200" / "INFO-03" / "NODATA" 등은 "데이터 없음" 상태이므로 빈 결과로 처리.
+      // INFO-03 은 선거 등록기간이 아닐 때 NEC가 자주 반환함 (예비후보 종료 후 등).
+      if (
+        resultCode === "INFO-200" ||
+        resultCode === "INFO-03" ||
+        resultMsg?.includes("NODATA") ||
+        resultMsg?.includes("데이터 정보가 없습니다")
+      ) {
         break;
       }
       throw new Error(

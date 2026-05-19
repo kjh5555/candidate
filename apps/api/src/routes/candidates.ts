@@ -37,7 +37,16 @@ const candidateRoutes: FastifyPluginAsync = async (fastify) => {
             electionId: { type: "string", minLength: 1 },
             positionType: {
               type: "string",
-              enum: ["GOVERNOR", "MAYOR", "ALL"],
+              enum: [
+                "GOVERNOR",
+                "MAYOR",
+                "PROVINCIAL_COUNCILOR",
+                "BASIC_COUNCILOR",
+                "SUPERINTENDENT",
+                "PROVINCIAL_COUNCILOR_PROP",
+                "BASIC_COUNCILOR_PROP",
+                "ALL",
+              ],
             },
             sido: { type: "string" },
             wiwName: { type: "string" },

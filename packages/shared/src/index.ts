@@ -235,7 +235,14 @@ export interface VotesResponseDTO {
 
 // ── Candidate (2026 지방선거) ──────────────────────────────────
 
-export type CandidatePositionType = "GOVERNOR" | "MAYOR";
+export type CandidatePositionType =
+  | "GOVERNOR"                     // 시·도지사 (sgTypecode=3)
+  | "MAYOR"                        // 시·군·구청장 (sgTypecode=4)
+  | "PROVINCIAL_COUNCILOR"         // 광역의원 지역구 (sgTypecode=5)
+  | "BASIC_COUNCILOR"              // 기초의원 지역구 (sgTypecode=6)
+  | "SUPERINTENDENT"               // 교육감 (sgTypecode=7)
+  | "PROVINCIAL_COUNCILOR_PROP"    // 광역의원 비례 (sgTypecode=8)
+  | "BASIC_COUNCILOR_PROP";        // 기초의원 비례 (sgTypecode=9)
 export type CandidateStatus =
   | "REGISTERED"
   | "WITHDRAWN"

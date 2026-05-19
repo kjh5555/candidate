@@ -28,6 +28,11 @@ import type {
 const POSITION_LABEL: Record<CandidatePositionType, string> = {
   GOVERNOR: "시·도지사 후보",
   MAYOR: "시장·군수·구청장 후보",
+  PROVINCIAL_COUNCILOR: "광역의원(지역구) 후보",
+  BASIC_COUNCILOR: "기초의원(지역구) 후보",
+  SUPERINTENDENT: "교육감 후보",
+  PROVINCIAL_COUNCILOR_PROP: "광역의원(비례) 후보",
+  BASIC_COUNCILOR_PROP: "기초의원(비례) 후보",
 };
 
 const STATUS_LABEL: Record<CandidateStatus, string> = {

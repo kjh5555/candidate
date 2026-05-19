@@ -17,7 +17,26 @@ import type {
 const POSITION_LABEL: Record<CandidatePositionType, string> = {
   GOVERNOR: "시·도지사",
   MAYOR: "시장·군수·구청장",
+  PROVINCIAL_COUNCILOR: "광역의원(지역구)",
+  BASIC_COUNCILOR: "기초의원(지역구)",
+  SUPERINTENDENT: "교육감",
+  PROVINCIAL_COUNCILOR_PROP: "광역의원(비례)",
+  BASIC_COUNCILOR_PROP: "기초의원(비례)",
 };
+
+const POSITION_OPTIONS: ReadonlyArray<{
+  value: CandidatePositionType | "ALL";
+  label: string;
+}> = [
+  { value: "ALL", label: "전체" },
+  { value: "GOVERNOR", label: "시·도지사" },
+  { value: "MAYOR", label: "시장·군수·구청장" },
+  { value: "PROVINCIAL_COUNCILOR", label: "광역의원(지역구)" },
+  { value: "BASIC_COUNCILOR", label: "기초의원(지역구)" },
+  { value: "SUPERINTENDENT", label: "교육감" },
+  { value: "PROVINCIAL_COUNCILOR_PROP", label: "광역의원(비례)" },
+  { value: "BASIC_COUNCILOR_PROP", label: "기초의원(비례)" },
+] as const;
 
 const STATUS_LABEL: Record<CandidateStatus, string> = {
   REGISTERED: "등록",
@@ -238,26 +257,48 @@ function CandidatesPageInner() {
       </div>
 
       {/* 검색 — 이름 + 지역구 */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col sm:flex-row gap-3">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          <input
-            type="text"
-            value={inputQ}
-            onChange={(e) => handleSearchChange("q", e.target.value)}
-            placeholder="이름으로 검색..."
-            className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
+      <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={inputQ}
+              onChange={(e) => handleSearchChange("q", e.target.value)}
+              placeholder="이름으로 검색..."
+              className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div className="flex-1 relative">
+            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={inputDistrict}
+              onChange={(e) => handleSearchChange("district", e.target.value)}
+              placeholder="지역(시·도, 시·군·구, 지역구)..."
+              className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
         </div>
-        <div className="flex-1 relative">
-          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          <input
-            type="text"
-            value={inputDistrict}
-            onChange={(e) => handleSearchChange("district", e.target.value)}
-            placeholder="지역(시·도, 시·군·구, 지역구)..."
-            className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
+        {/* positionType 필터 칩 */}
+        <div className="flex flex-wrap gap-1.5">
+          {POSITION_OPTIONS.map((opt) => {
+            const active = positionType === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => updateParams({ positionType: opt.value })}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                  active
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
