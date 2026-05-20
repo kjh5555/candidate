@@ -250,7 +250,11 @@ function BudgetPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const [tab, setTab] = useState<BudgetTab>("national");
+  const [tab, setTab] = useState<BudgetTab>(() => {
+    const t = searchParams.get("tab");
+    if (t === "national" || t === "metropolitan" || t === "settlement") return t;
+    return "national";
+  });
 
   const [nationalYears, setNationalYears] = useState<number[]>([]);
   const [metroYears, setMetroYears] = useState<number[]>([]);
@@ -270,8 +274,13 @@ function BudgetPageInner() {
 
   // ── Settlement tab state ───────────────────────────────────────────
   const [setYear, setSetYear] = useState<number | null>(null);
-  const [setSido, setSetSido] = useState<string>(SIDO_LIST[0]);
-  const [setUnitCode, setSetUnitCode] = useState<string>(ALL_UNITS_KEY);
+  const [setSido, setSetSido] = useState<string>(() => {
+    const s = searchParams.get("sido");
+    return s && SIDO_LIST.includes(s) ? s : SIDO_LIST[0];
+  });
+  const [setUnitCode, setSetUnitCode] = useState<string>(
+    () => searchParams.get("unitCode") ?? ALL_UNITS_KEY,
+  );
   const [setUnits, setSetUnits] = useState<SettlementUnitDTO[]>([]);
   const [setSidoData, setSetSidoData] = useState<SettlementBreakdownDTO | null>(null);
   const [setBudgetCompareData, setSetBudgetCompareData] = useState<BudgetBreakdownDTO | null>(null);
@@ -369,8 +378,14 @@ function BudgetPageInner() {
     };
   }, [setYear, setSido]);
 
-  // Reset unit selection when sido or year changes
+  // Reset unit selection when sido or year changes.
+  // 단, 페이지 진입 시 query string으로 unitCode를 받은 첫 실행은 skip.
+  const skipUnitResetRef = useRef(searchParams.get("unitCode") !== null);
   useEffect(() => {
+    if (skipUnitResetRef.current) {
+      skipUnitResetRef.current = false;
+      return;
+    }
     setSetUnitCode(ALL_UNITS_KEY);
   }, [setSido, setYear]);
 

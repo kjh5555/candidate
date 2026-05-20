@@ -422,27 +422,50 @@ export default function HomePage() {
           </section>
 
           <aside className="lg:col-span-4 space-y-6">
-            <div
-              className="bg-white rounded-2xl p-6"
-              style={{ border: `1px solid ${BORDER}` }}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold" style={{ color: PRIMARY }}>
-                  우리 지역 예산
-                </h3>
-                <PieChart className="w-4 h-4" style={{ color: "#75777f" }} />
-              </div>
-              {hub?.settlement && hub.settlement.items.length > 0 ? (
+            {hub?.settlement && hub.settlement.items.length > 0 ? (
+              <Link
+                href={`/budget?tab=settlement&sido=${encodeURIComponent(myRegion.sido ?? "")}${hub.settlement.unitCode ? `&unitCode=${encodeURIComponent(hub.settlement.unitCode)}` : ""}`}
+                className="block bg-white rounded-2xl p-6 hover:shadow-md transition-all group"
+                style={{ border: `1px solid ${BORDER}` }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold" style={{ color: PRIMARY }}>
+                    우리 지역 예산
+                  </h3>
+                  <div className="flex items-center gap-1">
+                    <span
+                      className="text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ color: SECONDARY }}
+                    >
+                      자세히
+                    </span>
+                    <ArrowRight
+                      className="w-4 h-4 group-hover:translate-x-0.5 transition-transform"
+                      style={{ color: SECONDARY }}
+                    />
+                  </div>
+                </div>
                 <BudgetWidget settlement={hub.settlement} />
-              ) : (
+              </Link>
+            ) : (
+              <div
+                className="bg-white rounded-2xl p-6"
+                style={{ border: `1px solid ${BORDER}` }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold" style={{ color: PRIMARY }}>
+                    우리 지역 예산
+                  </h3>
+                  <PieChart className="w-4 h-4" style={{ color: "#75777f" }} />
+                </div>
                 <p
                   className="text-sm py-6 text-center"
                   style={{ color: ON_VARIANT }}
                 >
                   결산 데이터가 아직 적재되지 않았습니다.
                 </p>
-              )}
-            </div>
+              </div>
+            )}
 
             <div
               className="bg-white rounded-2xl p-6"
