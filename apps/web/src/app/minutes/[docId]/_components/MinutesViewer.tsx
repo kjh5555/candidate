@@ -308,7 +308,7 @@ export function MinutesViewer({ initial }: MinutesViewerProps) {
                 : "본문 준비 중"}
             </span>
           </div>
-          <div className="p-4 max-h-[calc(100vh-200px)] min-h-[500px] overflow-y-auto">
+          <div className="p-4 h-[min(calc(100vh-120px),1200px)] min-h-[800px] overflow-y-auto">
             {hasBody ? (
               <ChatView
                 bodyText={data.bodyText ?? ""}
