@@ -124,9 +124,11 @@ export function MinutesViewer({ initial }: MinutesViewerProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* ── Row 1: 참석자 + 핵심 주제 (page header 직후 white 카드) ── */}
+      {/* ── Hero: 좌(참석자/주제) + 우(AI Summary) ───────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+      {/* Col 1: 참석자 + 핵심 주제 */}
       <section
-        className="bg-white rounded-2xl p-5"
+        className="lg:col-span-7 bg-white rounded-2xl p-5"
         style={{ border: `1px solid ${BORDER}` }}
       >
         <div className="flex items-center gap-2 text-xs mb-3">
@@ -203,10 +205,10 @@ export function MinutesViewer({ initial }: MinutesViewerProps) {
         )}
       </section>
 
-      {/* ── Row 2: AI Summary 다크 박스 (우측 정렬) ───────── */}
-      <section className="flex justify-end">
+      {/* Col 2: AI Summary 다크 박스 */}
+      <section className="lg:col-span-5">
         <div
-          className="w-full lg:w-2/5 text-white p-5 rounded-2xl relative overflow-hidden"
+          className="w-full h-full text-white p-5 rounded-2xl relative overflow-hidden"
           style={{
             background: `linear-gradient(135deg, ${PRIMARY}, #1a2b4b)`,
           }}
@@ -272,6 +274,7 @@ export function MinutesViewer({ initial }: MinutesViewerProps) {
             )}
         </div>
       </section>
+      </div>
 
       {/* ── 2-col: 채팅 + 사이드 ────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
