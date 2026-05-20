@@ -178,7 +178,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko" className={notoSansKR.variable}>
-      <body className="min-h-screen bg-slate-50 font-[family-name:var(--font-noto)]">
+      <body className="min-h-screen bg-[#f7f5ee] font-[family-name:var(--font-noto)]">
         <Header />
         <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <MyRegionBanner />

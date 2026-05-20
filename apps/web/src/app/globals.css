@@ -3,15 +3,16 @@
 :root {
   --font-noto: "Noto Sans KR", sans-serif;
 
-  /* Brand tokens */
-  --color-brand: #1d4ed8;
-  --color-brand-hover: #1e40af;
-  --color-brand-light: #eff6ff;
+  /* Brand tokens — navy + cream palette */
+  --color-brand: #031635;
+  --color-brand-hover: #0a2150;
+  --color-brand-light: #eef1f7;
+  --color-accent: #b89766; /* warm gold accent */
   --color-surface: #ffffff;
-  --color-bg: #f8fafc;
-  --color-border: #e2e8f0;
-  --color-text: #0f172a;
-  --color-muted: #64748b;
+  --color-bg: #f7f5ee; /* warm cream */
+  --color-border: #e8e4d8;
+  --color-text: #031635;
+  --color-muted: #5a6473;
   --color-faint: #94a3b8;
 }
 
