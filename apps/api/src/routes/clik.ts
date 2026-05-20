@@ -133,7 +133,7 @@ const clikRoutes: FastifyPluginAsync = async (fastify) => {
       const [rows, total] = await Promise.all([
         prisma.councilBill.findMany({
           where,
-          orderBy: [{ itncDe: "desc" }, { syncedAt: "desc" }],
+          orderBy: [{ itncDe: "desc" }, { biNo: "desc" }, { syncedAt: "desc" }],
           skip: offset,
           take: limit,
         }),

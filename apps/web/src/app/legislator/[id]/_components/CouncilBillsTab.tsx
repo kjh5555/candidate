@@ -18,7 +18,8 @@ import {
   FileText,
 } from "lucide-react";
 
-const LIMIT = 20;
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
+type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 
 interface CouncilBillsTabProps {
   rasmblyNm: string;
@@ -40,6 +41,7 @@ export function CouncilBillsTab({
   const [bills, setBills] = useState<CouncilBillDTO[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
+  const [limit, setLimit] = useState<PageSize>(20);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +49,7 @@ export function CouncilBillsTab({
     setLoading(true);
     setError(null);
     try {
-      const data = await getCouncilBills(rasmblyNm, { limit: LIMIT, offset });
+      const data = await getCouncilBills(rasmblyNm, { limit, offset });
       setBills(data.bills);
       setTotal(data.total);
     } catch (err: unknown) {
@@ -55,7 +57,7 @@ export function CouncilBillsTab({
     } finally {
       setLoading(false);
     }
-  }, [rasmblyNm, offset]);
+  }, [rasmblyNm, offset, limit]);
 
   useEffect(() => {
     fetchBills();
@@ -102,19 +104,38 @@ export function CouncilBillsTab({
 
   return (
     <div>
-      <p className="text-xs text-slate-400 mb-3">
-        ※ 의회 단위 의안입니다. 개별 의원의 발의 안건만 보려면
-        <a
-          href={externalSearchUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="ml-1 text-blue-600 hover:underline inline-flex items-center gap-0.5"
-        >
-          CLIK 직접 검색
-          <ExternalLink className="w-3 h-3" />
-        </a>
-        을 이용하세요.
-      </p>
+      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+        <p className="text-xs text-slate-400">
+          ※ 의회 단위 의안 (최근 발의일 순). 개별 의원만 보려면
+          <a
+            href={externalSearchUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-1 text-blue-600 hover:underline inline-flex items-center gap-0.5"
+          >
+            CLIK 직접 검색
+            <ExternalLink className="w-3 h-3" />
+          </a>
+          .
+        </p>
+        <label className="text-xs text-slate-500 inline-flex items-center gap-1.5">
+          페이지당
+          <select
+            value={limit}
+            onChange={(e) => {
+              setLimit(Number(e.target.value) as PageSize);
+              setOffset(0);
+            }}
+            className="bg-white border border-slate-200 rounded-md px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            {PAGE_SIZE_OPTIONS.map((n) => (
+              <option key={n} value={n}>
+                {n}건
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       <div className="space-y-2">
         {bills.map((b) => (
           <CouncilBillRow key={b.id} bill={b} />
@@ -122,10 +143,10 @@ export function CouncilBillsTab({
       </div>
       <Pagination
         offset={offset}
-        limit={LIMIT}
+        limit={limit}
         total={total}
-        onPrev={() => setOffset((o) => Math.max(0, o - LIMIT))}
-        onNext={() => setOffset((o) => o + LIMIT)}
+        onPrev={() => setOffset((o) => Math.max(0, o - limit))}
+        onNext={() => setOffset((o) => o + limit)}
       />
     </div>
   );
