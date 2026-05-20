@@ -446,6 +446,77 @@ export default function LegislatorPage() {
             </div>
           )}
 
+          {/* 재산 신고 내역 */}
+          {legislator.assetTotalManwon != null && (
+            <div
+              className="bg-white rounded-2xl p-5 shadow-sm"
+              style={{ border: `1px solid ${BORDER}` }}
+            >
+              <div className="flex items-baseline justify-between flex-wrap gap-2 mb-4">
+                <h2 className="text-base font-bold" style={{ color: PRIMARY }}>
+                  재산 신고 내역
+                </h2>
+                <span className="text-xs" style={{ color: ON_VARIANT }}>
+                  {legislator.assetReportYear
+                    ? `${legislator.assetReportYear}년 정기공개`
+                    : "정기공개"}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                <AssetCell
+                  label="재산 총액"
+                  value={legislator.assetTotalManwon}
+                  accent
+                />
+                {legislator.assetRealEstateManwon != null && (
+                  <AssetCell
+                    label="부동산"
+                    value={legislator.assetRealEstateManwon}
+                  />
+                )}
+                {legislator.assetSecuritiesManwon != null && (
+                  <AssetCell
+                    label="증권"
+                    value={legislator.assetSecuritiesManwon}
+                  />
+                )}
+                {legislator.assetCashManwon != null && (
+                  <AssetCell label="예금" value={legislator.assetCashManwon} />
+                )}
+                {legislator.assetDebtManwon != null && (
+                  <AssetCell
+                    label="채무"
+                    value={legislator.assetDebtManwon}
+                    debt
+                  />
+                )}
+              </div>
+              <div
+                className="flex items-center gap-1.5 text-xs mt-4"
+                style={{ color: "#75777f" }}
+              >
+                <span>출처:</span>
+                {legislator.assetSourceUrl ? (
+                  <a
+                    href={legislator.assetSourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-0.5 hover:underline"
+                    style={{ color: SECONDARY }}
+                  >
+                    {legislator.assetSourceName ?? "opengirok"}
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                ) : (
+                  <span>{legislator.assetSourceName ?? "opengirok"}</span>
+                )}
+                {legislator.assetReportYear && (
+                  <span>({legislator.assetReportYear}년 기준)</span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Tabs */}
           <div
             className="bg-white rounded-2xl overflow-hidden shadow-sm"
@@ -658,6 +729,42 @@ function DisclosurePill({
         </a>
       )}
     </li>
+  );
+}
+
+function AssetCell({
+  label,
+  value,
+  accent,
+  debt,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+  debt?: boolean;
+}) {
+  const formatted = formatManwon(value);
+  return (
+    <div
+      className="rounded-xl p-3"
+      style={{
+        border: `1px solid ${BORDER}`,
+        backgroundColor: accent ? "#eef1f7" : "#fff",
+      }}
+    >
+      <p
+        className="text-[10px] font-bold uppercase tracking-wider mb-1"
+        style={{ color: ON_VARIANT }}
+      >
+        {label}
+      </p>
+      <p
+        className="text-sm font-bold tabular-nums leading-tight"
+        style={{ color: debt ? "#dc2626" : PRIMARY }}
+      >
+        {formatted}
+      </p>
+    </div>
   );
 }
 
