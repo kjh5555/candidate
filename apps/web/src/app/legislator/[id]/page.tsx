@@ -9,7 +9,9 @@ import { getPartyColor } from "@/lib/partyColors";
 import { BillsTab } from "./_components/BillsTab";
 import { VotesTab } from "./_components/VotesTab";
 import { ControversiesTab } from "./_components/ControversiesTab";
-import { CouncilActivitySection } from "./_components/CouncilActivitySection";
+import { CouncilBillsTab } from "./_components/CouncilBillsTab";
+import { CouncilMinutesTab } from "./_components/CouncilMinutesTab";
+import { getCouncilBills, getCouncilMinutes } from "@/lib/api";
 import type { LegislatorDetailDTO } from "@repo/shared";
 import {
   ArrowLeft,
@@ -24,6 +26,7 @@ import {
   FileText,
   Vote as VoteIcon,
   Sparkles,
+  ScrollText,
 } from "lucide-react";
 
 const PRIMARY = "#031635";
@@ -93,9 +96,16 @@ export default function LegislatorPage() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<
-    "bills" | "votes" | "controversies" | "issues"
-  >("bills");
+  type TabValue =
+    | "bills"
+    | "votes"
+    | "council-bills"
+    | "council-minutes"
+    | "controversies"
+    | "issues";
+  const [tab, setTab] = useState<TabValue>("bills");
+  const [billsCount, setBillsCount] = useState<number | null>(null);
+  const [minutesCount, setMinutesCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -116,9 +126,35 @@ export default function LegislatorPage() {
       legislator.level !== "NATIONAL" &&
       (tab === "bills" || tab === "votes")
     ) {
-      setTab("controversies");
+      // 광역·기초는 의정활동(조례안)을 기본 탭으로
+      setTab(legislator.councilName ? "council-bills" : "controversies");
     }
   }, [legislator, tab]);
+
+  // 광역·기초의원: CLIK 데이터 카운트 prefetch (탭 카운트 표시 + hasData 판단용)
+  useEffect(() => {
+    if (!legislator) return;
+    if (legislator.level === "NATIONAL") {
+      setBillsCount(null);
+      setMinutesCount(null);
+      return;
+    }
+    if (!legislator.councilName) return;
+    let cancelled = false;
+    Promise.allSettled([
+      getCouncilBills(legislator.councilName, { limit: 1, offset: 0 }),
+      getCouncilMinutes(legislator.councilName, { limit: 1, offset: 0 }),
+    ]).then(([billsRes, minutesRes]) => {
+      if (cancelled) return;
+      setBillsCount(billsRes.status === "fulfilled" ? billsRes.value.total : 0);
+      setMinutesCount(
+        minutesRes.status === "fulfilled" ? minutesRes.value.total : 0,
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [legislator]);
 
   if (loading) {
     return (
@@ -168,42 +204,66 @@ export default function LegislatorPage() {
 
   const isNational = legislator.level === "NATIONAL";
 
-  const tabs: { value: typeof tab; label: string; icon?: React.ReactNode }[] =
-    isNational
-      ? [
-          {
-            value: "bills",
-            label: "발의 법안",
-            icon: <FileText className="w-3.5 h-3.5" />,
-          },
-          {
-            value: "votes",
-            label: "표결 이력",
-            icon: <VoteIcon className="w-3.5 h-3.5" />,
-          },
-          {
-            value: "controversies",
-            label: "주요 뉴스",
-            icon: <Newspaper className="w-3.5 h-3.5" />,
-          },
-          {
-            value: "issues",
-            label: "논란",
-            icon: <AlertTriangle className="w-3.5 h-3.5" />,
-          },
-        ]
-      : [
-          {
-            value: "controversies",
-            label: "주요 뉴스",
-            icon: <Newspaper className="w-3.5 h-3.5" />,
-          },
-          {
-            value: "issues",
-            label: "논란",
-            icon: <AlertTriangle className="w-3.5 h-3.5" />,
-          },
-        ];
+  const tabs: {
+    value: TabValue;
+    label: string;
+    icon?: React.ReactNode;
+    count?: number;
+  }[] = isNational
+    ? [
+        {
+          value: "bills",
+          label: "발의 법안",
+          icon: <FileText className="w-3.5 h-3.5" />,
+        },
+        {
+          value: "votes",
+          label: "표결 이력",
+          icon: <VoteIcon className="w-3.5 h-3.5" />,
+        },
+        {
+          value: "controversies",
+          label: "주요 뉴스",
+          icon: <Newspaper className="w-3.5 h-3.5" />,
+        },
+        {
+          value: "issues",
+          label: "논란",
+          icon: <AlertTriangle className="w-3.5 h-3.5" />,
+        },
+      ]
+    : [
+        ...(legislator.councilName && (billsCount ?? 0) > 0
+          ? [
+              {
+                value: "council-bills" as TabValue,
+                label: "조례·건의안",
+                icon: <FileText className="w-3.5 h-3.5" />,
+                count: billsCount ?? undefined,
+              },
+            ]
+          : []),
+        ...(legislator.councilName && (minutesCount ?? 0) > 0
+          ? [
+              {
+                value: "council-minutes" as TabValue,
+                label: "회의록",
+                icon: <ScrollText className="w-3.5 h-3.5" />,
+                count: minutesCount ?? undefined,
+              },
+            ]
+          : []),
+        {
+          value: "controversies",
+          label: "주요 뉴스",
+          icon: <Newspaper className="w-3.5 h-3.5" />,
+        },
+        {
+          value: "issues",
+          label: "논란",
+          icon: <AlertTriangle className="w-3.5 h-3.5" />,
+        },
+      ];
 
   return (
     <div className="flex flex-col gap-6">
@@ -549,6 +609,14 @@ export default function LegislatorPage() {
                   >
                     {t.icon}
                     {t.label}
+                    {typeof t.count === "number" && (
+                      <span
+                        className="text-[10px] font-bold ml-0.5"
+                        style={{ color: active ? SECONDARY : "#75777f" }}
+                      >
+                        ({t.count.toLocaleString()})
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -578,6 +646,16 @@ export default function LegislatorPage() {
                 </div>
               ) : tab === "votes" && isNational ? (
                 <VotesTab legislatorId={id} />
+              ) : tab === "council-bills" && legislator.councilName ? (
+                <CouncilBillsTab
+                  rasmblyNm={legislator.councilName}
+                  legislatorName={legislator.name}
+                />
+              ) : tab === "council-minutes" && legislator.councilName ? (
+                <CouncilMinutesTab
+                  rasmblyNm={legislator.councilName}
+                  legislatorName={legislator.name}
+                />
               ) : tab === "controversies" ? (
                 <ControversiesTab
                   legislatorId={id}
@@ -617,14 +695,7 @@ export default function LegislatorPage() {
             </div>
           )}
 
-          {/* 광역·기초: CLIK 의정활동 */}
-          {!isNational && legislator.councilName && (
-            <CouncilActivitySection
-              councilName={legislator.councilName}
-              legislatorName={legislator.name}
-              legislatorLevel={legislator.level as "PROVINCIAL" | "BASIC"}
-            />
-          )}
+          {/* 광역·기초: councilName 없을 때만 안내 카드 (의정활동 데이터는 메인 탭에 통합됨) */}
           {!isNational && !legislator.councilName && (
             <div
               className="bg-white rounded-2xl p-5"
