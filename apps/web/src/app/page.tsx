@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -56,6 +56,11 @@ export default function HomePage() {
   const [levelFilter, setLevelFilter] = useState<
     "ALL" | "NATIONAL" | "PROVINCIAL" | "BASIC"
   >("ALL");
+
+  // 사용자가 폼에서 지역을 새로 선택했을 때만 의원 섹션으로 스크롤.
+  // 페이지 진입 시 localStorage 복원에서는 스크롤하지 않음.
+  const dashboardRef = useRef<HTMLDivElement>(null);
+  const pendingScrollRef = useRef(false);
 
   useEffect(() => {
     const stored = getMyRegion();
@@ -128,7 +133,22 @@ export default function HomePage() {
     if (!selectedSido || !selectedWiw) return;
     setMyRegion(selectedSido, selectedWiw);
     setMyRegionState({ sido: selectedSido, wiwName: selectedWiw });
+    pendingScrollRef.current = true;
   }
+
+  // hub fetch가 끝나고 dashboard가 렌더된 뒤 한 번만 부드럽게 스크롤
+  useEffect(() => {
+    if (!pendingScrollRef.current) return;
+    if (hubLoading) return;
+    if (!hub) return;
+    const node = dashboardRef.current;
+    if (!node) return;
+    pendingScrollRef.current = false;
+    // 다음 paint에서 실행 — 카드 그리드가 페인트된 후 스크롤
+    requestAnimationFrame(() => {
+      node.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [hub, hubLoading]);
 
   const canSubmit = Boolean(selectedSido && selectedWiw);
   const hasRegion = Boolean(myRegion.sido && myRegion.wiwName);
@@ -252,7 +272,10 @@ export default function HomePage() {
       </section>
 
       {hasRegion ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div
+          ref={dashboardRef}
+          className="grid grid-cols-1 lg:grid-cols-12 gap-6 scroll-mt-20"
+        >
           <section className="lg:col-span-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold" style={{ color: PRIMARY }}>
