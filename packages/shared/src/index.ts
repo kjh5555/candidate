@@ -52,6 +52,13 @@ export interface DistrictsResponseDTO {
 
 // ── Legislator ────────────────────────────────────────────────
 
+export interface LegislatorSummaryStatsDTO {
+  // 국회의원에 한해 집계됨 (광역·기초는 null)
+  primaryBills: number | null; // 대표 발의 건수
+  totalVotes: number | null; // 표결 참여 가능 횟수
+  attendanceRate: number | null; // 출석률 (0~100, ABSENT 아닌 비율)
+}
+
 export interface LegislatorSummaryDTO {
   id: string;
   name: string;
@@ -64,6 +71,7 @@ export interface LegislatorSummaryDTO {
   termCount: string | null;
   assemblyAge: number | null;
   councilName: string | null;
+  stats?: LegislatorSummaryStatsDTO | null;
 }
 
 export interface LegislatorCountsDTO {

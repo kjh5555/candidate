@@ -8,7 +8,6 @@ import {
   MapPin,
   Search,
   ArrowRight,
-  Building2,
   Users,
   PieChart,
   Vote,
@@ -16,9 +15,11 @@ import {
   BookOpen,
   Database,
   TrendingUp,
+  ChevronRight,
 } from "lucide-react";
 import { getBasicRegions, getRegionHub } from "@/lib/api";
 import { setMyRegion, getMyRegion } from "@/lib/myRegion";
+import { getPartyColor } from "@/lib/partyColors";
 import type {
   BasicRegionDTO,
   LegislatorSummaryDTO,
@@ -26,6 +27,13 @@ import type {
 } from "@repo/shared";
 
 const ELECTION_DATE = new Date("2026-06-03T00:00:00+09:00");
+const PRIMARY = "#031635";
+const PRIMARY_HOVER = "#0a2150";
+const SECONDARY = "#206298";
+const BORDER = "#e5e7eb";
+const SURFACE = "#f8f9fa";
+const SURFACE_CONTAINER = "#edeeef";
+const ON_VARIANT = "#44474e";
 
 function calcDaysToElection(): number {
   const now = new Date();
@@ -49,7 +57,6 @@ export default function HomePage() {
     "ALL" | "NATIONAL" | "PROVINCIAL" | "BASIC"
   >("ALL");
 
-  // Hydrate from localStorage
   useEffect(() => {
     const stored = getMyRegion();
     if (stored.sido) setSelectedSido(stored.sido);
@@ -57,18 +64,15 @@ export default function HomePage() {
     setMyRegionState(stored);
   }, []);
 
-  // Fetch regions list
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     getBasicRegions()
       .then((res) => {
-        if (cancelled) return;
-        setRegions(res.regions);
+        if (!cancelled) setRegions(res.regions);
       })
       .catch(() => {
-        if (cancelled) return;
-        setRegions([]);
+        if (!cancelled) setRegions([]);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -78,7 +82,6 @@ export default function HomePage() {
     };
   }, []);
 
-  // Fetch region hub if user has region set
   useEffect(() => {
     if (!myRegion.sido || !myRegion.wiwName) {
       setHub(null);
@@ -88,12 +91,10 @@ export default function HomePage() {
     setHubLoading(true);
     getRegionHub(myRegion.sido, myRegion.wiwName)
       .then((res) => {
-        if (cancelled) return;
-        setHub(res);
+        if (!cancelled) setHub(res);
       })
       .catch(() => {
-        if (cancelled) return;
-        setHub(null);
+        if (!cancelled) setHub(null);
       })
       .finally(() => {
         if (!cancelled) setHubLoading(false);
@@ -132,7 +133,6 @@ export default function HomePage() {
   const canSubmit = Boolean(selectedSido && selectedWiw);
   const hasRegion = Boolean(myRegion.sido && myRegion.wiwName);
 
-  // Filtered members
   const filteredMembers: LegislatorSummaryDTO[] = useMemo(() => {
     if (!hub) return [];
     const all = [
@@ -150,31 +150,40 @@ export default function HomePage() {
     <div className="flex flex-col gap-12">
       {/* Hero */}
       <section className="pt-4 sm:pt-8">
-        <p className="text-xs font-bold tracking-widest text-[#b89766] uppercase mb-3">
+        <p
+          className="text-xs font-bold tracking-widest uppercase mb-3"
+          style={{ color: SECONDARY }}
+        >
           내 의원·내 예산 · 시민 거버넌스 허브
         </p>
-        <h1 className="text-3xl sm:text-5xl font-extrabold text-[#031635] leading-tight tracking-tight mb-3">
+        <h1
+          className="text-3xl sm:text-5xl font-extrabold leading-tight tracking-tight mb-3"
+          style={{ color: PRIMARY }}
+        >
           우리 동네 정치를
           <br className="hidden sm:block" /> 한 화면에서.
         </h1>
-        <p className="text-[#5a6473] text-base sm:text-lg leading-relaxed max-w-2xl">
+        <p
+          className="text-base sm:text-lg leading-relaxed max-w-2xl"
+          style={{ color: ON_VARIANT }}
+        >
           내 지역 의원·예산·후보·법안을 5분 안에 확인하고 책무를 확인하세요.
         </p>
 
-        {/* Region selector */}
         <form
           onSubmit={handleSubmit}
-          className="mt-7 bg-white border border-[#e8e4d8] rounded-2xl shadow-sm p-5 max-w-3xl"
+          className="mt-7 bg-white rounded-2xl shadow-sm p-5 max-w-3xl"
+          style={{ border: `1px solid ${BORDER}` }}
         >
           <div className="flex items-center gap-2 mb-4">
-            <MapPin className="w-4 h-4 text-[#031635]" />
-            <p className="text-sm font-semibold text-[#031635]">
+            <MapPin className="w-4 h-4" style={{ color: PRIMARY }} />
+            <p className="text-sm font-semibold" style={{ color: PRIMARY }}>
               {hasRegion ? "내 지역 변경" : "내 지역 선택"}
             </p>
             {hasRegion && (
-              <span className="ml-auto text-xs text-[#5a6473]">
+              <span className="ml-auto text-xs" style={{ color: ON_VARIANT }}>
                 현재:{" "}
-                <b className="text-[#031635]">
+                <b style={{ color: PRIMARY }}>
                   {myRegion.sido} {myRegion.wiwName}
                 </b>
               </span>
@@ -186,7 +195,11 @@ export default function HomePage() {
                 value={selectedSido}
                 onChange={(e) => handleSidoChange(e.target.value)}
                 disabled={loading}
-                className="w-full px-3 py-3 bg-white border border-[#e8e4d8] rounded-xl text-[#031635] outline-none focus:border-[#031635] focus:ring-1 focus:ring-[#031635] disabled:opacity-60"
+                className="w-full px-3 py-3 bg-white rounded-xl outline-none disabled:opacity-60"
+                style={{
+                  color: PRIMARY,
+                  border: `1px solid ${BORDER}`,
+                }}
               >
                 <option value="">시/도 선택</option>
                 {sidoList.map((s) => (
@@ -201,7 +214,11 @@ export default function HomePage() {
                 value={selectedWiw}
                 onChange={(e) => setSelectedWiw(e.target.value)}
                 disabled={!selectedSido || loading}
-                className="w-full px-3 py-3 bg-white border border-[#e8e4d8] rounded-xl text-[#031635] outline-none focus:border-[#031635] focus:ring-1 focus:ring-[#031635] disabled:opacity-60"
+                className="w-full px-3 py-3 bg-white rounded-xl outline-none disabled:opacity-60"
+                style={{
+                  color: PRIMARY,
+                  border: `1px solid ${BORDER}`,
+                }}
               >
                 <option value="">시/군/구 선택</option>
                 {wiwList.map((w) => (
@@ -214,29 +231,37 @@ export default function HomePage() {
             <button
               type="submit"
               disabled={!canSubmit}
-              className="px-6 py-3 bg-[#031635] text-white rounded-xl font-semibold hover:bg-[#0a2150] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all inline-flex items-center justify-center gap-2"
+              className="px-6 py-3 text-white rounded-xl font-semibold active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all inline-flex items-center justify-center gap-2"
+              style={{ backgroundColor: PRIMARY }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.backgroundColor = PRIMARY_HOVER)
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.backgroundColor = PRIMARY)
+              }
             >
               <Search className="w-4 h-4" /> 조회
             </button>
           </div>
         </form>
 
-        <p className="mt-4 text-xs text-[#8a8775]">
+        <p className="mt-4 text-xs" style={{ color: "#75777f" }}>
           286 국회의원 · 872 광역의원 · 3,563 기초의원 · 1,493 후보 ·
           17,151 법안
         </p>
       </section>
 
-      {/* Body — show member dashboard if region set */}
       {hasRegion ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left: Members */}
           <section className="lg:col-span-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-[#031635]">
+              <h2 className="text-xl font-bold" style={{ color: PRIMARY }}>
                 내 지역 의원
               </h2>
-              <div className="flex gap-1 bg-[#ece8dc] rounded-full p-1">
+              <div
+                className="flex gap-1 rounded-full p-1"
+                style={{ backgroundColor: SURFACE_CONTAINER }}
+              >
                 {(
                   [
                     { value: "ALL", label: "전체" },
@@ -248,11 +273,12 @@ export default function HomePage() {
                   <button
                     key={opt.value}
                     onClick={() => setLevelFilter(opt.value)}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                    className="px-3 py-1 rounded-full text-xs font-semibold transition-colors"
+                    style={
                       levelFilter === opt.value
-                        ? "bg-[#031635] text-white"
-                        : "text-[#5a6473] hover:text-[#031635]"
-                    }`}
+                        ? { backgroundColor: PRIMARY, color: "#fff" }
+                        : { color: ON_VARIANT, background: "transparent" }
+                    }
                   >
                     {opt.label}
                   </button>
@@ -265,12 +291,19 @@ export default function HomePage() {
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div
                     key={i}
-                    className="bg-white rounded-2xl border border-[#e8e4d8] h-56 animate-pulse"
+                    className="bg-white rounded-2xl h-72 animate-pulse"
+                    style={{ border: `1px solid ${BORDER}` }}
                   />
                 ))}
               </div>
             ) : filteredMembers.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-[#e8e4d8] p-8 text-center text-sm text-[#5a6473]">
+              <div
+                className="bg-white rounded-2xl p-8 text-center text-sm"
+                style={{
+                  border: `1px solid ${BORDER}`,
+                  color: ON_VARIANT,
+                }}
+              >
                 해당 레벨 의원 정보가 없습니다.
               </div>
             ) : (
@@ -283,9 +316,14 @@ export default function HomePage() {
 
             {/* Bento data cards */}
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-gradient-to-br from-[#031635] to-[#0a2150] text-white rounded-2xl p-6 overflow-hidden relative">
+              <div
+                className="rounded-2xl p-6 overflow-hidden relative text-white"
+                style={{
+                  background: `linear-gradient(135deg, ${PRIMARY}, #1a2b4b)`,
+                }}
+              >
                 <div className="relative z-10">
-                  <p className="text-xs font-bold tracking-wider text-[#b89766] mb-2">
+                  <p className="text-xs font-bold tracking-wider opacity-70 mb-2">
                     내 지역 의정 데이터
                   </p>
                   <p className="text-2xl font-bold leading-snug">
@@ -312,65 +350,97 @@ export default function HomePage() {
                 <Users className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10" />
               </div>
 
-              <div className="bg-white border border-[#e8e4d8] rounded-2xl p-6">
+              <div
+                className="bg-white rounded-2xl p-6"
+                style={{ border: `1px solid ${BORDER}` }}
+              >
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-bold tracking-wider text-[#5a6473]">
+                  <p
+                    className="text-xs font-bold tracking-wider"
+                    style={{ color: ON_VARIANT }}
+                  >
                     최신 데이터 적재 현황
                   </p>
-                  <TrendingUp className="w-4 h-4 text-[#b89766]" />
+                  <TrendingUp className="w-4 h-4" style={{ color: SECONDARY }} />
                 </div>
                 <ul className="space-y-2 text-sm">
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#b89766]" />
-                    <span className="text-[#031635] flex-1">기초의원 사진</span>
-                    <span className="text-xs font-semibold text-[#5a6473]">
-                      매일 +400명
-                    </span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#031635]" />
-                    <span className="text-[#031635] flex-1">9회 지선 후보</span>
-                    <span className="text-xs font-semibold text-[#5a6473]">
-                      1,493명
-                    </span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#0a2150]" />
-                    <span className="text-[#031635] flex-1">법안 표결</span>
-                    <span className="text-xs font-semibold text-[#5a6473]">
-                      450k건
-                    </span>
-                  </li>
+                  {[
+                    { label: "기초의원 사진", note: "매일 +400명", dot: SECONDARY },
+                    {
+                      label: "9회 지선 후보",
+                      note: "1,493명",
+                      dot: PRIMARY,
+                    },
+                    {
+                      label: "법안 표결",
+                      note: "450k건",
+                      dot: "#8bc3fe",
+                    },
+                  ].map((row) => (
+                    <li key={row.label} className="flex items-center gap-2">
+                      <span
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: row.dot }}
+                      />
+                      <span className="flex-1" style={{ color: PRIMARY }}>
+                        {row.label}
+                      </span>
+                      <span
+                        className="text-xs font-semibold"
+                        style={{ color: ON_VARIANT }}
+                      >
+                        {row.note}
+                      </span>
+                    </li>
+                  ))}
                 </ul>
               </div>
             </div>
           </section>
 
-          {/* Right: Sidebar */}
           <aside className="lg:col-span-4 space-y-6">
-            {/* Budget widget */}
-            <div className="bg-white border border-[#e8e4d8] rounded-2xl p-6">
+            <div
+              className="bg-white rounded-2xl p-6"
+              style={{ border: `1px solid ${BORDER}` }}
+            >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-[#031635]">우리 지역 예산</h3>
-                <PieChart className="w-4 h-4 text-[#8a8775]" />
+                <h3 className="font-bold" style={{ color: PRIMARY }}>
+                  우리 지역 예산
+                </h3>
+                <PieChart className="w-4 h-4" style={{ color: "#75777f" }} />
               </div>
               {hub?.settlement && hub.settlement.items.length > 0 ? (
                 <BudgetWidget settlement={hub.settlement} />
               ) : (
-                <p className="text-sm text-[#5a6473] py-6 text-center">
+                <p
+                  className="text-sm py-6 text-center"
+                  style={{ color: ON_VARIANT }}
+                >
                   결산 데이터가 아직 적재되지 않았습니다.
                 </p>
               )}
             </div>
 
-            {/* Election widget */}
-            <div className="bg-white border border-[#e8e4d8] rounded-2xl p-6">
+            <div
+              className="bg-white rounded-2xl p-6"
+              style={{ border: `1px solid ${BORDER}` }}
+            >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-[#031635]">다가오는 선거</h3>
-                <CalendarDays className="w-4 h-4 text-[#8a8775]" />
+                <h3 className="font-bold" style={{ color: PRIMARY }}>
+                  다가오는 선거
+                </h3>
+                <CalendarDays
+                  className="w-4 h-4"
+                  style={{ color: "#75777f" }}
+                />
               </div>
-              <div className="bg-[#031635] text-white rounded-xl p-4 mb-3 relative overflow-hidden">
-                <p className="text-xs font-bold tracking-wider text-[#b89766] mb-0.5">
+              <div
+                className="text-white rounded-xl p-4 mb-3 relative overflow-hidden"
+                style={{
+                  background: `linear-gradient(135deg, ${PRIMARY}, #1a2b4b)`,
+                }}
+              >
+                <p className="text-xs font-bold tracking-wider opacity-80 mb-0.5">
                   D-{daysToElection}
                 </p>
                 <p className="font-bold">제9회 전국동시지방선거</p>
@@ -380,78 +450,90 @@ export default function HomePage() {
               <div className="space-y-2">
                 <Link
                   href={`/candidates?electionId=20260603&sido=${encodeURIComponent(myRegion.sido ?? "")}&wiwName=${encodeURIComponent(myRegion.wiwName ?? "")}`}
-                  className="flex items-center justify-between p-3 hover:bg-[#f7f5ee] rounded-xl border border-[#e8e4d8] transition-colors"
+                  className="flex items-center justify-between p-3 rounded-xl hover:bg-[#f3f4f5] transition-colors"
+                  style={{ border: `1px solid ${BORDER}` }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-[#031635]/10 flex items-center justify-center">
-                      <Vote className="w-4 h-4 text-[#031635]" />
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: "#eef1f7" }}
+                    >
+                      <Vote
+                        className="w-4 h-4"
+                        style={{ color: SECONDARY }}
+                      />
                     </div>
-                    <span className="text-sm font-semibold text-[#031635]">
+                    <span
+                      className="text-sm font-semibold"
+                      style={{ color: PRIMARY }}
+                    >
                       내 지역 후보 보기
                     </span>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-[#8a8775]" />
+                  <ChevronRight
+                    className="w-4 h-4"
+                    style={{ color: "#75777f" }}
+                  />
                 </Link>
                 <Link
                   href="/about"
-                  className="flex items-center justify-between p-3 hover:bg-[#f7f5ee] rounded-xl border border-[#e8e4d8] transition-colors"
+                  className="flex items-center justify-between p-3 rounded-xl hover:bg-[#f3f4f5] transition-colors"
+                  style={{ border: `1px solid ${BORDER}` }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-[#b89766]/15 flex items-center justify-center">
-                      <BookOpen className="w-4 h-4 text-[#b89766]" />
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: "#eef1f7" }}
+                    >
+                      <BookOpen
+                        className="w-4 h-4"
+                        style={{ color: SECONDARY }}
+                      />
                     </div>
-                    <span className="text-sm font-semibold text-[#031635]">
+                    <span
+                      className="text-sm font-semibold"
+                      style={{ color: PRIMARY }}
+                    >
                       뭘 뽑는지 알아보기
                     </span>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-[#8a8775]" />
+                  <ChevronRight
+                    className="w-4 h-4"
+                    style={{ color: "#75777f" }}
+                  />
                 </Link>
               </div>
             </div>
           </aside>
         </div>
       ) : (
-        // No region: feature cards
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Link
+          <FeatureCard
             href="/about"
-            className="group flex flex-col gap-3 bg-white border border-[#e8e4d8] rounded-2xl p-6 hover:border-[#031635] hover:shadow-md transition-all"
-          >
-            <div className="w-11 h-11 rounded-xl bg-[#031635]/10 flex items-center justify-center">
-              <BookOpen className="w-5 h-5 text-[#031635]" />
-            </div>
-            <p className="font-bold text-[#031635]">제도 알아보기</p>
-            <p className="text-sm text-[#5a6473] leading-relaxed">
-              국회의원·광역·기초의원이 무엇을 하는지, 지방선거에서 무엇을
-              뽑는지 알아보세요.
-            </p>
-          </Link>
-          <Link
+            icon={<BookOpen className="w-5 h-5" style={{ color: PRIMARY }} />}
+            title="제도 알아보기"
+            desc="국회의원·광역·기초의원이 무엇을 하는지, 지방선거에서 무엇을 뽑는지 알아보세요."
+          />
+          <FeatureCard
             href="/budget"
-            className="group flex flex-col gap-3 bg-white border border-[#e8e4d8] rounded-2xl p-6 hover:border-[#b89766] hover:shadow-md transition-all"
-          >
-            <div className="w-11 h-11 rounded-xl bg-[#b89766]/15 flex items-center justify-center">
-              <PieChart className="w-5 h-5 text-[#b89766]" />
-            </div>
-            <p className="font-bold text-[#031635]">전체 예산 보기</p>
-            <p className="text-sm text-[#5a6473] leading-relaxed">
-              국가·광역·기초 예산이 어디에 얼마나 쓰이는지 분야별로 확인하세요.
-            </p>
-          </Link>
-          <Link
+            icon={<PieChart className="w-5 h-5" style={{ color: SECONDARY }} />}
+            title="전체 예산 보기"
+            desc="국가·광역·기초 예산이 어디에 얼마나 쓰이는지 분야별로 확인하세요."
+            iconBg="#eef1f7"
+          />
+          <FeatureCard
             href="/candidates"
-            className="group flex flex-col gap-3 bg-white border border-[#e8e4d8] rounded-2xl p-6 hover:border-[#031635] hover:shadow-md transition-all"
+            icon={<Vote className="w-5 h-5" style={{ color: PRIMARY }} />}
+            title="9회 지선 후보 검색"
+            desc="2026.6.3 시·도지사·시장·군수·구청장 후보의 전과·재산·공약."
+          />
+          <div
+            className="sm:col-span-3 flex items-center gap-3 text-white rounded-2xl p-5"
+            style={{
+              background: `linear-gradient(135deg, ${PRIMARY}, #1a2b4b)`,
+            }}
           >
-            <div className="w-11 h-11 rounded-xl bg-[#031635]/10 flex items-center justify-center">
-              <Vote className="w-5 h-5 text-[#031635]" />
-            </div>
-            <p className="font-bold text-[#031635]">9회 지선 후보 검색</p>
-            <p className="text-sm text-[#5a6473] leading-relaxed">
-              2026.6.3 시·도지사·시장·군수·구청장 후보의 전과·재산·공약.
-            </p>
-          </Link>
-          <div className="sm:col-span-3 flex items-center gap-3 bg-[#031635] text-white rounded-2xl p-5">
-            <Database className="w-5 h-5 text-[#b89766] shrink-0" />
+            <Database className="w-5 h-5 shrink-0 opacity-80" />
             <p className="text-sm leading-relaxed opacity-90">
               국회·NEC·지방재정365·CLIK·공공데이터포털 기반 비영리 시민
               정보 서비스. 모든 데이터는 원본 출처와 함께 표시됩니다.
@@ -463,6 +545,41 @@ export default function HomePage() {
   );
 }
 
+function FeatureCard({
+  href,
+  icon,
+  title,
+  desc,
+  iconBg = "#eef1f7",
+}: {
+  href: string;
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  iconBg?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex flex-col gap-3 bg-white rounded-2xl p-6 hover:shadow-md transition-all"
+      style={{ border: `1px solid ${BORDER}` }}
+    >
+      <div
+        className="w-11 h-11 rounded-xl flex items-center justify-center"
+        style={{ backgroundColor: iconBg }}
+      >
+        {icon}
+      </div>
+      <p className="font-bold" style={{ color: PRIMARY }}>
+        {title}
+      </p>
+      <p className="text-sm leading-relaxed" style={{ color: ON_VARIANT }}>
+        {desc}
+      </p>
+    </Link>
+  );
+}
+
 function MemberCard({ m }: { m: LegislatorSummaryDTO }) {
   const levelLabel =
     m.level === "NATIONAL"
@@ -470,56 +587,132 @@ function MemberCard({ m }: { m: LegislatorSummaryDTO }) {
       : m.level === "PROVINCIAL"
         ? "광역의원"
         : "기초의원";
-  const badgeClass =
+  const levelBg =
     m.level === "NATIONAL"
-      ? "bg-[#031635] text-white"
+      ? SECONDARY
       : m.level === "PROVINCIAL"
-        ? "bg-[#0a2150] text-white"
-        : "bg-[#b89766] text-white";
+        ? PRIMARY
+        : "#5a6473";
+  const partyColor = getPartyColor(m.party);
+  const stats = m.stats ?? null;
 
   return (
-    <Link
-      href={`/legislator/${m.id}`}
-      className="group bg-white border border-[#e8e4d8] rounded-2xl overflow-hidden hover:shadow-lg hover:border-[#031635] transition-all"
+    <div
+      className="group bg-white rounded-2xl overflow-hidden hover:shadow-lg transition-all flex flex-col"
+      style={{
+        border: `1px solid ${BORDER}`,
+        borderLeft: `4px solid ${partyColor.hex}`,
+      }}
     >
-      <div className="relative h-44 bg-[#ece8dc] overflow-hidden">
-        {m.photoUrl ? (
-          <Image
-            src={m.photoUrl}
-            alt={m.name}
-            fill
-            sizes="(max-width: 640px) 100vw, 50vw"
-            className="object-cover group-hover:scale-105 transition-transform duration-500"
-            unoptimized
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-[#c9c4b3]">
-            <Users className="w-16 h-16" />
-          </div>
-        )}
-        <span
-          className={`absolute top-3 left-3 text-[10px] font-bold px-2 py-0.5 rounded ${badgeClass}`}
+      <Link href={`/legislator/${m.id}`} className="block">
+        <div
+          className="relative h-44 overflow-hidden"
+          style={{ backgroundColor: SURFACE_CONTAINER }}
         >
-          {levelLabel}
-        </span>
-      </div>
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <h3 className="font-bold text-[#031635]">{m.name}</h3>
+          {m.photoUrl ? (
+            <Image
+              src={m.photoUrl}
+              alt={m.name}
+              fill
+              sizes="(max-width: 640px) 100vw, 50vw"
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
+              unoptimized
+            />
+          ) : (
+            <div
+              className="w-full h-full flex items-center justify-center"
+              style={{ color: "#c5c6cf" }}
+            >
+              <Users className="w-16 h-16" />
+            </div>
+          )}
+          <span
+            className="absolute top-3 left-3 text-[10px] font-bold px-2 py-0.5 rounded text-white"
+            style={{ backgroundColor: levelBg }}
+          >
+            {levelLabel}
+          </span>
+        </div>
+      </Link>
+      <div className="p-4 flex flex-col gap-3 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="font-bold truncate" style={{ color: PRIMARY }}>
+              {m.name}
+            </h3>
+            <p className="text-xs truncate" style={{ color: ON_VARIANT }}>
+              {m.electoralDistrictName ?? m.councilName ?? "—"}
+            </p>
+          </div>
           {m.party && (
-            <span className="text-[10px] text-[#5a6473] bg-[#f7f5ee] px-2 py-0.5 rounded-full shrink-0">
+            <span
+              className={`text-[10px] font-semibold px-2 py-0.5 rounded shrink-0 ${partyColor.bg} ${partyColor.text}`}
+            >
               {m.party}
             </span>
           )}
         </div>
-        <p className="text-xs text-[#5a6473] truncate">
-          {m.electoralDistrictName ?? m.councilName ?? "—"}
-        </p>
-        {m.committee && (
-          <p className="text-xs text-[#8a8775] mt-1 truncate">{m.committee}</p>
+
+        {stats && (stats.primaryBills !== null || stats.attendanceRate !== null) ? (
+          <div className="grid grid-cols-2 gap-2">
+            <div
+              className="rounded-lg p-2"
+              style={{ backgroundColor: SURFACE_CONTAINER }}
+            >
+              <p
+                className="text-[10px] font-bold uppercase tracking-wide"
+                style={{ color: ON_VARIANT }}
+              >
+                대표 발의
+              </p>
+              <p
+                className="text-lg font-extrabold tabular-nums"
+                style={{ color: PRIMARY }}
+              >
+                {stats.primaryBills ?? "—"}건
+              </p>
+            </div>
+            <div
+              className="rounded-lg p-2"
+              style={{ backgroundColor: SURFACE_CONTAINER }}
+            >
+              <p
+                className="text-[10px] font-bold uppercase tracking-wide"
+                style={{ color: ON_VARIANT }}
+              >
+                출석률
+              </p>
+              <p
+                className="text-lg font-extrabold tabular-nums"
+                style={{ color: PRIMARY }}
+              >
+                {stats.attendanceRate !== null
+                  ? `${stats.attendanceRate.toFixed(1)}%`
+                  : "—"}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p
+            className="text-xs truncate"
+            style={{ color: "#75777f" }}
+          >
+            {m.committee ?? ""}
+          </p>
         )}
+
+        <Link
+          href={`/legislator/${m.id}`}
+          className="mt-auto w-full text-center py-2 rounded font-semibold text-xs hover:bg-[#f3f4f5] transition-colors"
+          style={{
+            color: PRIMARY,
+            border: `1px solid ${BORDER}`,
+          }}
+        >
+          상세 활동 보기
+        </Link>
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -533,18 +726,18 @@ function BudgetWidget({
   const others = settlement.items.slice(3);
   const otherSum = others.reduce((a, b) => a + b.percent, 0);
 
-  // Build conic gradient (navy + warm gold + cream palette)
-  const colors = ["#031635", "#0a2150", "#b89766", "#d9c79a"];
+  const colors = [PRIMARY, SECONDARY, "#8bc3fe", "#c5c6cf"];
   let acc = 0;
   const segments: string[] = [];
   const allItems = [...top.map((t, i) => ({ ...t, color: colors[i] }))];
-  if (otherSum > 0)
+  if (otherSum > 0) {
     allItems.push({
       field: "기타",
       amount: "0",
       percent: otherSum,
       color: colors[3],
     });
+  }
   for (const s of allItems) {
     segments.push(`${s.color} ${acc}% ${acc + s.percent}%`);
     acc += s.percent;
@@ -558,10 +751,13 @@ function BudgetWidget({
         style={{ background: conic }}
       >
         <div className="absolute inset-6 bg-white rounded-full flex flex-col items-center justify-center">
-          <p className="text-[10px] font-semibold text-[#b89766] uppercase tracking-widest">
+          <p
+            className="text-[10px] font-semibold uppercase tracking-widest"
+            style={{ color: ON_VARIANT }}
+          >
             총결산
           </p>
-          <p className="text-lg font-extrabold text-[#031635]">
+          <p className="text-lg font-extrabold" style={{ color: PRIMARY }}>
             {settlement.fiscalYear}년
           </p>
         </div>
@@ -574,9 +770,14 @@ function BudgetWidget({
                 className="w-2.5 h-2.5 rounded-full shrink-0"
                 style={{ background: item.color }}
               />
-              <span className="text-[#031635] truncate">{item.field}</span>
+              <span className="truncate" style={{ color: PRIMARY }}>
+                {item.field}
+              </span>
             </div>
-            <span className="font-semibold text-[#031635] tabular-nums">
+            <span
+              className="font-semibold tabular-nums"
+              style={{ color: PRIMARY }}
+            >
               {item.percent.toFixed(1)}%
             </span>
           </li>

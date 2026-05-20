@@ -15,6 +15,7 @@ import type {
   CandidateStatus,
   CandidateSummaryDTO,
   LegislatorSummaryDTO,
+  LegislatorSummaryStatsDTO,
   RegionHubDTO,
   RegionHubSettlementItemDTO,
 } from "@repo/shared";
@@ -109,7 +110,10 @@ type LegislatorSummaryRow = Prisma.LegislatorGetPayload<{
   select: typeof SUMMARY_SELECT;
 }>;
 
-function rowToLegislatorSummary(row: LegislatorSummaryRow): LegislatorSummaryDTO {
+function rowToLegislatorSummary(
+  row: LegislatorSummaryRow,
+  stats: LegislatorSummaryStatsDTO | null = null,
+): LegislatorSummaryDTO {
   return {
     id: row.id,
     name: row.name,
@@ -122,6 +126,7 @@ function rowToLegislatorSummary(row: LegislatorSummaryRow): LegislatorSummaryDTO
     termCount: row.termCount,
     assemblyAge: row.assemblyAge,
     councilName: row.councilName,
+    stats,
   };
 }
 
@@ -230,6 +235,47 @@ export async function getRegionHub(
     select: SUMMARY_SELECT,
     orderBy: [{ name: "asc" }],
   });
+
+  // NATIONAL 통계 (대표발의 건수 + 출석률) — 카드 노출용
+  // 광역·기초는 표결 데이터가 없으므로 null
+  const nationalIds = nationalRows.map((r) => r.id);
+  const nationalStats = new Map<
+    string,
+    { primaryBills: number; totalVotes: number; absentVotes: number }
+  >();
+  if (nationalIds.length > 0) {
+    const [billGroups, voteGroups] = await Promise.all([
+      // 대표 발의 (BillProposer.role === "PRIMARY")
+      prisma.billProposer.groupBy({
+        by: ["legislatorId"],
+        where: { legislatorId: { in: nationalIds }, role: "PRIMARY" },
+        _count: { _all: true },
+      }),
+      // 표결 — 결과별로 카운트
+      prisma.vote.groupBy({
+        by: ["legislatorId", "result"],
+        where: { legislatorId: { in: nationalIds } },
+        _count: { _all: true },
+      }),
+    ]);
+    for (const id of nationalIds) {
+      nationalStats.set(id, {
+        primaryBills: 0,
+        totalVotes: 0,
+        absentVotes: 0,
+      });
+    }
+    for (const b of billGroups) {
+      const s = nationalStats.get(b.legislatorId);
+      if (s) s.primaryBills = b._count._all;
+    }
+    for (const v of voteGroups) {
+      const s = nationalStats.get(v.legislatorId);
+      if (!s) continue;
+      s.totalVotes += v._count._all;
+      if (v.result === "ABSENT") s.absentVotes += v._count._all;
+    }
+  }
 
   // ── 2. 광역의원 (PROVINCIAL) ─────────────────────────────────────────
   // region (Legislator.region == sido)으로 시·도 단위 제약 + wiwName 매칭은
@@ -345,9 +391,26 @@ export async function getRegionHub(
     sido,
     wiwName,
     legislators: {
-      national: nationalRows.map(rowToLegislatorSummary),
-      provincial: provincialRows.map(rowToLegislatorSummary),
-      basic: basicRows.map(rowToLegislatorSummary),
+      national: nationalRows.map((r) => {
+        const raw = nationalStats.get(r.id);
+        const stats: LegislatorSummaryStatsDTO | null = raw
+          ? {
+              primaryBills: raw.primaryBills,
+              totalVotes: raw.totalVotes,
+              attendanceRate:
+                raw.totalVotes > 0
+                  ? Math.round(
+                      ((raw.totalVotes - raw.absentVotes) /
+                        raw.totalVotes) *
+                        1000,
+                    ) / 10
+                  : null,
+            }
+          : null;
+        return rowToLegislatorSummary(r, stats);
+      }),
+      provincial: provincialRows.map((r) => rowToLegislatorSummary(r, null)),
+      basic: basicRows.map((r) => rowToLegislatorSummary(r, null)),
     },
     settlement,
     candidates: {
