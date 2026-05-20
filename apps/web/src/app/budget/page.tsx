@@ -379,11 +379,14 @@ function BudgetPageInner() {
   }, [setYear, setSido]);
 
   // Reset unit selection when sido or year changes.
-  // 단, 페이지 진입 시 query string으로 unitCode를 받은 첫 실행은 skip.
-  const skipUnitResetRef = useRef(searchParams.get("unitCode") !== null);
+  // 페이지 진입 시 query string에 unitCode가 있으면 mount + setYear가
+  // null→number로 채워지는 첫 두 번의 effect 실행을 모두 skip.
+  const skipUnitResetCountRef = useRef(
+    searchParams.get("unitCode") !== null ? 2 : 0,
+  );
   useEffect(() => {
-    if (skipUnitResetRef.current) {
-      skipUnitResetRef.current = false;
+    if (skipUnitResetCountRef.current > 0) {
+      skipUnitResetCountRef.current -= 1;
       return;
     }
     setSetUnitCode(ALL_UNITS_KEY);
