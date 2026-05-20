@@ -47,34 +47,49 @@ export default async function MinutesPage({ params }: MinutesPageProps) {
       </Link>
 
       {/* Header */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6">
+      <div className="bg-white rounded-2xl p-5" style={{ border: "1px solid #e5e7eb" }}>
         <div className="flex flex-wrap items-center gap-2 mb-3">
-          <span className="inline-flex items-center gap-1 text-xs text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+          <span
+            className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full"
+            style={{ backgroundColor: "#eef1f7", color: "#031635" }}
+          >
             <Building2 className="w-3 h-3" />
             {detail.rasmblyNm}
           </span>
           {detail.sesn && (
-            <span className="text-xs text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+            <span
+              className="text-xs font-semibold px-2.5 py-1 rounded-full"
+              style={{ backgroundColor: "#d0e4ff", color: "#005084" }}
+            >
               제{detail.sesn}회
             </span>
           )}
           {detail.numpr && (
-            <span className="text-xs text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+            <span
+              className="text-xs font-semibold px-2.5 py-1 rounded-full"
+              style={{ backgroundColor: "#edeeef", color: "#44474e" }}
+            >
               제{detail.numpr}차
             </span>
           )}
           {isTemp && (
-            <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full border border-amber-200">
+            <span
+              className="text-xs font-medium px-2.5 py-1 rounded-full"
+              style={{ backgroundColor: "#ffe7c2", color: "#7d2c1c" }}
+            >
               임시
             </span>
           )}
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 mb-3 leading-snug">
+        <h1
+          className="text-2xl sm:text-3xl font-extrabold mb-3 leading-tight"
+          style={{ color: "#031635" }}
+        >
           {cleanMtgNm}
         </h1>
         <div className="flex flex-wrap items-center gap-4 text-sm">
           {detail.mtgDe && (
-            <span className="inline-flex items-center gap-1.5 text-slate-600">
+            <span className="inline-flex items-center gap-1.5" style={{ color: "#44474e" }}>
               <Calendar className="w-4 h-4" />
               {detail.mtgDe}
             </span>
@@ -84,7 +99,8 @@ export default async function MinutesPage({ params }: MinutesPageProps) {
               href={detail.viewUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-blue-600 hover:underline"
+              className="inline-flex items-center gap-1 text-xs hover:underline"
+              style={{ color: "#206298" }}
             >
               CLIK 원본 보기
               <ExternalLink className="w-3 h-3" />

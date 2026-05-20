@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import {
-  FileText,
   MessageSquare,
   Sparkles,
   ChevronDown,
@@ -10,7 +9,6 @@ import {
   Loader2,
   AlertCircle,
   ListOrdered,
-  Hash,
 } from "lucide-react";
 import Image from "next/image";
 import {
@@ -31,7 +29,6 @@ export function MinutesViewer({ initial }: MinutesViewerProps) {
   const [bodyError, setBodyError] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
-  const [showFullBody, setShowFullBody] = useState(false);
   const [openSpeaker, setOpenSpeaker] = useState<string | null>(null);
   // 발언자 이름 → 사진 URL 매핑 (없는 의원은 누락. 채팅 아바타용)
   const [speakerPhotos, setSpeakerPhotos] = useState<Record<string, string>>({});
@@ -115,195 +112,308 @@ export function MinutesViewer({ initial }: MinutesViewerProps) {
 
   const hasBody = !!data.bodyText && data.bodyText.length > 0;
   const hasAi = !!data.aiSummary;
+  const PRIMARY = "#031635";
+  const SECONDARY = "#206298";
+  const BORDER = "#e5e7eb";
+  const ON_VARIANT = "#44474e";
+
+  // 참석자 아바타 (사진 있는 발언자 우선 3명)
+  const speakersWithPhoto = data.speakers.filter((s) => speakerPhotos[s.name]);
+  const avatars = speakersWithPhoto.slice(0, 3);
+  const restCount = Math.max(0, data.speakers.length - avatars.length);
 
   return (
     <div className="flex flex-col gap-6">
-      {/* ── AI 요약 ─────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
-          <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0">
-            <Sparkles className="w-5 h-5 text-blue-600" />
-          </div>
+      {/* ── Hero: AI 요약 + 참석자 ──────────────────────── */}
+      <section
+        className="bg-white rounded-2xl p-5"
+        style={{ border: `1px solid ${BORDER}` }}
+      >
+        <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-slate-900">AI 요약</h3>
-              <span className="text-[10px] font-medium bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
-                BETA
+            <div className="flex items-center gap-2 text-xs mb-2">
+              <span style={{ color: ON_VARIANT }}>참석자</span>
+              <div className="flex -space-x-2">
+                {avatars.length === 0 ? (
+                  <span style={{ color: "#75777f" }}>—</span>
+                ) : (
+                  avatars.map((s) => (
+                    <div
+                      key={s.name}
+                      className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 border-2 border-white relative"
+                    >
+                      {speakerPhotos[s.name] && (
+                        <Image
+                          src={speakerPhotos[s.name]!}
+                          alt={s.name}
+                          fill
+                          sizes="28px"
+                          className="object-cover"
+                          unoptimized
+                        />
+                      )}
+                    </div>
+                  ))
+                )}
+                {restCount > 0 && (
+                  <div
+                    className="w-7 h-7 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-bold"
+                    style={{
+                      backgroundColor: "#e1e3e4",
+                      color: ON_VARIANT,
+                    }}
+                  >
+                    +{restCount}
+                  </div>
+                )}
+              </div>
+              <span style={{ color: ON_VARIANT }}>
+                총 {data.speakers.length}명
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Gemini가 회의록 본문을 분석해 요약·발언자별 발언·핵심 주제를 생성합니다.
-            </p>
-          </div>
-          {hasAi && (
-            <button
-              type="button"
-              onClick={handleAnalyze}
-              disabled={aiLoading}
-              className="text-xs text-slate-500 hover:text-blue-700 hover:underline disabled:opacity-50 shrink-0"
-            >
-              다시 분석
-            </button>
-          )}
-        </div>
-
-        <div className="px-5 py-4">
-          {/* 본문 없음 → 본문 먼저 */}
-          {!hasBody && !bodyLoading && (
-            <div className="text-sm text-slate-500">
-              본문을 먼저 가져와야 분석할 수 있습니다.
-              <button
-                type="button"
-                onClick={() => handleFetchBody()}
-                className="ml-2 text-blue-600 hover:underline"
-              >
-                본문 가져오기
-              </button>
-            </div>
-          )}
-
-          {/* 본문 로딩 */}
-          {bodyLoading && (
-            <div className="flex items-center gap-3 text-sm text-slate-600">
-              <Loader2 className="w-5 h-5 text-blue-600 animate-spin shrink-0" />
-              <span>CLIK에서 회의록 본문을 가져오는 중...</span>
-            </div>
-          )}
-
-          {/* 본문 에러 */}
-          {bodyError && !bodyLoading && (
-            <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-red-700">{bodyError}</p>
-                <button
-                  type="button"
-                  onClick={() => handleFetchBody()}
-                  className="mt-2 text-xs font-medium text-red-700 hover:text-red-900 underline"
+            {hasAi && data.aiKeyTopics.length > 0 && (
+              <div>
+                <div
+                  className="text-[10px] font-bold uppercase tracking-widest mb-1.5"
+                  style={{ color: SECONDARY }}
                 >
-                  다시 시도
-                </button>
+                  핵심 주제
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {data.aiKeyTopics.map((t) => (
+                    <span
+                      key={t}
+                      className="text-xs px-2.5 py-1 rounded-full"
+                      style={{
+                        backgroundColor: "#eef1f7",
+                        color: PRIMARY,
+                        border: `1px solid ${BORDER}`,
+                      }}
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-
-          {/* 본문 있음, AI 없음 → 분석 CTA */}
-          {hasBody && !hasAi && !aiLoading && !aiError && (
-            <div className="flex flex-col items-start gap-3">
-              <p className="text-sm text-slate-700">
-                회의록 본문이 준비되었습니다. AI 분석을 시작하시겠습니까? (5~15초)
-              </p>
+            )}
+            {!hasAi && hasBody && !aiLoading && !aiError && (
               <button
                 type="button"
                 onClick={handleAnalyze}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-white hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: PRIMARY }}
               >
-                <Sparkles className="w-4 h-4" />
-                분석하기
+                <Sparkles className="w-3.5 h-3.5" /> AI 분석 시작
               </button>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* AI 로딩 */}
-          {aiLoading && (
-            <div className="flex items-center gap-3 text-sm text-slate-600">
-              <Loader2 className="w-5 h-5 text-blue-600 animate-spin shrink-0" />
-              <span>Gemini가 회의록을 분석 중... (보통 5~15초)</span>
+          {/* AI Summary 다크 카드 */}
+          <div
+            className="lg:w-1/3 text-white p-4 rounded-xl relative overflow-hidden"
+            style={{
+              background: `linear-gradient(135deg, ${PRIMARY}, #1a2b4b)`,
+            }}
+          >
+            <Sparkles className="absolute top-3 right-3 w-12 h-12 opacity-10" />
+            <div className="flex items-center gap-1.5 mb-2">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span className="text-[10px] font-bold uppercase tracking-widest opacity-80">
+                Gemini AI Summary
+              </span>
             </div>
-          )}
+            {bodyLoading && (
+              <div className="flex items-center gap-2 text-xs opacity-90">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                회의록 본문 수집 중…
+              </div>
+            )}
+            {aiLoading && (
+              <div className="flex items-center gap-2 text-xs opacity-90">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Gemini 분석 중 (5~15초)
+              </div>
+            )}
+            {bodyError && (
+              <div className="flex items-start gap-2 text-xs">
+                <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                <div>
+                  <p className="opacity-90">{bodyError}</p>
+                  <button
+                    type="button"
+                    onClick={() => handleFetchBody()}
+                    className="underline text-xs mt-1"
+                  >
+                    다시 시도
+                  </button>
+                </div>
+              </div>
+            )}
+            {aiError && (
+              <div className="flex items-start gap-2 text-xs">
+                <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                <div>
+                  <p className="opacity-90">{aiError}</p>
+                  <button
+                    type="button"
+                    onClick={handleAnalyze}
+                    className="underline text-xs mt-1"
+                  >
+                    다시 시도
+                  </button>
+                </div>
+              </div>
+            )}
+            {hasAi && !aiLoading && (
+              <p className="text-xs leading-relaxed whitespace-pre-wrap opacity-95">
+                {data.aiSummary}
+              </p>
+            )}
+            {!hasAi && !aiLoading && !aiError && !bodyLoading && !bodyError && (
+              <p className="text-xs opacity-70 leading-relaxed">
+                본문이 준비되면 자동으로 분석을 시작합니다.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
 
-          {/* AI 에러 */}
-          {aiError && !aiLoading && (
-            <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-red-700">{aiError}</p>
+      {/* ── 2-col: 채팅 + 사이드 ────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* 좌: 채팅 본문 */}
+        <div
+          className="lg:col-span-8 bg-white rounded-2xl overflow-hidden flex flex-col"
+          style={{ border: `1px solid ${BORDER}` }}
+        >
+          <div
+            className="p-3 flex items-center justify-between"
+            style={{
+              backgroundColor: "#edeeef",
+              borderBottom: `1px solid ${BORDER}`,
+            }}
+          >
+            <span
+              className="text-xs font-bold inline-flex items-center gap-2"
+              style={{ color: PRIMARY }}
+            >
+              <span
+                className="w-2 h-2 rounded-full animate-pulse"
+                style={{ backgroundColor: "#ba1a1a" }}
+              />
+              실시간 대화 흐름
+            </span>
+            <span className="text-xs" style={{ color: ON_VARIANT }}>
+              {hasBody
+                ? `${data.bodyText!.length.toLocaleString()}자`
+                : "본문 준비 중"}
+            </span>
+          </div>
+          <div className="p-4 max-h-[calc(100vh-200px)] min-h-[500px] overflow-y-auto">
+            {hasBody ? (
+              <ChatView
+                bodyText={data.bodyText ?? ""}
+                speakerPhotos={speakerPhotos}
+              />
+            ) : bodyLoading ? (
+              <div className="flex items-center justify-center h-64 text-sm gap-2" style={{ color: ON_VARIANT }}>
+                <Loader2 className="w-4 h-4 animate-spin" /> 본문 가져오는 중…
+              </div>
+            ) : bodyError ? (
+              <div className="flex flex-col items-center justify-center h-64 gap-2 text-sm" style={{ color: "#ba1a1a" }}>
+                <AlertCircle className="w-5 h-5" />
+                {bodyError}
                 <button
                   type="button"
-                  onClick={handleAnalyze}
-                  className="mt-2 text-xs font-medium text-red-700 hover:text-red-900 underline"
+                  onClick={() => handleFetchBody()}
+                  className="text-xs underline"
                 >
                   다시 시도
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* AI 결과 */}
-          {hasAi && !aiLoading && (
-            <div className="flex flex-col gap-4">
-              <div className="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap">
-                {data.aiSummary}
+            ) : (
+              <div className="flex flex-col items-center justify-center h-64 gap-3 text-sm" style={{ color: ON_VARIANT }}>
+                <p>회의록 본문이 없습니다.</p>
+                <button
+                  type="button"
+                  onClick={() => handleFetchBody()}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+                  style={{ backgroundColor: PRIMARY }}
+                >
+                  본문 가져오기
+                </button>
               </div>
-              {data.aiKeyTopics.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
-                    <Hash className="w-3 h-3" />
-                    핵심 주제
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {data.aiKeyTopics.map((t) => (
-                      <span
-                        key={t}
-                        className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full border border-blue-200"
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="text-[11px] text-slate-400 pt-2 border-t border-slate-100">
-                {data.aiGeneratedAt &&
-                  `생성일 ${data.aiGeneratedAt.slice(0, 10)}`}
-                {data.aiModel && (
-                  <>
-                    {data.aiGeneratedAt ? " · " : ""}
-                    {data.aiModel}
-                  </>
-                )}
-                {" · AI 자동 요약입니다. 정확성은 원문 직접 확인을 권장합니다."}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── 의사일정 ─────────────────────────────────── */}
-      {data.agenda.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <ListOrdered className="w-5 h-5 text-slate-600" />
-            <h2 className="font-semibold text-slate-900">의사일정</h2>
-            <span className="text-xs text-slate-400">{data.agenda.length}건</span>
+            )}
           </div>
-          <ol className="flex flex-col gap-2">
-            {data.agenda.map((a) => (
-              <li
-                key={a.ord}
-                className="flex items-start gap-3 text-sm p-3 bg-slate-50 rounded-lg border border-slate-100"
+        </div>
+
+        {/* 우: 사이드 */}
+        <aside className="lg:col-span-4 space-y-4">
+          {/* 의사일정 = 핵심 주제별 대화 */}
+          {data.agenda.length > 0 && (
+            <div
+              className="bg-white rounded-2xl overflow-hidden"
+              style={{ border: `1px solid ${BORDER}` }}
+            >
+              <div
+                className="p-3"
+                style={{
+                  backgroundColor: "#edeeef",
+                  borderBottom: `1px solid ${BORDER}`,
+                }}
               >
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold shrink-0">
-                  {a.ord}
-                </span>
-                <span className="text-slate-800 leading-snug">{a.title}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
+                <h3
+                  className="text-xs font-bold inline-flex items-center gap-1.5"
+                  style={{ color: PRIMARY }}
+                >
+                  <ListOrdered className="w-3.5 h-3.5" /> 의사일정
+                  <span className="text-[10px] font-normal" style={{ color: ON_VARIANT }}>
+                    ({data.agenda.length}건)
+                  </span>
+                </h3>
+              </div>
+              <ol className="divide-y" style={{ borderColor: BORDER }}>
+                {data.agenda.map((a) => (
+                  <li
+                    key={a.ord}
+                    className="p-3 text-xs leading-relaxed"
+                  >
+                    <span
+                      className="text-[10px] font-bold mb-1 block"
+                      style={{ color: SECONDARY }}
+                    >
+                      AGENDA {a.ord}
+                    </span>
+                    <span style={{ color: PRIMARY }}>{a.title}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
 
-      {/* ── 발언자별 요약 ─────────────────────────────── */}
-      {data.speakers.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <MessageSquare className="w-5 h-5 text-slate-600" />
-            <h2 className="font-semibold text-slate-900">발언자별 요약</h2>
-            <span className="text-xs text-slate-400">
-              {data.speakers.length}명
-            </span>
-          </div>
-          <div className="flex flex-col gap-2">
+          {/* 발언자별 요약 */}
+          {data.speakers.length > 0 && (
+            <div
+              className="bg-white rounded-2xl overflow-hidden"
+              style={{ border: `1px solid ${BORDER}` }}
+            >
+              <div
+                className="p-3"
+                style={{
+                  backgroundColor: "#edeeef",
+                  borderBottom: `1px solid ${BORDER}`,
+                }}
+              >
+                <h3
+                  className="text-xs font-bold inline-flex items-center gap-1.5"
+                  style={{ color: PRIMARY }}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" /> 발언자별 요약
+                  <span className="text-[10px] font-normal" style={{ color: ON_VARIANT }}>
+                    ({data.speakers.length}명)
+                  </span>
+                </h3>
+              </div>
+          <div className="flex flex-col gap-2 p-3">
             {data.speakers.map((sp) => {
               const key = `${sp.role}|${sp.name}`;
               const summary = data.aiSpeakerSummaries.find(
@@ -371,52 +481,8 @@ export function MinutesViewer({ initial }: MinutesViewerProps) {
         </div>
       )}
 
-      {/* ── 원문 ───────────────────────────────────────── */}
-      {hasBody && (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setShowFullBody((v) => !v)}
-            className="w-full flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
-          >
-            <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
-              <FileText className="w-5 h-5 text-slate-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-slate-900">회의록 원문</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {(data.bodyText?.length ?? 0).toLocaleString()}자 ·
-                {showFullBody ? " 접으려면 클릭" : " 펼치려면 클릭"}
-              </p>
-            </div>
-            {showFullBody ? (
-              <ChevronUp className="w-5 h-5 text-slate-400 shrink-0" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-slate-400 shrink-0" />
-            )}
-          </button>
-          {showFullBody && (
-            <div className="px-5 pb-5 border-t border-slate-100">
-              <div className="mt-4 max-h-[600px] overflow-y-auto bg-slate-50 p-4 rounded-lg border border-slate-100">
-                <ChatView
-                  bodyText={data.bodyText ?? ""}
-                  speakerPhotos={speakerPhotos}
-                />
-              </div>
-              <div className="flex justify-end mt-2">
-                <button
-                  type="button"
-                  onClick={() => handleFetchBody(true)}
-                  disabled={bodyLoading}
-                  className="text-xs text-slate-500 hover:text-blue-700 hover:underline disabled:opacity-50"
-                >
-                  원문 다시 가져오기
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+        </aside>
+      </div>
     </div>
   );
 }
