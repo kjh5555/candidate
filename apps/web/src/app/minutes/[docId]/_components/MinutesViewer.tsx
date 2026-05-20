@@ -124,97 +124,93 @@ export function MinutesViewer({ initial }: MinutesViewerProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* ── Hero: AI 요약 + 참석자 ──────────────────────── */}
+      {/* ── Row 1: 참석자 + 핵심 주제 (page header 직후 white 카드) ── */}
       <section
         className="bg-white rounded-2xl p-5"
         style={{ border: `1px solid ${BORDER}` }}
       >
-        <div className="flex flex-col lg:flex-row gap-6">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 text-xs mb-2">
-              <span style={{ color: ON_VARIANT }}>참석자</span>
-              <div className="flex -space-x-2">
-                {avatars.length === 0 ? (
-                  <span style={{ color: "#75777f" }}>—</span>
-                ) : (
-                  avatars.map((s) => (
-                    <div
-                      key={s.name}
-                      className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 border-2 border-white relative"
-                    >
-                      {speakerPhotos[s.name] && (
-                        <Image
-                          src={speakerPhotos[s.name]!}
-                          alt={s.name}
-                          fill
-                          sizes="28px"
-                          className="object-cover"
-                          unoptimized
-                        />
-                      )}
-                    </div>
-                  ))
-                )}
-                {restCount > 0 && (
-                  <div
-                    className="w-7 h-7 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-bold"
-                    style={{
-                      backgroundColor: "#e1e3e4",
-                      color: ON_VARIANT,
-                    }}
-                  >
-                    +{restCount}
-                  </div>
-                )}
-              </div>
-              <span style={{ color: ON_VARIANT }}>
-                총 {data.speakers.length}명
-              </span>
-            </div>
-            {hasAi && data.aiKeyTopics.length > 0 && (
-              <div>
+        <div className="flex items-center gap-2 text-xs mb-3">
+          <span className="font-semibold" style={{ color: PRIMARY }}>
+            참석자
+          </span>
+          <div className="flex -space-x-2">
+            {avatars.length === 0 ? (
+              <span style={{ color: "#75777f" }}>—</span>
+            ) : (
+              avatars.map((s) => (
                 <div
-                  className="text-[10px] font-bold uppercase tracking-widest mb-1.5"
-                  style={{ color: SECONDARY }}
+                  key={s.name}
+                  className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 border-2 border-white relative"
                 >
-                  핵심 주제
+                  {speakerPhotos[s.name] && (
+                    <Image
+                      src={speakerPhotos[s.name]!}
+                      alt={s.name}
+                      fill
+                      sizes="28px"
+                      className="object-cover"
+                      unoptimized
+                    />
+                  )}
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {data.aiKeyTopics.map((t) => (
-                    <span
-                      key={t}
-                      className="text-xs px-2.5 py-1 rounded-full"
-                      style={{
-                        backgroundColor: "#eef1f7",
-                        color: PRIMARY,
-                        border: `1px solid ${BORDER}`,
-                      }}
-                    >
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              </div>
+              ))
             )}
-            {!hasAi && hasBody && !aiLoading && !aiError && (
-              <button
-                type="button"
-                onClick={handleAnalyze}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-white hover:opacity-90 transition-opacity"
-                style={{ backgroundColor: PRIMARY }}
+            {restCount > 0 && (
+              <div
+                className="w-7 h-7 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-bold"
+                style={{ backgroundColor: "#e1e3e4", color: ON_VARIANT }}
               >
-                <Sparkles className="w-3.5 h-3.5" /> AI 분석 시작
-              </button>
+                +{restCount}
+              </div>
             )}
           </div>
-
-          {/* AI Summary 다크 카드 */}
-          <div
-            className="lg:w-1/3 text-white p-4 rounded-xl relative overflow-hidden"
-            style={{
-              background: `linear-gradient(135deg, ${PRIMARY}, #1a2b4b)`,
-            }}
+          <span style={{ color: ON_VARIANT }}>총 {data.speakers.length}명</span>
+        </div>
+        {hasAi && data.aiKeyTopics.length > 0 && (
+          <div>
+            <div
+              className="text-[10px] font-bold uppercase tracking-widest mb-2"
+              style={{ color: SECONDARY }}
+            >
+              핵심 주제
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {data.aiKeyTopics.map((t) => (
+                <span
+                  key={t}
+                  className="text-xs px-2.5 py-1 rounded-full"
+                  style={{
+                    backgroundColor: "#eef1f7",
+                    color: PRIMARY,
+                    border: `1px solid ${BORDER}`,
+                  }}
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        {!hasAi && hasBody && !aiLoading && !aiError && (
+          <button
+            type="button"
+            onClick={handleAnalyze}
+            className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-white hover:opacity-90 transition-opacity"
+            style={{ backgroundColor: PRIMARY }}
           >
+            <Sparkles className="w-3.5 h-3.5" /> AI 분석 시작
+          </button>
+        )}
+      </section>
+
+      {/* ── Row 2: AI Summary 다크 박스 (우측 정렬) ───────── */}
+      <section className="flex justify-end">
+        <div
+          className="w-full lg:w-2/5 text-white p-5 rounded-2xl relative overflow-hidden"
+          style={{
+            background: `linear-gradient(135deg, ${PRIMARY}, #1a2b4b)`,
+          }}
+        >
             <Sparkles className="absolute top-3 right-3 w-12 h-12 opacity-10" />
             <div className="flex items-center gap-1.5 mb-2">
               <Sparkles className="w-3.5 h-3.5" />
@@ -274,7 +270,6 @@ export function MinutesViewer({ initial }: MinutesViewerProps) {
                 본문이 준비되면 자동으로 분석을 시작합니다.
               </p>
             )}
-          </div>
         </div>
       </section>
 
