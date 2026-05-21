@@ -99,13 +99,19 @@ async function fetchPledges(
 
 async function main() {
   const sgId = process.argv[2] ?? "20220601";
-  console.log(`\n📜 단체장 공약 ingest 시작 (sgId=${sgId})`);
+  const filterCode = process.argv[3]; // 선택적 sgTypecode 필터
+  console.log(
+    `\n📜 단체장 공약 ingest 시작 (sgId=${sgId}${filterCode ? `, sgTypecode=${filterCode}만` : ""})`,
+  );
 
   let totalCreated = 0;
   let totalSkipped = 0;
   let totalFailed = 0;
 
-  for (const { code, label, hasWiw } of SG_TYPECODES) {
+  const codesToProcess = filterCode
+    ? SG_TYPECODES.filter((t) => t.code === filterCode)
+    : SG_TYPECODES;
+  for (const { code, label, hasWiw } of codesToProcess) {
     console.log(`\n── sgTypecode=${code} (${label}) ──`);
     const winners = await fetchWinners(sgId, code);
     console.log(`  당선자 ${winners.length}명`);
