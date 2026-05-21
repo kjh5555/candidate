@@ -59,7 +59,9 @@ function extractPledges(row: PledgeRow): Array<{
   }> = [];
   for (let i = 1; i <= 10; i++) {
     const title = String(row[`prmsTitle${i}`] ?? "").trim();
-    const content = String(row[`prmsCont${i}`] ?? "").trim();
+    // NEC raw 키는 prmmCont* (publishMain content) — 우리가 prmsCont로 잘못
+    // 읽어서 빈 문자열만 저장하던 버그 수정.
+    const content = String(row[`prmmCont${i}`] ?? "").trim();
     const realm = String(row[`prmsRealmName${i}`] ?? "").trim();
     if (!title && !content) continue;
     out.push({
