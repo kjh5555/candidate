@@ -619,6 +619,17 @@ function RegionHubInner() {
                     selectedField={selectedField}
                     onSelectField={canDrillDown ? setSelectedField : null}
                   />
+                  {data.settlement.sidoAverages &&
+                    data.settlement.sidoAverages.length > 0 &&
+                    (data.settlement.sidoAverageUnitCount ?? 0) > 0 && (
+                      <SidoAverageCompare
+                        items={data.settlement.items}
+                        averages={data.settlement.sidoAverages}
+                        sido={data.sido}
+                        unitName={data.settlement.unitName ?? data.wiwName}
+                        unitCount={data.settlement.sidoAverageUnitCount ?? 0}
+                      />
+                    )}
                   <p className="text-xs text-slate-400 mt-4 text-right">
                     출처: 지방재정365 (lofin365.go.kr)
                   </p>
@@ -746,5 +757,106 @@ export default function RegionHubPage() {
     <Suspense fallback={<HubSkeleton />}>
       <RegionHubInner />
     </Suspense>
+  );
+}
+
+function SidoAverageCompare({
+  items,
+  averages,
+  sido,
+  unitName,
+  unitCount,
+}: {
+  items: { field: string; amount: string; percent: number }[];
+  averages: { field: string; avgAmount: string }[];
+  sido: string;
+  unitName: string;
+  unitCount: number;
+}) {
+  // 상위 6개 분야만 비교 (settlement.items는 이미 amount desc 정렬됨)
+  const avgMap = new Map(averages.map((a) => [a.field, BigInt(a.avgAmount)]));
+  const rows = items.slice(0, 6).map((it) => {
+    const ours = BigInt(it.amount);
+    const avg = avgMap.get(it.field) ?? 0n;
+    const diff = avg > 0n ? Number(((ours - avg) * 1000n) / avg) / 10 : null;
+    return { field: it.field, ours, avg, diff };
+  });
+  const maxVal = rows.reduce((m, r) => {
+    const big = r.ours > r.avg ? r.ours : r.avg;
+    return big > m ? big : m;
+  }, 0n);
+  const maxNum = Number(maxVal);
+  function pct(v: bigint): number {
+    if (maxNum <= 0) return 0;
+    return (Number(v) / maxNum) * 100;
+  }
+  function fmtEok(v: bigint): string {
+    const eok = Number(v / 100000000n);
+    return `${eok.toLocaleString()}억`;
+  }
+  return (
+    <div className="mt-5 pt-5 border-t border-slate-100">
+      <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
+        <h4 className="text-sm font-bold text-slate-800">
+          광역 평균 비교
+          <span className="ml-2 text-xs font-normal text-slate-500">
+            {sido} 다른 기초 {unitCount}곳의 평균 vs {unitName}
+          </span>
+        </h4>
+      </div>
+      <div className="space-y-3">
+        {rows.map((r) => (
+          <div key={r.field}>
+            <div className="flex items-baseline justify-between gap-2 mb-1">
+              <span className="text-sm text-slate-700 truncate">{r.field}</span>
+              {r.diff !== null && (
+                <span
+                  className={`text-xs font-semibold tabular-nums ${
+                    r.diff > 0
+                      ? "text-emerald-700"
+                      : r.diff < 0
+                        ? "text-rose-700"
+                        : "text-slate-500"
+                  }`}
+                >
+                  {r.diff > 0 ? "+" : ""}
+                  {r.diff.toFixed(1)}%
+                </span>
+              )}
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-semibold text-slate-500 w-12 shrink-0">
+                  우리
+                </span>
+                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden relative">
+                  <div
+                    className="h-full bg-[#031635] rounded-full transition-all"
+                    style={{ width: `${pct(r.ours)}%` }}
+                  />
+                </div>
+                <span className="text-[11px] tabular-nums text-slate-700 w-16 text-right shrink-0">
+                  {fmtEok(r.ours)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-semibold text-slate-400 w-12 shrink-0">
+                  평균
+                </span>
+                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden relative">
+                  <div
+                    className="h-full bg-[#8bc3fe] rounded-full transition-all"
+                    style={{ width: `${pct(r.avg)}%` }}
+                  />
+                </div>
+                <span className="text-[11px] tabular-nums text-slate-500 w-16 text-right shrink-0">
+                  {fmtEok(r.avg)}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

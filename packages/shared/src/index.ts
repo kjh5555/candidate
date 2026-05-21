@@ -463,6 +463,10 @@ export interface RegionHubSettlementDTO {
   reportUrl: string | null;
   unitCode: string | null;
   unitName: string | null;
+  // 같은 시·도 내 다른 기초 단체의 같은 분야 평균 금액(원).
+  // key = field name, value = avg amount (BigInt as string)
+  sidoAverages?: { field: string; avgAmount: string }[];
+  sidoAverageUnitCount?: number;
 }
 
 export interface RegionHubCandidatesDTO {

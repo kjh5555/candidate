@@ -345,6 +345,45 @@ export async function getRegionHub(
         where: { fiscalYear_unitCode: { fiscalYear, unitCode } },
       });
 
+      // ── 5b. 같은 시·도 안 다른 기초 단체의 분야별 평균 ──────────────
+      // 우리 지역 vs 광역 평균 비교 차트용. 본인 단체는 제외.
+      type SidoAvgRow = {
+        field: string;
+        avg_amount: bigint | null;
+      };
+      type UnitCountRow = { count: bigint | null };
+      const [avgRows, unitCountRows] = await Promise.all([
+        prisma.$queryRaw<SidoAvgRow[]>`
+          WITH unit_amounts AS (
+            SELECT field, "unitCode", SUM(amount)::BIGINT AS unit_amount
+            FROM "BudgetSettlement"
+            WHERE level = 'BASIC'
+              AND sido = ${sido}
+              AND "fiscalYear" = ${fiscalYear}
+              AND "unitCode" != ${unitCode}
+            GROUP BY field, "unitCode"
+          )
+          SELECT field, AVG(unit_amount)::BIGINT AS avg_amount
+          FROM unit_amounts
+          GROUP BY field
+        `,
+        prisma.$queryRaw<UnitCountRow[]>`
+          SELECT COUNT(DISTINCT "unitCode")::BIGINT AS count
+          FROM "BudgetSettlement"
+          WHERE level = 'BASIC'
+            AND sido = ${sido}
+            AND "fiscalYear" = ${fiscalYear}
+            AND "unitCode" != ${unitCode}
+        `,
+      ]);
+      const sidoAverages = avgRows
+        .filter((r) => r.avg_amount !== null)
+        .map((r) => ({
+          field: r.field,
+          avgAmount: (r.avg_amount as bigint).toString(),
+        }));
+      const sidoAverageUnitCount = Number(unitCountRows[0]?.count ?? 0n);
+
       settlement = {
         fiscalYear,
         totalAmount: total.toString(),
@@ -352,6 +391,8 @@ export async function getRegionHub(
         reportUrl: report?.reportUrl ?? null,
         unitCode,
         unitName,
+        sidoAverages,
+        sidoAverageUnitCount,
       };
     }
   }
