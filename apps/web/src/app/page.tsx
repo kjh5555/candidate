@@ -879,82 +879,151 @@ function ExecCard({ p }: { p: OfficialPledgeDTO }) {
 }
 
 function HomePledgeCard({ pledge }: { pledge: OfficialPledgeDTO }) {
-  const [expanded, setExpanded] = useState(false);
+  const [openItem, setOpenItem] = useState<
+    OfficialPledgeDTO["pledges"][number] | null
+  >(null);
+
+  // body scroll lock + esc close
+  useEffect(() => {
+    if (!openItem) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpenItem(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [openItem]);
+
   return (
     <div
       className="bg-white rounded-2xl overflow-hidden flex flex-col"
       style={{ border: `1px solid ${BORDER}` }}
     >
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="text-white p-4 text-left flex items-start justify-between gap-2 hover:opacity-95 transition-opacity"
+      <div
+        className="text-white p-4"
         style={{
           background: `linear-gradient(135deg, ${PRIMARY}, #1a2b4b)`,
         }}
       >
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-bold tracking-widest opacity-70 uppercase mb-1">
-            {pledge.positionLabel}
-          </p>
-          <p className="text-base font-bold truncate">{pledge.name}</p>
+        <p className="text-[10px] font-bold tracking-widest opacity-70 uppercase mb-1">
+          {pledge.positionLabel}
+        </p>
+        <p className="text-base font-bold">
+          {pledge.name}
           {pledge.party && (
-            <p className="text-xs opacity-80 mt-0.5 truncate">
+            <span className="text-xs font-normal opacity-80 ml-2">
               {pledge.party}
-            </p>
+            </span>
           )}
-          <p className="text-[11px] opacity-70 mt-2">
-            공약 {pledge.pledges.length}건 · {expanded ? "접기" : "내용 보기"}
-          </p>
-        </div>
-        <span
-          className="text-xl transition-transform"
-          style={{
-            transform: expanded ? "rotate(180deg)" : undefined,
-          }}
-        >
-          ⌄
-        </span>
-      </button>
-      {expanded && (
-        <div className="p-4 space-y-2.5">
-          {pledge.pledges.map((p) => (
-            <div key={p.ord}>
-              <div className="flex items-baseline gap-2 mb-0.5">
+        </p>
+      </div>
+      <ul
+        className="p-4 space-y-1"
+        style={{ borderTop: `1px solid ${BORDER}` }}
+      >
+        {pledge.pledges.map((p) => (
+          <li key={p.ord}>
+            <button
+              type="button"
+              onClick={() => setOpenItem(p)}
+              className="w-full text-left flex items-baseline gap-2 py-1.5 px-1 rounded hover:bg-[#f3f4f5] transition-colors"
+            >
+              <span
+                className="text-[10px] font-bold tabular-nums shrink-0"
+                style={{ color: "#75777f" }}
+              >
+                {p.ord}
+              </span>
+              {p.realm && (
                 <span
-                  className="text-[10px] font-bold tabular-nums shrink-0"
-                  style={{ color: "#75777f" }}
+                  className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+                  style={{
+                    backgroundColor: SURFACE_CONTAINER,
+                    color: ON_VARIANT,
+                  }}
                 >
-                  {p.ord}
+                  {p.realm}
                 </span>
-                {p.realm && (
-                  <span
-                    className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
-                    style={{
-                      backgroundColor: SURFACE_CONTAINER,
-                      color: ON_VARIANT,
-                    }}
-                  >
-                    {p.realm}
+              )}
+              <span
+                className="text-sm font-semibold flex-1 leading-snug truncate"
+                style={{ color: PRIMARY }}
+              >
+                {p.title}
+              </span>
+              <ArrowRight
+                className="w-3.5 h-3.5 shrink-0 opacity-40"
+                style={{ color: ON_VARIANT }}
+              />
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {/* 공약 상세 모달 */}
+      {openItem && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          onClick={() => setOpenItem(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-xl w-full max-h-[85vh] overflow-hidden flex flex-col"
+            style={{ border: `1px solid ${BORDER}` }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="p-5 text-white"
+              style={{
+                background: `linear-gradient(135deg, ${PRIMARY}, #1a2b4b)`,
+              }}
+            >
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <p className="text-[10px] font-bold tracking-widest opacity-70 uppercase">
+                  {pledge.positionLabel} · {pledge.name}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setOpenItem(null)}
+                  className="text-white opacity-70 hover:opacity-100 -mt-1 -mr-1 text-xl leading-none px-2"
+                  aria-label="닫기"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="text-xs opacity-70">공약 {openItem.ord}</span>
+                {openItem.realm && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/15">
+                    {openItem.realm}
                   </span>
                 )}
-                <h4
-                  className="text-sm font-semibold leading-snug"
+              </div>
+              <h3 className="text-lg font-bold leading-snug">
+                {openItem.title}
+              </h3>
+            </div>
+            <div className="p-5 overflow-y-auto">
+              {openItem.content ? (
+                <p
+                  className="text-sm leading-relaxed whitespace-pre-wrap"
                   style={{ color: PRIMARY }}
                 >
-                  {p.title}
-                </h4>
-              </div>
-              {p.content && (
+                  {openItem.content}
+                </p>
+              ) : (
                 <p
-                  className="text-xs leading-relaxed ml-4"
+                  className="text-sm italic"
                   style={{ color: ON_VARIANT }}
                 >
-                  {p.content}
+                  공약 본문이 비어 있습니다 (NEC 등록 시 미입력).
                 </p>
               )}
             </div>
-          ))}
+          </div>
         </div>
       )}
     </div>
