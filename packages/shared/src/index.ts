@@ -76,6 +76,7 @@ export interface LegislatorSummaryDTO {
 
 export interface LegislatorCountsDTO {
   billsPrimary: number;
+  billsPassedPrimary: number; // 본인이 대표발의한 안건 중 통과(PASSED + PASSED_AMENDED)
   billsCo: number;
   votesTotal: number;
   votesYes: number;

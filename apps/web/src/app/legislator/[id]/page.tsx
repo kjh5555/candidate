@@ -563,7 +563,15 @@ export default function LegislatorPage() {
           {/* Stats strip (NATIONAL only — meaningful with vote data) */}
           {isNational && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCell label="대표발의" value={counts.billsPrimary} />
+              <StatCell
+                label="대표발의"
+                value={counts.billsPrimary}
+                sub={
+                  counts.billsPrimary > 0
+                    ? `통과 ${counts.billsPassedPrimary}건 (${((counts.billsPassedPrimary / counts.billsPrimary) * 100).toFixed(1)}%)`
+                    : undefined
+                }
+              />
               <StatCell label="공동발의" value={counts.billsCo} />
               <StatCell label="표결 참여" value={counts.votesTotal} />
               <StatCell
@@ -915,10 +923,12 @@ function StatCell({
   label,
   value,
   accent,
+  sub,
 }: {
   label: string;
   value: number | string;
   accent?: boolean;
+  sub?: string;
 }) {
   return (
     <div
@@ -942,6 +952,14 @@ function StatCell({
       >
         {label}
       </p>
+      {sub && (
+        <p
+          className="text-[10px] mt-0.5 tabular-nums"
+          style={accent ? { color: "#b6c6ef" } : { color: SECONDARY }}
+        >
+          {sub}
+        </p>
+      )}
     </div>
   );
 }

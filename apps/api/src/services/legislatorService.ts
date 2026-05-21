@@ -283,21 +283,30 @@ export async function getLegislatorDetail(
     detailStats = { electionVotes, electionVoteRate, councilBillsCount };
   }
 
-  const [billsPrimary, billsCo, votesTotal, votesByResult] = await Promise.all([
-    prisma.billProposer.count({
-      where: { legislatorId: id, role: "PRIMARY" },
-    }),
-    prisma.billProposer.count({ where: { legislatorId: id, role: "CO" } }),
-    prisma.vote.count({ where: { legislatorId: id } }),
-    prisma.vote.groupBy({
-      by: ["result"],
-      where: { legislatorId: id },
-      _count: { _all: true },
-    }),
-  ]);
+  const [billsPrimary, billsPassedPrimary, billsCo, votesTotal, votesByResult] =
+    await Promise.all([
+      prisma.billProposer.count({
+        where: { legislatorId: id, role: "PRIMARY" },
+      }),
+      prisma.billProposer.count({
+        where: {
+          legislatorId: id,
+          role: "PRIMARY",
+          bill: { result: { in: ["PASSED", "PASSED_AMENDED"] } },
+        },
+      }),
+      prisma.billProposer.count({ where: { legislatorId: id, role: "CO" } }),
+      prisma.vote.count({ where: { legislatorId: id } }),
+      prisma.vote.groupBy({
+        by: ["result"],
+        where: { legislatorId: id },
+        _count: { _all: true },
+      }),
+    ]);
 
   const counts = {
     billsPrimary,
+    billsPassedPrimary,
     billsCo,
     votesTotal,
     votesYes: 0,
