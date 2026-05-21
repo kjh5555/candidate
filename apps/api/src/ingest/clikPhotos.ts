@@ -79,7 +79,10 @@ function unwrapResponse<T>(raw: unknown): T | null {
   const obj = data as { RESULT_CODE?: string };
   if (obj.RESULT_CODE === "ERROR09") {
     console.error("\n❌ CLIK 일별 한도 초과 (ERROR09). 내일 다시 시도하세요.");
-    return null;
+    // 한도 초과 이후 모든 호출이 동일 에러를 반환하므로 즉시 종료.
+    // (이전: 함수가 null만 반환해 caller 루프가 계속 다음 의회로 넘어가며
+    //  같은 에러를 무한 출력하던 버그 수정)
+    process.exit(0);
   }
   if (obj.RESULT_CODE !== "SUCCESS") {
     console.warn(`  CLIK RESULT_CODE: ${obj.RESULT_CODE}`);
