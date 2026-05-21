@@ -11,6 +11,7 @@ import {
   Landmark,
   MapPin,
   PieChart,
+  Sparkles,
   User,
   Users,
   Vote,
@@ -710,6 +711,34 @@ function RegionHubInner() {
         </section>
       )}
 
+      {/* 단체장 공약 (8회 지선 2022) */}
+      {data.officialPledges &&
+        (data.officialPledges.governor ||
+          data.officialPledges.mayor ||
+          data.officialPledges.superintendent) && (
+          <section>
+            <SectionHeader
+              icon={Sparkles}
+              title="현 단체장 공약 (2022 지선 등록)"
+              subtitle="당선 시점 NEC에 등록한 공약. 4년 임기 동안 이행 여부는 시민이 의정활동과 직접 대조해 평가하세요."
+              accent="violet"
+            />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {data.officialPledges.governor && (
+                <OfficialPledgeCard pledge={data.officialPledges.governor} />
+              )}
+              {data.officialPledges.mayor && (
+                <OfficialPledgeCard pledge={data.officialPledges.mayor} />
+              )}
+              {data.officialPledges.superintendent && (
+                <OfficialPledgeCard
+                  pledge={data.officialPledges.superintendent}
+                />
+              )}
+            </div>
+          </section>
+        )}
+
       {/* 외부 링크 */}
       <section>
         <SectionHeader
@@ -757,6 +786,67 @@ export default function RegionHubPage() {
     <Suspense fallback={<HubSkeleton />}>
       <RegionHubInner />
     </Suspense>
+  );
+}
+
+function OfficialPledgeCard({
+  pledge,
+}: {
+  pledge: import("@repo/shared").OfficialPledgeDTO;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? pledge.pledges : pledge.pledges.slice(0, 3);
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="p-4 border-b border-slate-100 bg-gradient-to-br from-[#031635] to-[#1a2b4b] text-white">
+        <p className="text-[10px] font-bold tracking-widest opacity-70 uppercase mb-1">
+          {pledge.positionLabel}
+        </p>
+        <p className="text-lg font-bold">
+          {pledge.name}
+          {pledge.party && (
+            <span className="text-xs font-normal opacity-80 ml-2">
+              {pledge.party}
+            </span>
+          )}
+        </p>
+      </div>
+      <div className="p-4 space-y-3">
+        {visible.map((p) => (
+          <div key={p.ord}>
+            <div className="flex items-baseline gap-2 mb-1">
+              <span className="text-[10px] font-bold text-slate-400 tabular-nums shrink-0">
+                {p.ord}
+              </span>
+              {p.realm && (
+                <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded shrink-0">
+                  {p.realm}
+                </span>
+              )}
+              <h4 className="text-sm font-semibold text-slate-800 leading-snug">
+                {p.title}
+              </h4>
+            </div>
+            {p.content && (
+              <p className="text-xs text-slate-600 leading-relaxed line-clamp-3 ml-4">
+                {p.content}
+              </p>
+            )}
+          </div>
+        ))}
+        {pledge.pledges.length > 3 && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="w-full text-xs text-slate-500 hover:text-blue-600 font-medium pt-2 border-t border-slate-100"
+          >
+            {expanded
+              ? "접기"
+              : `공약 ${pledge.pledges.length - 3}개 더 보기`}
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 

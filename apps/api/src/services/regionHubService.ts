@@ -421,6 +421,48 @@ export async function getRegionHub(
     }),
   ]);
 
+  // ── 6b. 단체장 공약 (NEC ElectedOfficialPledge) ────────────────────
+  // 8회 지선(20220601) 당선자 공약 — 시·도지사/시·군·구청장/교육감.
+  const [governorPledge, mayorPledge, superintendentPledge] = await Promise.all(
+    [
+      prisma.electedOfficialPledge.findFirst({
+        where: { electionId: "20220601", sgTypecode: "3", sido },
+      }),
+      prisma.electedOfficialPledge.findFirst({
+        where: {
+          electionId: "20220601",
+          sgTypecode: "4",
+          sido,
+          wiwName,
+        },
+      }),
+      prisma.electedOfficialPledge.findFirst({
+        where: { electionId: "20220601", sgTypecode: "11", sido },
+      }),
+    ],
+  );
+
+  function pledgeToDTO(
+    row: typeof governorPledge,
+  ): import("@repo/shared").OfficialPledgeDTO | null {
+    if (!row) return null;
+    return {
+      positionLabel: row.positionLabel,
+      cnddtId: row.cnddtId,
+      name: row.name,
+      party: row.party,
+      pledges: Array.isArray(row.pledges)
+        ? (row.pledges as unknown as import("@repo/shared").OfficialPledgeItemDTO[])
+        : [],
+    };
+  }
+
+  const officialPledges = {
+    governor: pledgeToDTO(governorPledge),
+    mayor: pledgeToDTO(mayorPledge),
+    superintendent: pledgeToDTO(superintendentPledge),
+  };
+
   // ── 7. 외부 링크 ─────────────────────────────────────────────────────
   const externalLinks = {
     sidoSite: SIDO_HOMEPAGES[sido] ?? null,
@@ -459,5 +501,6 @@ export async function getRegionHub(
       governor: governorRows.map(rowToCandidateSummary),
     },
     externalLinks,
+    officialPledges,
   };
 }

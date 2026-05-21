@@ -570,3 +570,25 @@ model CouncilBill {
   @@index([rasmblyNm, itncDe])
   @@index([rasmblyId, itncDe])
 }
+
+// ── 단체장 공약 (NEC ElecPrmsInfoInqireService 15040587) ───────────
+// 시·도지사·기초단체장·교육감의 등록 공약. 의원에는 NEC 공약 데이터가
+// 제공되지 않음 (NEC가 단체장·대통령에게만 공약 제출 의무를 적용).
+model ElectedOfficialPledge {
+  id            String   @id @default(cuid())
+  electionId    String // 예: "20220601" (8회 지선)
+  sgTypecode    String // "3" 시·도지사, "4" 시·군·구청장, "11" 교육감
+  positionLabel String // "시·도지사" 등 — UI 표시용
+  cnddtId       String // NEC huboid
+  name          String
+  party         String?
+  sido          String?
+  wiwName       String? // 시·도지사·교육감의 경우 null
+  pledges       Json // [{ord, title, content, realm}, ...]
+  rawSourceJson Json?
+  syncedAt      DateTime @default(now())
+
+  @@unique([electionId, cnddtId])
+  @@index([electionId, sido])
+  @@index([electionId, sido, wiwName])
+}

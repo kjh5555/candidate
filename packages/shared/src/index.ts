@@ -475,6 +475,27 @@ export interface RegionHubCandidatesDTO {
   governor: CandidateSummaryDTO[];
 }
 
+export interface OfficialPledgeItemDTO {
+  ord: number;
+  title: string;
+  content: string;
+  realm: string | null;
+}
+
+export interface OfficialPledgeDTO {
+  positionLabel: string; // "시·도지사" 등
+  cnddtId: string;
+  name: string;
+  party: string | null;
+  pledges: OfficialPledgeItemDTO[];
+}
+
+export interface RegionHubOfficialPledgesDTO {
+  governor: OfficialPledgeDTO | null;
+  mayor: OfficialPledgeDTO | null;
+  superintendent: OfficialPledgeDTO | null;
+}
+
 export interface RegionHubExternalLinksDTO {
   sidoSite: string | null;
   provincialCouncil: string | null;
@@ -488,6 +509,7 @@ export interface RegionHubDTO {
   settlement: RegionHubSettlementDTO | null;
   candidates: RegionHubCandidatesDTO;
   externalLinks: RegionHubExternalLinksDTO;
+  officialPledges?: RegionHubOfficialPledgesDTO;
 }
 
 // ── Controversy / News (논란·해명) ─────────────────────────────
