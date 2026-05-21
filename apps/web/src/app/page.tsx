@@ -278,7 +278,34 @@ export default function HomePage() {
           ref={dashboardRef}
           className="grid grid-cols-1 lg:grid-cols-12 gap-6 scroll-mt-20"
         >
-          <section className="lg:col-span-8">
+          <section className="lg:col-span-8 space-y-6">
+            {/* 현 단체장 */}
+            {hub?.officialPledges &&
+              (hub.officialPledges.governor ||
+                hub.officialPledges.mayor ||
+                hub.officialPledges.superintendent) && (
+                <div>
+                  <h2
+                    className="text-xl font-bold mb-4"
+                    style={{ color: PRIMARY }}
+                  >
+                    현 단체장
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {hub.officialPledges.governor && (
+                      <ExecCard p={hub.officialPledges.governor} />
+                    )}
+                    {hub.officialPledges.mayor && (
+                      <ExecCard p={hub.officialPledges.mayor} />
+                    )}
+                    {hub.officialPledges.superintendent && (
+                      <ExecCard p={hub.officialPledges.superintendent} />
+                    )}
+                  </div>
+                </div>
+              )}
+
+            <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold" style={{ color: PRIMARY }}>
                 내 지역 의원
@@ -420,6 +447,7 @@ export default function HomePage() {
                   ))}
                 </ul>
               </div>
+            </div>
             </div>
           </section>
 
@@ -814,6 +842,41 @@ export default function HomePage() {
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+function ExecCard({ p }: { p: OfficialPledgeDTO }) {
+  const partyColor = getPartyColor(p.party);
+  return (
+    <div
+      className="bg-white rounded-2xl p-4 flex flex-col gap-2"
+      style={{
+        border: `1px solid ${BORDER}`,
+        borderLeft: `4px solid ${partyColor.hex}`,
+      }}
+    >
+      <p
+        className="text-[10px] font-bold tracking-widest uppercase"
+        style={{ color: SECONDARY }}
+      >
+        {p.positionLabel}
+      </p>
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-lg font-bold" style={{ color: PRIMARY }}>
+          {p.name}
+        </p>
+        {p.party && (
+          <span
+            className={`text-[10px] font-semibold px-2 py-0.5 rounded ${partyColor.bg} ${partyColor.text}`}
+          >
+            {p.party}
+          </span>
+        )}
+      </div>
+      <p className="text-xs" style={{ color: ON_VARIANT }}>
+        공약 {p.pledges.length}건 · 2022 지선 당선
+      </p>
     </div>
   );
 }
