@@ -84,7 +84,16 @@ export interface LegislatorCountsDTO {
   votesAbsent: number;
 }
 
+export interface LegislatorDetailStatsDTO {
+  // 광역의원: NEC 당선 시점 득표. 기초·국회는 null.
+  electionVotes: number | null;
+  electionVoteRate: number | null; // 퍼센트
+  // 광역·기초: CouncilBill.propsr LIKE 매치 건수. 국회는 null.
+  councilBillsCount: number | null;
+}
+
 export interface LegislatorDetailDTO extends LegislatorSummaryDTO {
+  detailStats?: LegislatorDetailStatsDTO | null;
   birthDate: string | null;
   phoneNumber: string | null;
   email: string | null;

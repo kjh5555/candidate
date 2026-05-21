@@ -251,6 +251,36 @@ export async function getLegislatorDetail(
   const row = await prisma.legislator.findUnique({ where: { id } });
   if (!row) return null;
 
+  // 광역·기초 의원 detail stats (득표/조례 발의 건수)
+  let detailStats: import("@repo/shared").LegislatorDetailStatsDTO | null = null;
+  if (row.level === "PROVINCIAL" || row.level === "BASIC") {
+    let electionVotes: number | null = null;
+    let electionVoteRate: number | null = null;
+    if (row.level === "PROVINCIAL" && row.rawSourceJson) {
+      const raw = row.rawSourceJson as Record<string, unknown>;
+      const dugsu = typeof raw.dugsu === "string" ? parseInt(raw.dugsu, 10) : null;
+      const dugyul =
+        typeof raw.dugyul === "string" ? parseFloat(raw.dugyul) : null;
+      if (dugsu !== null && Number.isFinite(dugsu) && dugsu > 0) {
+        electionVotes = dugsu;
+      }
+      if (dugyul !== null && Number.isFinite(dugyul) && dugyul > 0) {
+        electionVoteRate = dugyul;
+      }
+    }
+    // 의회 단위 CouncilBill 중 본인 이름이 propsr에 포함된 안건 수.
+    // 광역의원은 councilName이 시·도의회, 기초는 시·군·구의회로 다름.
+    const councilBillsCount = row.councilName
+      ? await prisma.councilBill.count({
+          where: {
+            rasmblyNm: { contains: row.councilName },
+            propsr: { contains: row.name },
+          },
+        })
+      : null;
+    detailStats = { electionVotes, electionVoteRate, councilBillsCount };
+  }
+
   const [billsPrimary, billsCo, votesTotal, votesByResult] = await Promise.all([
     prisma.billProposer.count({
       where: { legislatorId: id, role: "PRIMARY" },
@@ -319,6 +349,7 @@ export async function getLegislatorDetail(
     hasTaxRecord: row.hasTaxRecord ?? false,
     taxRecordPdfUrl: row.taxRecordPdfUrl,
     disclosureElectionId: row.disclosureElectionId,
+    detailStats,
     _counts: counts,
     // 재산공개 — BigInt 직렬화 (JSON은 BigInt 미지원)
     assetTotalManwon:      row.assetTotalManwon      != null ? String(row.assetTotalManwon)      : null,

@@ -345,6 +345,78 @@ export default function LegislatorPage() {
             </p>
           </div>
 
+          {/* 광역·기초 의원: 득표 + 조례 발의 stats */}
+          {legislator.detailStats &&
+            (legislator.detailStats.electionVotes !== null ||
+              legislator.detailStats.councilBillsCount !== null) && (
+              <>
+                <hr
+                  className="my-4"
+                  style={{ borderColor: BORDER, borderTopWidth: 1 }}
+                />
+                <h3
+                  className="text-xs font-bold mb-2 uppercase tracking-wider"
+                  style={{ color: ON_VARIANT }}
+                >
+                  의정 통계
+                </h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {legislator.detailStats.electionVotes !== null && (
+                    <div
+                      className="rounded-lg p-2"
+                      style={{ backgroundColor: SURFACE_LOW }}
+                    >
+                      <p
+                        className="text-[10px] font-bold uppercase tracking-wider mb-0.5"
+                        style={{ color: ON_VARIANT }}
+                      >
+                        당선 시점 득표
+                      </p>
+                      <p
+                        className="text-sm font-extrabold tabular-nums"
+                        style={{ color: PRIMARY }}
+                      >
+                        {legislator.detailStats.electionVotes.toLocaleString()}표
+                      </p>
+                      {legislator.detailStats.electionVoteRate !== null && (
+                        <p
+                          className="text-[11px]"
+                          style={{ color: SECONDARY }}
+                        >
+                          {legislator.detailStats.electionVoteRate.toFixed(1)}%
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {legislator.detailStats.councilBillsCount !== null && (
+                    <div
+                      className="rounded-lg p-2"
+                      style={{ backgroundColor: SURFACE_LOW }}
+                    >
+                      <p
+                        className="text-[10px] font-bold uppercase tracking-wider mb-0.5"
+                        style={{ color: ON_VARIANT }}
+                      >
+                        조례·건의 발의
+                      </p>
+                      <p
+                        className="text-sm font-extrabold tabular-nums"
+                        style={{ color: PRIMARY }}
+                      >
+                        {legislator.detailStats.councilBillsCount.toLocaleString()}건
+                      </p>
+                      <p
+                        className="text-[10px]"
+                        style={{ color: "#75777f" }}
+                      >
+                        의회 안건 중 본인 이름
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
           {/* 약력 */}
           {legislator.titleDescription && (
             <>
