@@ -25,13 +25,7 @@ interface NavLinkConfig {
 }
 
 const NAV_LINKS: NavLinkConfig[] = [
-  { href: "/", label: "홈" },
-  {
-    href: "/region-hub",
-    label: "내 지역",
-    matcher: /^\/region-hub/,
-    resolveMyRegion: true,
-  },
+  { href: "/", label: "내 지역" },
   { href: "/legislators", label: "의원", matcher: /^\/(legislators|region|legislator|provincial|basic)/ },
   { href: "/candidates", label: "6.3 지방선거 후보", matcher: /^\/(candidates|candidate)/ },
   { href: "/about", label: "제도 알아보기" },

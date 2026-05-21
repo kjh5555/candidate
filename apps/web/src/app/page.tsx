@@ -23,6 +23,7 @@ import { getPartyColor } from "@/lib/partyColors";
 import type {
   BasicRegionDTO,
   LegislatorSummaryDTO,
+  OfficialPledgeDTO,
   RegionHubDTO,
 } from "@repo/shared";
 
@@ -272,6 +273,7 @@ export default function HomePage() {
       </section>
 
       {hasRegion ? (
+        <>
         <div
           ref={dashboardRef}
           className="grid grid-cols-1 lg:grid-cols-12 gap-6 scroll-mt-20"
@@ -552,6 +554,231 @@ export default function HomePage() {
             </div>
           </aside>
         </div>
+
+        {/* 단체장 공약 */}
+        {hub?.officialPledges &&
+          (hub.officialPledges.governor ||
+            hub.officialPledges.mayor ||
+            hub.officialPledges.superintendent) && (
+            <section>
+              <div className="flex items-center gap-3 mb-4">
+                <span
+                  className="w-1 h-6 rounded-full"
+                  style={{ backgroundColor: PRIMARY }}
+                />
+                <div>
+                  <h2
+                    className="text-xl font-bold"
+                    style={{ color: PRIMARY }}
+                  >
+                    현 단체장 공약
+                  </h2>
+                  <p className="text-xs" style={{ color: ON_VARIANT }}>
+                    2022 지선 당선 시점 NEC 등록 공약. 의정활동과 직접 대조해 평가하세요.
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {hub.officialPledges.governor && (
+                  <HomePledgeCard pledge={hub.officialPledges.governor} />
+                )}
+                {hub.officialPledges.mayor && (
+                  <HomePledgeCard pledge={hub.officialPledges.mayor} />
+                )}
+                {hub.officialPledges.superintendent && (
+                  <HomePledgeCard pledge={hub.officialPledges.superintendent} />
+                )}
+              </div>
+            </section>
+          )}
+
+        {/* 후보자 (시·도지사·기초단체장) */}
+        {hub &&
+          (hub.candidates.governor.length > 0 ||
+            hub.candidates.mayor.length > 0) && (
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <span
+                    className="w-1 h-6 rounded-full"
+                    style={{ backgroundColor: PRIMARY }}
+                  />
+                  <h2
+                    className="text-xl font-bold"
+                    style={{ color: PRIMARY }}
+                  >
+                    2026.6.3 지방선거 후보
+                  </h2>
+                </div>
+                <Link
+                  href={`/candidates?electionId=20260603&sido=${encodeURIComponent(myRegion.sido ?? "")}&wiwName=${encodeURIComponent(myRegion.wiwName ?? "")}`}
+                  className="text-xs font-semibold inline-flex items-center gap-0.5"
+                  style={{ color: SECONDARY }}
+                >
+                  전체 보기 <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {hub.candidates.governor.length > 0 && (
+                  <div
+                    className="bg-white rounded-2xl p-5"
+                    style={{ border: `1px solid ${BORDER}` }}
+                  >
+                    <p
+                      className="text-[10px] font-bold tracking-widest uppercase mb-3"
+                      style={{ color: SECONDARY }}
+                    >
+                      {myRegion.sido} 시·도지사 후보
+                    </p>
+                    <ul className="space-y-2">
+                      {hub.candidates.governor.slice(0, 6).map((c) => (
+                        <li
+                          key={c.id}
+                          className="flex items-center gap-2 text-sm"
+                        >
+                          <span
+                            className="w-1 h-4 rounded shrink-0"
+                            style={{
+                              backgroundColor: getPartyColor(c.party).hex,
+                            }}
+                          />
+                          <span style={{ color: PRIMARY, fontWeight: 600 }}>
+                            {c.name}
+                          </span>
+                          {c.party && (
+                            <span
+                              className="text-[11px]"
+                              style={{ color: ON_VARIANT }}
+                            >
+                              {c.party}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {hub.candidates.mayor.length > 0 && (
+                  <div
+                    className="bg-white rounded-2xl p-5"
+                    style={{ border: `1px solid ${BORDER}` }}
+                  >
+                    <p
+                      className="text-[10px] font-bold tracking-widest uppercase mb-3"
+                      style={{ color: SECONDARY }}
+                    >
+                      {myRegion.wiwName} 단체장 후보
+                    </p>
+                    <ul className="space-y-2">
+                      {hub.candidates.mayor.slice(0, 6).map((c) => (
+                        <li
+                          key={c.id}
+                          className="flex items-center gap-2 text-sm"
+                        >
+                          <span
+                            className="w-1 h-4 rounded shrink-0"
+                            style={{
+                              backgroundColor: getPartyColor(c.party).hex,
+                            }}
+                          />
+                          <span style={{ color: PRIMARY, fontWeight: 600 }}>
+                            {c.name}
+                          </span>
+                          {c.party && (
+                            <span
+                              className="text-[11px]"
+                              style={{ color: ON_VARIANT }}
+                            >
+                              {c.party}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+        {/* 외부 의회 링크 */}
+        {hub?.externalLinks &&
+          (hub.externalLinks.sidoSite ||
+            hub.externalLinks.provincialCouncil) && (
+            <section>
+              <div className="flex items-center gap-3 mb-4">
+                <span
+                  className="w-1 h-6 rounded-full"
+                  style={{ backgroundColor: PRIMARY }}
+                />
+                <h2
+                  className="text-xl font-bold"
+                  style={{ color: PRIMARY }}
+                >
+                  공식 사이트
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {hub.externalLinks.sidoSite && (
+                  <a
+                    href={hub.externalLinks.sidoSite}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-white rounded-2xl p-4 flex items-center justify-between hover:shadow-md transition-shadow"
+                    style={{ border: `1px solid ${BORDER}` }}
+                  >
+                    <div>
+                      <p
+                        className="text-[10px] font-bold tracking-widest uppercase mb-1"
+                        style={{ color: SECONDARY }}
+                      >
+                        {myRegion.sido}
+                      </p>
+                      <p
+                        className="text-sm font-semibold"
+                        style={{ color: PRIMARY }}
+                      >
+                        공식 홈페이지
+                      </p>
+                    </div>
+                    <ArrowRight
+                      className="w-4 h-4"
+                      style={{ color: "#75777f" }}
+                    />
+                  </a>
+                )}
+                {hub.externalLinks.provincialCouncil && (
+                  <a
+                    href={hub.externalLinks.provincialCouncil}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-white rounded-2xl p-4 flex items-center justify-between hover:shadow-md transition-shadow"
+                    style={{ border: `1px solid ${BORDER}` }}
+                  >
+                    <div>
+                      <p
+                        className="text-[10px] font-bold tracking-widest uppercase mb-1"
+                        style={{ color: SECONDARY }}
+                      >
+                        {myRegion.sido}의회
+                      </p>
+                      <p
+                        className="text-sm font-semibold"
+                        style={{ color: PRIMARY }}
+                      >
+                        광역의회 홈페이지
+                      </p>
+                    </div>
+                    <ArrowRight
+                      className="w-4 h-4"
+                      style={{ color: "#75777f" }}
+                    />
+                  </a>
+                )}
+              </div>
+            </section>
+          )}
+        </>
       ) : (
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <FeatureCard
@@ -587,6 +814,90 @@ export default function HomePage() {
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+function HomePledgeCard({ pledge }: { pledge: OfficialPledgeDTO }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? pledge.pledges : pledge.pledges.slice(0, 3);
+  return (
+    <div
+      className="bg-white rounded-2xl overflow-hidden"
+      style={{ border: `1px solid ${BORDER}` }}
+    >
+      <div
+        className="p-4 text-white"
+        style={{
+          background: `linear-gradient(135deg, ${PRIMARY}, #1a2b4b)`,
+        }}
+      >
+        <p className="text-[10px] font-bold tracking-widest opacity-70 uppercase mb-1">
+          {pledge.positionLabel}
+        </p>
+        <p className="text-base font-bold">
+          {pledge.name}
+          {pledge.party && (
+            <span className="text-xs font-normal opacity-80 ml-2">
+              {pledge.party}
+            </span>
+          )}
+        </p>
+      </div>
+      <div className="p-4 space-y-2.5">
+        {visible.map((p) => (
+          <div key={p.ord}>
+            <div className="flex items-baseline gap-2 mb-0.5">
+              <span
+                className="text-[10px] font-bold tabular-nums shrink-0"
+                style={{ color: "#75777f" }}
+              >
+                {p.ord}
+              </span>
+              {p.realm && (
+                <span
+                  className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+                  style={{
+                    backgroundColor: SURFACE_CONTAINER,
+                    color: ON_VARIANT,
+                  }}
+                >
+                  {p.realm}
+                </span>
+              )}
+              <h4
+                className="text-sm font-semibold leading-snug"
+                style={{ color: PRIMARY }}
+              >
+                {p.title}
+              </h4>
+            </div>
+            {p.content && (
+              <p
+                className="text-xs leading-relaxed line-clamp-2 ml-4"
+                style={{ color: ON_VARIANT }}
+              >
+                {p.content}
+              </p>
+            )}
+          </div>
+        ))}
+        {pledge.pledges.length > 3 && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="w-full text-xs font-semibold pt-2"
+            style={{
+              color: SECONDARY,
+              borderTop: `1px solid ${BORDER}`,
+            }}
+          >
+            {expanded
+              ? "접기"
+              : `공약 ${pledge.pledges.length - 3}개 더 보기`}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
