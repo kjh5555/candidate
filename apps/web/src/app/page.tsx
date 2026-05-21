@@ -323,7 +323,7 @@ export default function HomePage() {
                   >
                     2022 지선 당선 시점 NEC 등록 공약. 4년 의정활동과 직접 대조해 평가하세요.
                   </p>
-                  <div className="grid grid-cols-1 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {hub.officialPledges.governor && (
                       <HomePledgeCard pledge={hub.officialPledges.governor} />
                     )}
@@ -880,84 +880,83 @@ function ExecCard({ p }: { p: OfficialPledgeDTO }) {
 
 function HomePledgeCard({ pledge }: { pledge: OfficialPledgeDTO }) {
   const [expanded, setExpanded] = useState(false);
-  const visible = expanded ? pledge.pledges : pledge.pledges.slice(0, 3);
   return (
     <div
-      className="bg-white rounded-2xl overflow-hidden"
+      className="bg-white rounded-2xl overflow-hidden flex flex-col"
       style={{ border: `1px solid ${BORDER}` }}
     >
-      <div
-        className="p-4 text-white"
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="text-white p-4 text-left flex items-start justify-between gap-2 hover:opacity-95 transition-opacity"
         style={{
           background: `linear-gradient(135deg, ${PRIMARY}, #1a2b4b)`,
         }}
       >
-        <p className="text-[10px] font-bold tracking-widest opacity-70 uppercase mb-1">
-          {pledge.positionLabel}
-        </p>
-        <p className="text-base font-bold">
-          {pledge.name}
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-bold tracking-widest opacity-70 uppercase mb-1">
+            {pledge.positionLabel}
+          </p>
+          <p className="text-base font-bold truncate">{pledge.name}</p>
           {pledge.party && (
-            <span className="text-xs font-normal opacity-80 ml-2">
+            <p className="text-xs opacity-80 mt-0.5 truncate">
               {pledge.party}
-            </span>
+            </p>
           )}
-        </p>
-      </div>
-      <div className="p-4 space-y-2.5">
-        {visible.map((p) => (
-          <div key={p.ord}>
-            <div className="flex items-baseline gap-2 mb-0.5">
-              <span
-                className="text-[10px] font-bold tabular-nums shrink-0"
-                style={{ color: "#75777f" }}
-              >
-                {p.ord}
-              </span>
-              {p.realm && (
+          <p className="text-[11px] opacity-70 mt-2">
+            공약 {pledge.pledges.length}건 · {expanded ? "접기" : "내용 보기"}
+          </p>
+        </div>
+        <span
+          className="text-xl transition-transform"
+          style={{
+            transform: expanded ? "rotate(180deg)" : undefined,
+          }}
+        >
+          ⌄
+        </span>
+      </button>
+      {expanded && (
+        <div className="p-4 space-y-2.5">
+          {pledge.pledges.map((p) => (
+            <div key={p.ord}>
+              <div className="flex items-baseline gap-2 mb-0.5">
                 <span
-                  className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
-                  style={{
-                    backgroundColor: SURFACE_CONTAINER,
-                    color: ON_VARIANT,
-                  }}
+                  className="text-[10px] font-bold tabular-nums shrink-0"
+                  style={{ color: "#75777f" }}
                 >
-                  {p.realm}
+                  {p.ord}
                 </span>
+                {p.realm && (
+                  <span
+                    className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+                    style={{
+                      backgroundColor: SURFACE_CONTAINER,
+                      color: ON_VARIANT,
+                    }}
+                  >
+                    {p.realm}
+                  </span>
+                )}
+                <h4
+                  className="text-sm font-semibold leading-snug"
+                  style={{ color: PRIMARY }}
+                >
+                  {p.title}
+                </h4>
+              </div>
+              {p.content && (
+                <p
+                  className="text-xs leading-relaxed ml-4"
+                  style={{ color: ON_VARIANT }}
+                >
+                  {p.content}
+                </p>
               )}
-              <h4
-                className="text-sm font-semibold leading-snug"
-                style={{ color: PRIMARY }}
-              >
-                {p.title}
-              </h4>
             </div>
-            {p.content && (
-              <p
-                className="text-xs leading-relaxed line-clamp-2 ml-4"
-                style={{ color: ON_VARIANT }}
-              >
-                {p.content}
-              </p>
-            )}
-          </div>
-        ))}
-        {pledge.pledges.length > 3 && (
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className="w-full text-xs font-semibold pt-2"
-            style={{
-              color: SECONDARY,
-              borderTop: `1px solid ${BORDER}`,
-            }}
-          >
-            {expanded
-              ? "접기"
-              : `공약 ${pledge.pledges.length - 3}개 더 보기`}
-          </button>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
