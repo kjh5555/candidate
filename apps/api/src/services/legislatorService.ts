@@ -268,13 +268,15 @@ export async function getLegislatorDetail(
         electionVoteRate = dugyul;
       }
     }
-    // 의회 단위 CouncilBill 중 본인 이름이 propsr에 포함된 안건 수.
-    // 광역의원은 councilName이 시·도의회, 기초는 시·군·구의회로 다름.
+    // 대표 발의자 카운트 (추정).
+    // 한국 의회 propsr 텍스트는 "○○○의원 외 N명" 형식이라 맨 앞에 오는
+    // 이름이 대표 발의자. contains가 아니라 startsWith로 시작 위치만 매칭해
+    // 공동 서명자·단순 언급은 카운트에서 제외한다.
     const councilBillsCount = row.councilName
       ? await prisma.councilBill.count({
           where: {
             rasmblyNm: { contains: row.councilName },
-            propsr: { contains: row.name },
+            propsr: { startsWith: row.name },
           },
         })
       : null;

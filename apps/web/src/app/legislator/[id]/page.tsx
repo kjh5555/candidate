@@ -397,7 +397,7 @@ export default function LegislatorPage() {
                         className="text-[10px] font-bold uppercase tracking-wider mb-0.5"
                         style={{ color: ON_VARIANT }}
                       >
-                        조례·건의 발의
+                        대표 발의
                       </p>
                       <p
                         className="text-sm font-extrabold tabular-nums"
@@ -409,7 +409,7 @@ export default function LegislatorPage() {
                         className="text-[10px]"
                         style={{ color: "#75777f" }}
                       >
-                        의회 안건 중 본인 이름
+                        조례·건의안 1순위 발의자
                       </p>
                     </div>
                   )}
