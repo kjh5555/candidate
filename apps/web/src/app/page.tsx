@@ -561,10 +561,10 @@ export default function HomePage() {
             desc="국회의원·광역·기초의원이 무엇을 하는지, 지방선거에서 무엇을 뽑는지 알아보세요."
           />
           <FeatureCard
-            href="/budget"
-            icon={<PieChart className="w-5 h-5" style={{ color: SECONDARY }} />}
-            title="전체 예산 보기"
-            desc="국가·광역·기초 예산이 어디에 얼마나 쓰이는지 분야별로 확인하세요."
+            href="/legislators"
+            icon={<Users className="w-5 h-5" style={{ color: SECONDARY }} />}
+            title="의원 검색"
+            desc="국회·광역·기초 의원을 이름·지역으로 검색하고, 발의 법안·표결·재산을 한눈에 확인하세요."
             iconBg="#eef1f7"
           />
           <FeatureCard
