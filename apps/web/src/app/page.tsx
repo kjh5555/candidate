@@ -305,6 +305,40 @@ export default function HomePage() {
                 </div>
               )}
 
+            {/* 현 단체장 공약 — 단체장 카드 바로 아래 */}
+            {hub?.officialPledges &&
+              (hub.officialPledges.governor ||
+                hub.officialPledges.mayor ||
+                hub.officialPledges.superintendent) && (
+                <div>
+                  <h2
+                    className="text-xl font-bold mb-1"
+                    style={{ color: PRIMARY }}
+                  >
+                    현 단체장 공약
+                  </h2>
+                  <p
+                    className="text-xs mb-4"
+                    style={{ color: ON_VARIANT }}
+                  >
+                    2022 지선 당선 시점 NEC 등록 공약. 4년 의정활동과 직접 대조해 평가하세요.
+                  </p>
+                  <div className="grid grid-cols-1 gap-3">
+                    {hub.officialPledges.governor && (
+                      <HomePledgeCard pledge={hub.officialPledges.governor} />
+                    )}
+                    {hub.officialPledges.mayor && (
+                      <HomePledgeCard pledge={hub.officialPledges.mayor} />
+                    )}
+                    {hub.officialPledges.superintendent && (
+                      <HomePledgeCard
+                        pledge={hub.officialPledges.superintendent}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+
             <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold" style={{ color: PRIMARY }}>
@@ -582,43 +616,6 @@ export default function HomePage() {
             </div>
           </aside>
         </div>
-
-        {/* 단체장 공약 */}
-        {hub?.officialPledges &&
-          (hub.officialPledges.governor ||
-            hub.officialPledges.mayor ||
-            hub.officialPledges.superintendent) && (
-            <section>
-              <div className="flex items-center gap-3 mb-4">
-                <span
-                  className="w-1 h-6 rounded-full"
-                  style={{ backgroundColor: PRIMARY }}
-                />
-                <div>
-                  <h2
-                    className="text-xl font-bold"
-                    style={{ color: PRIMARY }}
-                  >
-                    현 단체장 공약
-                  </h2>
-                  <p className="text-xs" style={{ color: ON_VARIANT }}>
-                    2022 지선 당선 시점 NEC 등록 공약. 의정활동과 직접 대조해 평가하세요.
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {hub.officialPledges.governor && (
-                  <HomePledgeCard pledge={hub.officialPledges.governor} />
-                )}
-                {hub.officialPledges.mayor && (
-                  <HomePledgeCard pledge={hub.officialPledges.mayor} />
-                )}
-                {hub.officialPledges.superintendent && (
-                  <HomePledgeCard pledge={hub.officialPledges.superintendent} />
-                )}
-              </div>
-            </section>
-          )}
 
         {/* 후보자 (시·도지사·기초단체장) */}
         {hub &&

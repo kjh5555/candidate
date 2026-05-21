@@ -585,6 +585,7 @@ model ElectedOfficialPledge {
   sido          String?
   wiwName       String? // 시·도지사·교육감의 경우 null
   pledges       Json // [{ord, title, content, realm}, ...]
+  photoUrl      String? // NEC info.nec.go.kr 후보자 사진 (HEAD 검증 완료된 URL만)
   rawSourceJson Json?
   syncedAt      DateTime @default(now())
 
