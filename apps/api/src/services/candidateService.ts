@@ -112,12 +112,34 @@ export async function getCandidateDetail(
   });
   if (!row) return null;
 
-  const pledges: CandidatePledgeDTO[] = row.pledges.map((p) => ({
+  let pledges: CandidatePledgeDTO[] = row.pledges.map((p) => ({
     ord: p.ord,
     category: p.category,
     title: p.title,
     content: p.content,
   }));
+
+  // ElectedOfficialPledge 폴백 — 9회 지선 후보 공약은 별도 테이블에 ingest됨.
+  // CandidatePledge가 비어 있으면 ElectedOfficialPledge에서 매칭(cnddtId=id).
+  if (pledges.length === 0) {
+    const ext = await prisma.electedOfficialPledge.findFirst({
+      where: { electionId: row.electionId, cnddtId: row.id },
+      select: { pledges: true },
+    });
+    if (ext && Array.isArray(ext.pledges)) {
+      pledges = (ext.pledges as Array<{
+        ord: number;
+        title: string;
+        content: string;
+        realm: string | null;
+      }>).map((p) => ({
+        ord: p.ord,
+        category: p.realm,
+        title: p.title,
+        content: p.content,
+      }));
+    }
+  }
 
   return {
     id: row.id,
