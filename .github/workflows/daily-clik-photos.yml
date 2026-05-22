@@ -1,0 +1,41 @@
+name: daily-clik-photos
+
+# 매일 KST 새벽 3시(= UTC 전날 18시) 자동 실행. CLIK 일일 한도(900회)에
+# 도달하면 process.exit(0)으로 깔끔하게 종료되므로 부담 없이 반복 호출 가능.
+on:
+  schedule:
+    - cron: "0 18 * * *"
+  workflow_dispatch: # 수동 트리거도 가능
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm exec prisma generate
+
+      - name: Ingest 기초의원 사진
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CLIK_API_KEY: ${{ secrets.CLIK_API_KEY }}
+          NODE_ENV: production
+        run: pnpm exec tsx src/ingest/clikPhotos.ts basic
