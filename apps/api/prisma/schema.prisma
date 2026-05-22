@@ -342,6 +342,7 @@ model Candidate {
   districtName  String? // sggName
   status        CandidateStatus       @default(UNKNOWN)
   registeredAt  DateTime?
+  photoUrl      String? // NEC info.nec.go.kr 후보자 사진 (HEAD 검증된 URL만)
   rawSourceJson Json?
   lastSyncedAt  DateTime?
 
