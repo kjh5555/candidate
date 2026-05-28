@@ -1,154 +1,193 @@
-# 내 지역구 의원 보기
+# 내 의원·내 예산
 
-국회의원과 광역의회 의원의 프로필, 발의 법안, 표결 이력을 지역별로 조회하는 웹 서비스입니다.
+> *"내 한 표가 어디로 갔는지, 내 세금이 어떻게 쓰이는지 시민이 한 화면에서 본다."*
 
-## 주요 기능
+대한민국 시민이 본인 지역의 **국회의원·광역의원·기초의원**, **2026.6.3 지방선거 후보**, **지자체 예산·결산**, **법안·조례안·회의록**을 한 페이지에서 확인하고 책무를 묻을 수 있게 하는 **오픈 데이터 기반 정치 투명성 플랫폼**입니다.
 
-- 지역구별 현직 국회의원 및 광역의회 의원 검색
-- 의원 프로필 및 상세 정보 조회
-- 발의 법안 목록 및 현황 확인
-- 표결 이력 조회
+🔗 **Live**: https://candidate-web-bice.vercel.app
 
-## 기술 스택
+---
+
+## 🎯 핵심 미션
+
+1. **정보 비대칭 해소** — 정부·국회·NEC가 공개하는 데이터를 시민이 이해하기 쉬운 형태로 통합
+2. **책무성 강화** — "내 표를 받은 사람이 무엇을 했는가"를 가시화 (발의·표결·발언·예산 집행)
+3. **선택의 근거 제공** — 지방선거·총선 등 투표 전 후보 정보·공약·이행률 비교
+4. **중립성 유지** — LLM이 단독으로 정치적 판단을 내리지 않음. 모든 평가는 공식 출처·통계 지표에 기반
+
+---
+
+## ✨ 주요 화면
+
+### 홈 (`/`) — 내 지역 통합 대시보드
+
+지역 한 번 선택하면 한 화면에서 모두 본다:
+
+```
+┌───────────────────────────────────────────────────────────┐
+│  내 의원·내 예산  · 시민 거버넌스 허브                   │
+│  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
+│  우리 동네 정치를 한 화면에서                            │
+│  [시·도 ▾]  [시·군·구 ▾]              [조회]            │
+├───────────────────────────────────────────────────────────┤
+│ ┌─ 현 단체장 ────────────────────┐  ┌─ 우리 지역 예산 ─┐│
+│ │ 시·도지사 / 시장 / 교육감       │  │  (도넛 차트)     ││
+│ │ + 정당 색띠 + 공약 N건         │  │  분야별 결산     ││
+│ ├─ 현 단체장 공약 (모달)─────────┤  ├─ 다가오는 선거 ─┤│
+│ │ 클릭 시 5대 공약 상세           │  │  D-7 9회 지선    ││
+│ ├─ 내 지역 의원 (필터 탭)────────┤  └──────────────────┘│
+│ │ 국회 · 광역 · 기초 카드 그리드  │                       │
+│ ├─ 광역 평균 vs 우리 지역 결산 ──┤                       │
+│ ├─ 9회 지선 후보 정당 색띠 ─────┤                       │
+│ └─ 공식 사이트 ─────────────────┘                       │
+└───────────────────────────────────────────────────────────┘
+```
+
+### 의원 상세 (`/legislator/[id]`) — 2-col 프로필
+
+```
+┌──────────┬──────────────────────────────────────────────┐
+│ [사진]   │ 대표발의 / 공동발의 / 표결 / 출석률           │
+│ 정당색띠 │   N건         N건       N건      X.X%         │
+│ 이름     │ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
+│ 지역구   │ 발의 법안 │ 표결 │ 주요 뉴스 │ 논란           │
+│ 위원회   │                                              │
+│ 의정 통계│  법안 카드 + Gemini AI 요약 토글            │
+│ 주요 약력│                                              │
+│ 공직공개 │                                              │
+└──────────┴──────────────────────────────────────────────┘
+```
+
+### 회의록 뷰어 (`/minutes/[docId]`)
+
+```
+┌─────────────────────┬───────────────────────────┐
+│ 참석자 아바타        │ 🌙 Gemini AI Summary      │
+│ 핵심 주제 칩         │ (다크 네이비 카드)         │
+├─────────────────────┴───────────────────────────┤
+│ 🔴 실시간 대화 흐름     │ 📋 의사일정              │
+│                         │   AGENDA 1               │
+│  [의장] 카카오톡 풍     │   AGENDA 2               │
+│  [의원] 정당색 버블     │ ───────────────────────  │
+│  [의원] ...             │ 👤 발언자별 요약          │
+│                         │                          │
+└─────────────────────────┴──────────────────────────┘
+```
+
+### 6.3 지방선거 후보 (`/candidates`, `/candidate/[id]`)
+
+NEC 후보자 등록 정보 + 공약·전과·재산·납세·체납·병역·학력·경력·**사진**을 8개 직위(국회보궐·시·도지사·시·군·구청장·광역의원·기초의원·교육감·비례) 한 화면에서.
+
+> *스크린샷: `docs/screenshots/` 디렉토리에 추후 추가*
+
+---
+
+## 📊 현재 데이터 적재 현황
+
+| 데이터 | 적재 수 | 출처 |
+|---|---|---|
+| 국회의원 | 286명 (사진 100%) | open.assembly.go.kr |
+| 광역의원 | 872명 (사진 매일 +자동) | CLIK + NEC 8회 당선자 |
+| 기초의원 | 3,563명 (사진 85%+) | CLIK + newstapa |
+| 법안 | 17,151건 | open.assembly.go.kr |
+| 표결 | 450,976건 | open.assembly.go.kr |
+| 9회 지선 후보 | 8개 직위 ingest 중 | NEC info.nec.go.kr |
+| 단체장 공약 (2022) | 260명 | NEC ElecPrmsInfoInqireService |
+| 회의록 (CLIK) | 진행 중 | clik.nanet.go.kr |
+| 조례안·건의안 | 진행 중 | clik.nanet.go.kr |
+| 지자체 결산 | ~8,700건 | 지방재정365 |
+
+---
+
+## 🛠 기술 스택
 
 | 영역 | 기술 |
-|------|------|
-| 프론트엔드 | Next.js 15 (App Router), TypeScript, Tailwind CSS v4 |
-| 백엔드 | Fastify v5, TypeScript, Prisma v6, PostgreSQL |
-| 모노레포 | pnpm workspaces, Turborepo |
-| 배포 | Vercel (web), Railway (api) |
+|---|---|
+| **프론트엔드** | Next.js 15 (App Router, RSC), TypeScript, Tailwind |
+| **백엔드** | Fastify, Prisma 6, PostgreSQL |
+| **모노레포** | pnpm workspace |
+| **인프라** | Railway (DB·API), Vercel (web) |
+| **LLM** | Google Gemini 2.5 Flash (회의록·법안 AI 요약, grounding) |
+| **자동화** | GitHub Actions (사진·후보 ingest 매일 자동 실행) |
 
-## 프로젝트 구조
+### 데이터 출처
 
-```
-candidate/
-├── apps/
-│   ├── web/        # Next.js 프론트엔드
-│   └── api/        # Fastify 백엔드
-└── packages/
-    └── shared/     # 공유 TypeScript 타입
-```
+| 출처 | 데이터 |
+|---|---|
+| 열린국회정보 (open.assembly.go.kr) | 국회의원·법안·표결·이미지 |
+| CLIK (지방의정포털) | 지방의회 회의록·의안·의원 정보·사진 |
+| NEC (info.nec.go.kr, policy.nec.go.kr) | 후보 등록·공약·전과·재산·병역·납세 |
+| NEC CDN (cdn.nec.go.kr) | 후보자 사진 |
+| 열린재정포털 (openfiscaldata.go.kr) | 국가 예산 |
+| 지방재정365 (lofin365.go.kr) | 지방 결산 |
+| 뉴스타파 (newstapa, opengirok) | 의원 신고 재산 정제 |
+| Google News RSS | 의원별 뉴스 자동 수집 |
 
-## 로컬 개발
+---
+
+## ⚙️ 자동화 (GitHub Actions cron)
+
+매일 자동으로 데이터를 갱신:
+
+| Workflow | 시각 (KST) | 작업 |
+|---|---|---|
+| `daily-clik-photos.yml` | 03:00 | 기초·광역의원 사진 ingest (CLIK 일일 한도 900회) |
+| `nec-candidate-ingest.yml` | 18:00 | 9회 지선 후보 8개 직위 정보·공약·사진 ingest |
+
+각 workflow는 `workflow_dispatch`로 GitHub UI에서 수동 트리거 가능.
+
+---
+
+## 🎨 핵심 설계 원칙
+
+1. **중립성** — LLM이 "거짓이다·잘못이다"라고 단언하지 않음. AI 요약에 항상 "원문 직접 확인 권장" 안내. 뉴스 분류는 출처 시그널 집계지 의견 평가가 아님.
+2. **출처 우선** — 모든 데이터에 원본 링크 노출 (CLIK·NEC·국회·지방재정365). LLM 요약은 보조, 검증은 사용자 몫.
+3. **개인정보 최소화** — 회원가입·로그인 없음. "내 지역"은 localStorage 익명 저장. 외부 트래커 없음.
+4. **데이터 신선도** — 일일 cron으로 후보·사진·공시 갱신. 캐시·재생성 사이클 명시적으로 노출.
+
+---
+
+## 🚧 진행 중 / 보류
+
+- **9회 지선 후보 background**: NEC 공식 API 403 차단 → 비공식 `electionInfo_report.json`로 우회 ingest 가동 중
+- **"나의 표는 누구에게?"** — 후보 5대 공약 비교·평가 (NEC 공약 텍스트 + AI 정렬)
+- **단체장 공약 이행률** — 4년 전 당선인 공약 vs 현재 의정활동 (수동 매핑)
+- **시민단체 의정활동 평가 통합** — 참여연대 등 외부 평가 자료
+- **권력 지도** — 국가 → 광역 → 기초 예산 흐름 시각화 (열린재정 이전재원 endpoint 조사 후)
+
+---
+
+## 💻 로컬 개발
 
 ### 사전 요구사항
-
-- Node.js 20+
+- Node.js 22+
 - pnpm 9+
-- PostgreSQL 데이터베이스
+- PostgreSQL (또는 Railway 무료 플랜)
 
-### 설치 및 실행
+### 설치
 
 ```bash
-# 의존성 설치
 pnpm install
-
-# 환경 변수 설정
-cp apps/api/.env.example apps/api/.env
-cp apps/web/.env.local.example apps/web/.env.local
-# 각 파일을 열어 필요한 값을 입력하세요
-
-# DB 마이그레이션
-pnpm --filter @repo/api exec prisma migrate dev
-
-# 개발 서버 실행
+cp apps/api/.env.example apps/api/.env  # 키 채우기
+pnpm --filter @repo/api exec prisma db push
 pnpm dev
 ```
 
-- 웹: http://localhost:3000
-- API: http://localhost:3001
-
-### 빌드
+### 주요 ingest 명령
 
 ```bash
-pnpm build
+pnpm --filter @repo/api ingest:legislators      # 국회의원 명단
+pnpm --filter @repo/api ingest:bills 22         # 22대 법안
+pnpm --filter @repo/api ingest:clik-photos-basic # 기초의원 사진
+pnpm --filter @repo/api exec tsx src/ingest/candidateNecReport.ts # 9회 지선 후보 전체
 ```
 
-## 배포
+---
 
-### Railway (백엔드)
+## 📄 라이선스·기여
 
-1. [Railway](https://railway.app)에서 새 프로젝트 생성
-2. **PostgreSQL plugin 추가** — `DATABASE_URL`이 자동으로 주입됩니다
-3. GitHub 저장소 연결 (새 서비스 생성)
-4. Service Settings에서 **Root Directory**를 `apps/api`로 설정
-5. **Config Path**를 `/apps/api/railway.toml`로 설정
-6. **Watch Paths**에 `apps/api/**`, `packages/shared/**` 추가
-7. 환경변수 설정 (아래 [환경변수](#환경변수) 표 참고)
-8. 첫 배포 완료 후 초기 데이터 수집 1회 실행:
-   ```bash
-   pnpm --filter @repo/api ingest:all
-   ```
+오픈 데이터 기반 시민 프로젝트. 원본 출처를 그대로 표시하며, 시민·언론·연구자가 자유롭게 활용·검증 가능하도록 설계되어 있습니다.
 
-> ⚠️ **필수**: `CORS_ORIGIN` 환경변수를 반드시 Vercel 배포 URL로 설정하세요 (예: `https://my-app.vercel.app`). 기본값인 localhost로 두면 프론트엔드에서 API 요청이 모두 차단됩니다.
+---
 
-### Vercel (프론트엔드)
-
-1. [Vercel](https://vercel.com)에서 GitHub 저장소 import
-2. **Root Directory**를 `apps/web`으로 설정
-3. 환경변수 `NEXT_PUBLIC_API_URL`에 Railway API URL 입력
-   - 예: `https://your-api.up.railway.app`
-4. Deploy
-
-> ⚠️ **필수**: `NEXT_PUBLIC_API_URL` 환경변수를 반드시 Railway API URL로 설정하세요 (예: `https://my-api.up.railway.app`). 이 값이 없으면 웹앱이 API에 연결되지 않습니다.
-
-### Cron (자동 데이터 갱신)
-
-Railway에서 **별도의 cron 서비스**를 생성해서 매일 새벽에 후보 데이터를 자동 갱신할 수 있습니다. config는 `apps/api/railway-cron.toml`에 미리 준비되어 있습니다.
-
-**설정 순서:**
-
-1. Railway 프로젝트 대시보드 → **"+ Create"** → **"GitHub Repo"** → `kjh5555/candidate` 선택 (같은 레포 재연결)
-2. 새 서비스 이름을 `cron-daily` 등으로 변경
-3. **Settings → Source**
-   - Root Directory: **비워두기** (`/`, 모노레포 루트 사용)
-   - Watch Paths: `apps/api/**`, `packages/shared/**`
-4. **Settings → Build**
-   - Config-as-code Path: `/apps/api/railway-cron.toml`
-5. **Settings → Deploy → Cron Schedule**: `0 18 * * *` (UTC 18:00 = KST 03:00 매일 새벽)
-6. **Variables 탭**에 main 서비스와 같은 변수 추가:
-   ```
-   DATABASE_URL=${{Postgres.DATABASE_URL}}
-   NEC_API_KEY=<your-data.go.kr-key>
-   ASSEMBLY_API_KEY=<your-open.assembly.go.kr-key>
-   ```
-
-저장하면 자동으로 첫 실행되고, 그다음부터는 매일 KST 03:00에 후보 + 배경 disclosure 데이터를 새로 가져옵니다.
-
-**Cron 명령어:**
-- `cron:daily` — 지방선거 후보 + 배경 정보 (전과·재산·병역·세금) 갱신 (5~10분)
-- `cron:weekly` — 국회의원 + 선거구 연결 갱신 (주 1회 권장)
-
-**수동 실행:**
-```bash
-# 모두 한 번에
-pnpm --filter @repo/api ingest:all
-
-# 후보만 빠르게
-pnpm --filter @repo/api cron:daily
-
-# 의원만
-pnpm --filter @repo/api cron:weekly
-```
-
-## 환경변수
-
-| 변수 | 설명 | 필수 |
-|------|------|------|
-| `DATABASE_URL` | PostgreSQL 연결 문자열 (Railway 자동 주입) | 필수 |
-| `ASSEMBLY_API_KEY` | 열린국회정보 OpenAPI 키 | 필수 |
-| `KAKAO_REST_API_KEY` | Kakao Local REST API 키 | 필수 |
-| `CLIK_API_KEY` | 국회도서관 지방의정포털 키 | 필수 |
-| `PROVINCIAL_CSV_PATH` | 광역의회 의원 CSV 경로 (로컬 시딩용) | 선택 |
-| `PORT` | API 서버 포트 (기본값: 3001) | 선택 |
-| `NODE_ENV` | 실행 환경 (`development` / `production`) | 선택 |
-| `CORS_ORIGIN` | 허용할 프론트엔드 Origin | 선택 |
-| `NEXT_PUBLIC_API_URL` | API 서버 URL (웹 앱용) | 필수 |
-
-## API 데이터 소스
-
-| 소스 | 내용 | 링크 |
-|------|------|------|
-| 열린국회정보 | 국회의원 정보, 법안, 표결 | https://open.assembly.go.kr |
-| Kakao Local API | 주소 → 지역구 변환 | https://developers.kakao.com |
-| 국회도서관 지방의정포털 (CLIK) | 광역의회 의원 정보 | https://clik.nanet.go.kr |
+*최종 갱신: 2026-05-28*
