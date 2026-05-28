@@ -69,23 +69,39 @@ export async function listCandidates(
   const trimmedName = name?.trim();
   const trimmedDistrict = districtName?.trim();
 
+  // wiwName 필터는 OR로 확장:
+  //   1) wiwName 정확 매칭 (시·군·구청장·기초의원·기초비례)
+  //   2) wiwName이 null이고 sido 일치 (시·도지사·교육감·광역비례)
+  //   3) districtName에 wiwName 포함 (광역의원 지역구·국회보궐 — 선거구 명에
+  //      "여주시"·"여주시·양평군" 등이 들어감)
+  // 이로써 한 지역구 시민이 6월 지선에서 실제 투표할 모든 직위가 같이 보임.
+  const wiwOr = wiwName
+    ? [
+        { wiwName },
+        ...(sido ? [{ AND: [{ wiwName: null }, { sido }] }] : []),
+        { districtName: { contains: wiwName } },
+      ]
+    : null;
+
+  const districtOr = trimmedDistrict && trimmedDistrict.length > 0
+    ? [
+        { districtName: { contains: trimmedDistrict, mode: "insensitive" as const } },
+        { wiwName: { contains: trimmedDistrict, mode: "insensitive" as const } },
+        { sido: { contains: trimmedDistrict, mode: "insensitive" as const } },
+      ]
+    : null;
+
   const where: Prisma.CandidateWhereInput = {
     electionId,
     ...(positionType !== "ALL" ? { positionType } : {}),
     ...(sido ? { sido } : {}),
-    ...(wiwName ? { wiwName } : {}),
     ...(trimmedName && trimmedName.length > 0
       ? { name: { contains: trimmedName, mode: "insensitive" } }
       : {}),
-    ...(trimmedDistrict && trimmedDistrict.length > 0
-      ? {
-          OR: [
-            { districtName: { contains: trimmedDistrict, mode: "insensitive" } },
-            { wiwName: { contains: trimmedDistrict, mode: "insensitive" } },
-            { sido: { contains: trimmedDistrict, mode: "insensitive" } },
-          ],
-        }
-      : {}),
+    AND: [
+      ...(wiwOr ? [{ OR: wiwOr }] : []),
+      ...(districtOr ? [{ OR: districtOr }] : []),
+    ],
   };
 
   const rows = await prisma.candidate.findMany({
