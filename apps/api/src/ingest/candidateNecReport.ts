@@ -183,7 +183,10 @@ function parseCriminalCount(raw: string | undefined): number {
 
 function buildPhotoUrl(sajinPath: string | undefined): string | null {
   if (!sajinPath) return null;
-  return `${BASE}/photo_20260603${sajinPath}`;
+  // info.nec.go.kr photo path는 외부 차단(:8043/error.html)인데 동일 path가
+  // cdn.nec.go.kr에 200 OK로 공개됨. ver 쿼리는 캐시 버스터(SAJINPATH 자체에
+  // 포함).
+  return `https://cdn.nec.go.kr/photo_20260603${sajinPath}`;
 }
 
 function parseBirthDate(raw: string | undefined): string | null {
