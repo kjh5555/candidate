@@ -53,6 +53,7 @@ enum CandidatePositionType {
   SUPERINTENDENT            // 교육감 (sgTypecode=7)
   PROVINCIAL_COUNCILOR_PROP // 광역의원 비례 (sgTypecode=8)
   BASIC_COUNCILOR_PROP      // 기초의원 비례 (sgTypecode=9)
+  NATIONAL_ASSEMBLY         // 국회의원 보궐 (electionCode=2)
 }
 
 enum CandidateStatus {

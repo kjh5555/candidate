@@ -38,6 +38,7 @@ const ELECTION_CODES: Array<{
   positionType: CandidatePositionType;
   callMode: "city" | "sgg" | "town";
 }> = [
+  { code: "2", label: "국회의원 보궐", positionType: "NATIONAL_ASSEMBLY", callMode: "sgg" },
   { code: "3", label: "시·도지사", positionType: "GOVERNOR", callMode: "city" },
   { code: "4", label: "시·군·구청장", positionType: "MAYOR", callMode: "sgg" },
   { code: "5", label: "광역의원 지역구", positionType: "PROVINCIAL_COUNCILOR", callMode: "town" },
