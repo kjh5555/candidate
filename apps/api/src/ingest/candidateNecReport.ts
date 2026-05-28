@@ -101,9 +101,18 @@ async function fetchJson<T>(url: string, retries = 3): Promise<T> {
   throw lastErr;
 }
 
-async function fetchCityCodes(): Promise<CityCode[]> {
+async function fetchCityCodes(
+  mode: "city" | "sgg" | "town",
+  electionCode: string,
+): Promise<CityCode[]> {
+  // 시·도지사·광역의원·교육감·광역비례(mode=city)는 DIBySg (16개, 광주+전남
+  // 통합 entry "2900=전남광주통합특별시"). 시·군·구청장·기초의원·기초비례
+  // (mode=sgg|town)는 BySg (15개, 광주광역시·전라남도 분리)를 써야 전남
+  // 시·군·구가 누락되지 않음.
+  const endpoint =
+    mode === "city" ? "selectbox_cityCodeDIBySgJson.json" : "selectbox_cityCodeBySgJson.json";
   const data = await fetchJson<{ jsonResult: { body: CityCode[] } }>(
-    `${BASE}/m/bizcommon/selectbox/selectbox_cityCodeDIBySgJson.json?electionId=${ELECTION_ID}`,
+    `${BASE}/m/bizcommon/selectbox/${endpoint}?electionId=${ELECTION_ID}&secondMenuId=CPRI03&electionCode=${electionCode}`,
   );
   return data.jsonResult.body;
 }
@@ -259,8 +268,6 @@ async function main() {
     : ELECTION_CODES;
 
   console.log("📥 NEC report ingest 시작");
-  const cities = await fetchCityCodes();
-  console.log(`  시·도 ${cities.length}개`);
 
   let created = 0;
   let updated = 0;
@@ -286,6 +293,14 @@ async function main() {
   for (const { code, label, positionType, callMode } of codes) {
     console.log(`\n── ${label} (electionCode=${code}) ──`);
     let perType = 0;
+    let cities: CityCode[] = [];
+    try {
+      cities = await fetchCityCodes(callMode, code);
+    } catch (e) {
+      console.warn(`  ⚠️  시·도 list 실패:`, e instanceof Error ? e.message : e);
+      continue;
+    }
+    console.log(`  시·도 ${cities.length}개`);
 
     for (const city of cities) {
       if (callMode === "city") {
