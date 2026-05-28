@@ -4,8 +4,8 @@ name: nec-candidate-ingest
 # 사용자 Mac이 꺼져 있어도 진행됨. ingest는 약 30~60분 소요.
 on:
   schedule:
-    # KST 새벽 2시 = UTC 전날 17시
-    - cron: "0 17 * * *"
+    # KST 18:00 = UTC 09:00
+    - cron: "0 9 * * *"
   workflow_dispatch: # GitHub UI에서 수동 트리거
     inputs:
       electionCodes:
