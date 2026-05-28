@@ -141,6 +141,7 @@ const CANDIDATE_SUMMARY_SELECT = {
   age: true,
   occupation: true,
   status: true,
+  photoUrl: true,
 } satisfies Prisma.CandidateSelect;
 
 type CandidateSummaryRow = Prisma.CandidateGetPayload<{
@@ -159,6 +160,7 @@ function rowToCandidateSummary(row: CandidateSummaryRow): CandidateSummaryDTO {
     age: row.age,
     occupation: row.occupation,
     status: row.status as CandidateStatus,
+    photoUrl: row.photoUrl,
   };
 }
 

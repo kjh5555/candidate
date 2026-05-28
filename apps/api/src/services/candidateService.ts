@@ -33,6 +33,7 @@ const summarySelect = {
   age: true,
   occupation: true,
   status: true,
+  photoUrl: true,
 } satisfies Prisma.CandidateSelect;
 
 function rowToSummary(
@@ -49,6 +50,7 @@ function rowToSummary(
     age: row.age,
     occupation: row.occupation,
     status: row.status as CandidateStatus,
+    photoUrl: row.photoUrl,
   };
 }
 
@@ -152,6 +154,7 @@ export async function getCandidateDetail(
     age: row.age,
     occupation: row.occupation,
     status: row.status as CandidateStatus,
+    photoUrl: row.photoUrl,
     hanjaName: row.hanjaName,
     gender: row.gender,
     birthDate: row.birthDate,

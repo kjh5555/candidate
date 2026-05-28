@@ -285,6 +285,7 @@ export interface CandidateSummaryDTO {
   age: number | null;
   occupation: string | null;
   status: CandidateStatus;
+  photoUrl: string | null;
 }
 
 export interface CandidateDetailDTO extends CandidateSummaryDTO {

@@ -62,8 +62,18 @@ function CandidateCard({ candidate }: { candidate: CandidateSummaryDTO }) {
   return (
     <Link href={`/candidate/${candidate.id}`} className="group">
       <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer flex flex-col items-center text-center gap-3 h-full">
-        <div className="w-20 h-20 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0 group-hover:bg-slate-200 transition-colors">
-          <User className="w-10 h-10 text-slate-400" />
+        <div className="w-20 h-20 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0 group-hover:bg-slate-200 transition-colors relative">
+          {candidate.photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={candidate.photoUrl}
+              alt={candidate.name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <User className="w-10 h-10 text-slate-400" />
+          )}
         </div>
         <div className="flex flex-col items-center gap-1.5 w-full">
           <p className="font-bold text-slate-900 text-lg leading-tight">
