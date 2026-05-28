@@ -1,0 +1,52 @@
+name: nec-candidate-ingest
+
+# 9회 지선 후보 NEC report ingest. GitHub Actions에서 실행되므로
+# 사용자 Mac이 꺼져 있어도 진행됨. ingest는 약 30~60분 소요.
+on:
+  schedule:
+    # KST 새벽 2시 = UTC 전날 17시
+    - cron: "0 17 * * *"
+  workflow_dispatch: # GitHub UI에서 수동 트리거
+    inputs:
+      electionCodes:
+        description: "쉼표 구분 electionCode (예: 5,6,11). 비우면 전체."
+        required: false
+        default: ""
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm via corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.0.0 --activate
+          pnpm -v
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm exec prisma generate
+
+      - name: NEC candidate report ingest
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NODE_ENV: production
+        run: |
+          if [ -n "${{ inputs.electionCodes }}" ]; then
+            pnpm exec tsx src/ingest/candidateNecReport.ts "${{ inputs.electionCodes }}"
+          else
+            pnpm exec tsx src/ingest/candidateNecReport.ts
+          fi
