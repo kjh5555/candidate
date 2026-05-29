@@ -217,7 +217,9 @@ function rowToCandidateData(
     career2: r.KYUNGRUK2 ?? null,
     address: r.JUSO ?? null,
     sido: r.SDNAME ?? null,
-    wiwName: r.SGGNAME ?? null,
+    // 시·도 단위 후보(GOVERNOR·SUPERINTENDENT·광역비례)는 NEC가 SGGNAME에
+    // 시·도 이름을 그대로 넣음. 그 경우 wiwName은 null로 정리.
+    wiwName: r.SGGNAME && r.SGGNAME !== r.SDNAME ? r.SGGNAME : null,
     districtName: r.SGGNAME ?? null,
     status: "REGISTERED",
     photoUrl: buildPhotoUrl(r.SAJINPATH),
