@@ -183,7 +183,17 @@ export default function CandidateDetailPage() {
       <div className="bg-white rounded-xl border border-slate-200 p-6">
         <div className="flex flex-col sm:flex-row gap-5 items-center sm:items-start">
           <div className="w-24 h-24 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center shrink-0 ring-2 ring-slate-200">
-            <User className="w-12 h-12 text-slate-400" />
+            {candidate.photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={candidate.photoUrl}
+                alt={candidate.name}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <User className="w-12 h-12 text-slate-400" />
+            )}
           </div>
           <div className="flex flex-col gap-2 items-center sm:items-start text-center sm:text-left flex-1">
             <div className="flex flex-wrap items-baseline gap-2 justify-center sm:justify-start">
