@@ -19,6 +19,8 @@ import {
   getSettlementReport,
   getBudgetPlanUnit,
   type BudgetPlanUnitResponse,
+  getBudgetExpenseUnit,
+  type BudgetExpenseResponse,
 } from "@/lib/api";
 import type {
   BudgetBreakdownDTO,
@@ -291,6 +293,9 @@ function BudgetPageInner() {
   const [setUnitPlan, setSetUnitPlan] = useState<BudgetPlanUnitResponse | null>(null);
   // 참고 결산과 같은 해 본예산 (= 그 해 계획 vs 실제 비교용)
   const [setUnitPlanSameYear, setSetUnitPlanSameYear] = useState<BudgetPlanUnitResponse | null>(null);
+  // 세부사업 top N (분야 선택 시) — 분야 클릭 시 fetch.
+  const [setUnitExpenseTop, setSetUnitExpenseTop] = useState<BudgetExpenseResponse | null>(null);
+  const [setUnitExpenseLoading, setSetUnitExpenseLoading] = useState(false);
   const [setLoading, setSetLoading] = useState(false);
 
   // ── Field drill-down state ─────────────────────────────────────────
@@ -500,7 +505,41 @@ function BudgetPageInner() {
   useEffect(() => {
     setSelectedField(null);
     setFieldDetailData(null);
+    setSetUnitExpenseTop(null);
   }, [setSido, setUnitCode, setYear]);
+
+  // Load 세부사업 top 20 when selectedField changes (SGG 단위만)
+  useEffect(() => {
+    if (
+      !selectedField ||
+      setYear === null ||
+      setUnitCode === ALL_UNITS_KEY
+    ) {
+      setSetUnitExpenseTop(null);
+      return;
+    }
+    let cancelled = false;
+    setSetUnitExpenseLoading(true);
+    setSetUnitExpenseTop(null);
+    getBudgetExpenseUnit(setUnitCode, {
+      fiscalYear: setYear,
+      field: selectedField,
+      limit: 20,
+      sortBy: "spend",
+    })
+      .then((data) => {
+        if (!cancelled) setSetUnitExpenseTop(data);
+      })
+      .catch(() => {
+        if (!cancelled) setSetUnitExpenseTop(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSetUnitExpenseLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedField, setYear, setUnitCode]);
 
   // Load 결산서 PDF link when a specific unit (시·군·구 or 본청) is selected.
   // For ALL_UNITS_KEY (시·도 합산 뷰) we don't fetch — there is no single PDF.
@@ -1136,6 +1175,17 @@ function BudgetPageInner() {
                           <SourceNote text="출처: lofin365.go.kr" />
                         </div>
                       )}
+
+                      {/* 세부사업 top 20 (분야 선택 시 SGG 단위만) */}
+                      {selectedField && (
+                        <UnitExpenseTopCard
+                          loading={setUnitExpenseLoading}
+                          data={setUnitExpenseTop}
+                          unitName={selectedUnit?.unitName ?? "자치단체"}
+                          fiscalYear={setYear}
+                          field={selectedField}
+                        />
+                      )}
                     </>
                   )}
 
@@ -1210,6 +1260,106 @@ function BudgetSettlementExplainer({
             </p>
           )}
       </div>
+    </div>
+  );
+}
+
+// 분야 선택 시 그 분야에 속한 세부사업 top N — "어떤 구체적 사업에 얼마 썼나"
+function UnitExpenseTopCard({
+  loading,
+  data,
+  unitName,
+  fiscalYear,
+  field,
+}: {
+  loading: boolean;
+  data: BudgetExpenseResponse | null;
+  unitName: string;
+  fiscalYear: number | null;
+  field: string;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-purple-200 p-6">
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="text-lg font-semibold text-slate-900">
+          {field} 세부사업 (지출 상위 20)
+        </h2>
+        <p className="text-[11px] text-slate-400">
+          {unitName} · {fiscalYear}년 LOFIN QWGJK
+        </p>
+      </div>
+      <p className="text-sm text-slate-400 mb-4">
+        해당 분야에서 가장 큰 지출이 발생한 사업 순서로 표시 — 시민이 "어떤
+        구체적 사업에 얼마 썼는지" 확인할 수 있습니다.
+      </p>
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-10 rounded bg-slate-50 animate-pulse" />
+          ))}
+        </div>
+      ) : !data || data.items.length === 0 ? (
+        <EmptyState message="해당 분야 세부사업 데이터가 없습니다 (ingest 대기 중일 수 있음)." />
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-slate-500">
+                <th className="text-left py-2 font-medium">사업명</th>
+                <th className="text-left py-2 font-medium hidden md:table-cell">
+                  부문
+                </th>
+                <th className="text-right py-2 font-medium">예산현액</th>
+                <th className="text-right py-2 font-medium">지출액</th>
+                <th className="text-right py-2 font-medium">집행률</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.items.map((it) => (
+                <tr
+                  key={it.detailBizCode}
+                  className="border-b border-slate-100 hover:bg-slate-50"
+                >
+                  <td className="py-2 text-slate-800 max-w-[280px]">
+                    <div className="truncate">{it.detailBizName}</div>
+                    {it.accountType && (
+                      <div className="text-[10px] text-slate-400">
+                        {it.accountType}
+                      </div>
+                    )}
+                  </td>
+                  <td className="py-2 text-slate-500 text-xs hidden md:table-cell">
+                    {it.sector ?? "—"}
+                  </td>
+                  <td className="py-2 text-right tabular-nums text-slate-600">
+                    <Amount amount={it.budgetAmount} />
+                  </td>
+                  <td className="py-2 text-right tabular-nums text-purple-700 font-semibold">
+                    <Amount amount={it.spendAmount} />
+                  </td>
+                  <td className="py-2 text-right tabular-nums">
+                    {it.executionRate !== null ? (
+                      <span
+                        className={
+                          it.executionRate >= 95
+                            ? "text-emerald-600 font-semibold"
+                            : it.executionRate >= 80
+                              ? "text-slate-700"
+                              : "text-rose-600"
+                        }
+                      >
+                        {it.executionRate.toFixed(1)}%
+                      </span>
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

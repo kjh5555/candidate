@@ -539,6 +539,73 @@ export interface BudgetPlanUnitResponse {
   items: BudgetPlanItem[];
 }
 
+export interface BudgetExpenseItem {
+  detailBizCode: string;
+  detailBizName: string;
+  field: string;
+  fieldCode: string;
+  sector: string | null;
+  sectorCode: string | null;
+  accountType: string | null;
+  budgetAmount: string;
+  spendAmount: string;
+  natlFundAmt: string | null;
+  sidoFundAmt: string | null;
+  sggFundAmt: string | null;
+  etcAmt: string | null;
+  executionRate: number | null;
+}
+export interface BudgetExpenseResponse {
+  fiscalYear: number;
+  unitCode: string;
+  items: BudgetExpenseItem[];
+}
+export interface BudgetExpenseSectorItem {
+  sector: string | null;
+  budgetAmount: string;
+  spendAmount: string;
+  executionRate: number | null;
+}
+export interface BudgetExpenseSectorResponse {
+  fiscalYear: number;
+  unitCode: string;
+  field: string | null;
+  items: BudgetExpenseSectorItem[];
+}
+export function getBudgetExpenseUnit(
+  unitCode: string,
+  opts: {
+    fiscalYear?: number;
+    field?: string;
+    sector?: string;
+    limit?: number;
+    sortBy?: "spend" | "budget";
+  } = {},
+): Promise<BudgetExpenseResponse> {
+  const p = new URLSearchParams();
+  if (opts.fiscalYear) p.set("fiscalYear", String(opts.fiscalYear));
+  if (opts.field) p.set("field", opts.field);
+  if (opts.sector) p.set("sector", opts.sector);
+  if (opts.limit) p.set("limit", String(opts.limit));
+  if (opts.sortBy) p.set("sortBy", opts.sortBy);
+  const qs = p.toString();
+  return apiFetch<BudgetExpenseResponse>(
+    `/api/budget-expense/unit/${encodeURIComponent(unitCode)}${qs ? `?${qs}` : ""}`,
+  );
+}
+export function getBudgetExpenseUnitSectors(
+  unitCode: string,
+  opts: { fiscalYear?: number; field?: string } = {},
+): Promise<BudgetExpenseSectorResponse> {
+  const p = new URLSearchParams();
+  if (opts.fiscalYear) p.set("fiscalYear", String(opts.fiscalYear));
+  if (opts.field) p.set("field", opts.field);
+  const qs = p.toString();
+  return apiFetch<BudgetExpenseSectorResponse>(
+    `/api/budget-expense/unit/${encodeURIComponent(unitCode)}/sectors${qs ? `?${qs}` : ""}`,
+  );
+}
+
 export function getBudgetPlanUnit(
   unitCode: string,
   fiscalYear?: number,

@@ -28,7 +28,8 @@
     "ingest:clik-photos-basic": "tsx src/ingest/clikPhotos.ts basic",
     "ingest:clik-photos-provincial": "tsx src/ingest/clikPhotos.ts provincial",
     "ingest:debates": "tsx src/ingest/debateYoutube.ts",
-    "ingest:budget-plan": "tsx src/ingest/budgetPlan.ts"
+    "ingest:budget-plan": "tsx src/ingest/budgetPlan.ts",
+    "ingest:budget-expense": "tsx src/ingest/budgetExpense.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.0",

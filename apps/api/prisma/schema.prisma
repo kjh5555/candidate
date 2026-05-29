@@ -597,6 +597,39 @@ model ElectedOfficialPledge {
   @@index([electionId, sido, wiwName])
 }
 
+// 세부사업별 세출현황 (LOFIN QWGJK endpoint).
+// 자치단체 × 세부사업 × 연말 누적 결산. 분야→부문→세부사업까지 드릴다운.
+// exe_ymd=YYYY1231 호출로 1년 누적 한 번에 가져옴.
+model BudgetExpense {
+  id            String   @id @default(cuid())
+  fiscalYear    Int
+  sido          String
+  unitCode      String   // laf_cd
+  unitName      String   // laf_hg_nm "경기여주시" 등
+  accountType   String?  // acnt_dv_nm "일반회계" 등
+  deptCode      String?  // dept_cd 부서코드
+  fieldCode     String   // fld_cd "010" 등
+  field         String   // fld_nm "환경"
+  sectorCode    String?  // ane_part_cd
+  sector        String?  // part_nm "자연" 등
+  detailBizCode String   // dbiz_cd
+  detailBizName String   // dbiz_nm "야생동물 피해예방사업" 등
+  exeYmd        String   // YYYYMMDD (스냅샷 시점)
+  budgetAmount  BigInt   // bdg_cash_amt 예산현액
+  spendAmount   BigInt   // ep_amt 지출액 (누적 집행)
+  appropAmount  BigInt?  // cpl_amt 편성액
+  natlFundAmt   BigInt?  // bdg_ntep 국비
+  sidoFundAmt   BigInt?  // capep 시도비
+  sggFundAmt    BigInt?  // sggep 시군구비
+  etcAmt        BigInt?  // etc_amt 기타 재원
+  syncedAt      DateTime @default(now())
+
+  @@unique([fiscalYear, unitCode, detailBizCode])
+  @@index([fiscalYear, unitCode, fieldCode])
+  @@index([fiscalYear, unitCode, sectorCode])
+  @@index([fiscalYear, sido])
+}
+
 // 시·군·구 본예산 (LOFIN AIDFA endpoint).
 // 광역(시·도 본청)과 기초(시·군·구) 단위로 분야×부문×회계 본예산.
 // 결산(BudgetSettlement)의 본예산 짝. 6.3 지선 후보가 어떤 예산 구조를

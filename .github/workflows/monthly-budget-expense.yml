@@ -1,0 +1,59 @@
+name: monthly-budget-expense
+
+# 매월 1일 KST 07:00 (= UTC 전날 22:00). 직전 회계연도 세부사업별 세출현황
+# (LOFIN QWGJK) ingest. exe_ymd=YYYY1231로 한 해 누적 한 번에 받음.
+# 결산 공시 일정과 동일하게 8월 이후 데이터 갱신.
+on:
+  schedule:
+    - cron: "0 22 1 * *"
+  workflow_dispatch:
+    inputs:
+      fiscalYear:
+        description: "회계연도 (기본값: 오늘 연도 - 1)"
+        required: false
+        default: ""
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm via corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.0.0 --activate
+          pnpm -v
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm exec prisma generate
+
+      - name: Resolve fiscal year
+        id: yr
+        run: |
+          if [ -n "${{ inputs.fiscalYear }}" ]; then
+            echo "year=${{ inputs.fiscalYear }}" >> $GITHUB_OUTPUT
+          else
+            CY=$(date -u +%Y)
+            echo "year=$((CY - 1))" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Ingest 세부사업별 세출현황 (LOFIN QWGJK)
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          FISCAL_API_KEY: ${{ secrets.FISCAL_API_KEY }}
+          LOFIN_API_KEY: ${{ secrets.LOFIN_API_KEY }}
+          NODE_ENV: production
+        run: pnpm exec tsx src/ingest/budgetExpense.ts ${{ steps.yr.outputs.year }} || echo "skipped (no data yet)"
