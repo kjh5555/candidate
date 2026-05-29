@@ -414,10 +414,11 @@ function BudgetPageInner() {
         } else {
           // 자치단체(시·군·구 또는 본청) 결산 + 같은 unitCode의 본예산
           // 같은 해 본예산이 있으면 그 해, 없으면 가용 최신.
+          // 본예산은 "직전 완성 회계연도(=오늘-1)" 기준 — 결산 연도(setYear)와
+          // 무관하게 가장 의미 있는 최근 본예산을 항상 보여준다.
           const [unitData, unitPlan] = await Promise.all([
             getSettlementUnitDetail(unitCode, year).catch(() => null),
-            getBudgetPlanUnit(unitCode, year)
-              .catch(() => getBudgetPlanUnit(unitCode).catch(() => null)),
+            getBudgetPlanUnit(unitCode).catch(() => null),
           ]);
           setSetUnitData(unitData);
           setSetUnitPlan(unitPlan);
@@ -942,42 +943,98 @@ function BudgetPageInner() {
                       )}
                     </>
                   ) : (
-                    // ── 시·군·구 결산 view ─────────────────────────
+                    // ── 시·군·구 view: 본예산(메인) → 결산(참고) ─────
                     <>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {setUnitPlan && (
-                          <div className="bg-blue-50 rounded-xl p-5 border border-blue-100">
-                            <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">
+                      {/* 1. 본예산 카드 (메인 강조) */}
+                      {setUnitPlan && (
+                        <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-6 border border-blue-200">
+                          <div className="flex items-baseline justify-between flex-wrap gap-2 mb-1">
+                            <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
                               {setUnitPlan.fiscalYear}년 {setUnitPlan.unitName ?? "자치단체"} 본예산
                             </p>
-                            <p className="text-3xl font-bold text-blue-800">
-                              <Amount amount={setUnitPlan.totalAmount} />
-                            </p>
-                            <p className="text-[11px] text-blue-700/70 mt-1">
-                              그 해 1~3월 LOFIN 공시 (계획)
-                            </p>
+                            <span className="text-[10px] text-blue-700/60 bg-blue-200/50 px-2 py-0.5 rounded-full">
+                              계획 · {setUnitPlan.fiscalYear}-01 LOFIN 공시
+                            </span>
                           </div>
+                          <p className="text-4xl font-bold text-blue-800">
+                            <Amount amount={setUnitPlan.totalAmount} />
+                          </p>
+                        </div>
+                      )}
+
+                      {/* 2. 본예산 vs 결산 차이 + 결산 공시 일정 explainer */}
+                      <BudgetSettlementExplainer
+                        planYear={setUnitPlan?.fiscalYear ?? null}
+                        latestSettlementYear={setUnitData?.fiscalYear ?? null}
+                      />
+
+                      {/* 3. 분야별 본예산 (메인) */}
+                      {setUnitPlan && setUnitPlan.items.length > 0 && (
+                        <div className="bg-white rounded-xl border border-slate-200 p-6">
+                          <SectionTitle>
+                            {setUnitPlan.unitName ?? "자치단체"} 분야별 본예산
+                          </SectionTitle>
+                          <p className="text-sm text-slate-400 mb-4">
+                            {setUnitPlan.fiscalYear}년 계획 — 분야별 편성액
+                          </p>
+                          <ul className="space-y-2">
+                            {setUnitPlan.items.map((it) => (
+                              <li
+                                key={`plan-row-${it.field}`}
+                                className="flex items-center justify-between py-2 border-b border-slate-100"
+                              >
+                                <span className="text-sm text-slate-700">
+                                  {it.field}
+                                </span>
+                                <div className="flex items-center gap-3 tabular-nums">
+                                  <span className="text-sm text-blue-700 font-semibold">
+                                    <Amount amount={it.amount} />
+                                  </span>
+                                  <span className="text-xs text-slate-400 w-12 text-right">
+                                    {it.percent.toFixed(1)}%
+                                  </span>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* 4. 본예산 vs 결산 같은 해 비교 (같은 연도일 때만) */}
+                      {setUnitData &&
+                        setUnitPlan &&
+                        setUnitData.fiscalYear === setUnitPlan.fiscalYear && (
+                          <UnitBudgetVsSettlementCompare
+                            plan={setUnitPlan}
+                            settle={setUnitData}
+                          />
                         )}
-                        {setUnitData && (
-                          <div className="bg-amber-50 rounded-xl p-5 border border-amber-100">
-                            <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">
-                              {setYear}년 {selectedUnit?.unitName ?? "자치단체"} 결산
-                            </p>
-                            <p className="text-3xl font-bold text-amber-800">
-                              <Amount amount={setUnitData.totalAmount} />
-                            </p>
-                            <p className="text-[11px] text-amber-700/70 mt-1">
-                              다음해 8월 LOFIN 공시 (실제)
-                            </p>
-                          </div>
-                        )}
+
+                      {/* 5. 결산 섹션 (참고, 회색조) */}
+                      <div className="pt-2">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="h-px bg-slate-200 flex-1" />
+                          <span className="text-xs text-slate-400 px-2">
+                            참고 · 가장 최근 공시 결산
+                          </span>
+                          <div className="h-px bg-slate-200 flex-1" />
+                        </div>
                       </div>
 
-                      {setUnitData && setUnitPlan && (
-                        <UnitBudgetVsSettlementCompare
-                          plan={setUnitPlan}
-                          settle={setUnitData}
-                        />
+                      {setUnitData && (
+                        <div className="bg-amber-50/60 rounded-xl p-5 border border-amber-100">
+                          <div className="flex items-baseline justify-between flex-wrap gap-2 mb-1">
+                            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
+                              {setYear}년 {selectedUnit?.unitName ?? "자치단체"} 결산
+                            </p>
+                            <span className="text-[10px] text-amber-700/60 bg-amber-200/50 px-2 py-0.5 rounded-full">
+                              실제 · {(setUnitData?.fiscalYear ?? setYear ?? 0) + 1}-08 공시
+                            </span>
+                          </div>
+                          <p className="text-2xl font-bold text-amber-800">
+                            <Amount amount={setUnitData.totalAmount} />
+                          </p>
+                        </div>
                       )}
 
                       <div className="bg-white rounded-xl border border-slate-200 p-6">
@@ -1071,6 +1128,70 @@ function BudgetPageInner() {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// 본예산 vs 결산 차이 + 결산 공시 일정 안내.
+function BudgetSettlementExplainer({
+  planYear,
+  latestSettlementYear,
+}: {
+  planYear: number | null;
+  latestSettlementYear: number | null;
+}) {
+  // 직전 완성 회계연도(=오늘-1)의 결산 공시 예정일.
+  const nowYear = new Date().getUTCFullYear();
+  const lastFinishedFy = nowYear - 1;
+  // 결산은 회계연도 종료 후 다음해 8월 LOFIN 공시.
+  const lastFinishedSettlementExpected = lastFinishedFy + 1;
+
+  return (
+    <div className="bg-slate-50 rounded-xl border border-slate-200 p-5">
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">
+        용어 안내
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <div>
+          <p className="font-semibold text-blue-700 mb-1">본예산 (계획)</p>
+          <p className="text-slate-600 leading-relaxed">
+            그해 시작 전(전년 12월) 의회 의결 후, 1~3월 LOFIN 공시. "이번 해에
+            어디에 얼마 쓰겠다"는 계획서.
+          </p>
+        </div>
+        <div>
+          <p className="font-semibold text-amber-700 mb-1">결산 (실제)</p>
+          <p className="text-slate-600 leading-relaxed">
+            회계연도 종료 후 6개월 내 LOFIN 공시 (보통 다음해 8월). "실제
+            얼마 썼다"는 사후 결과.
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 pt-4 border-t border-slate-200 text-xs text-slate-500 leading-relaxed">
+        <p>
+          ⓘ {planYear ?? lastFinishedFy}년 결산은{" "}
+          <span className="font-semibold text-slate-700">
+            {(planYear ?? lastFinishedFy) + 1}년 8월
+          </span>{" "}
+          LOFIN 공시 예정입니다. 매월 1일 새벽 자동 ingest로 공시 직후 반영됩니다.
+        </p>
+        {latestSettlementYear !== null &&
+          planYear !== null &&
+          latestSettlementYear < planYear && (
+            <p className="mt-1">
+              ⓘ 아래 "참고 · 가장 최근 공시 결산"은{" "}
+              <span className="font-semibold text-slate-700">
+                {latestSettlementYear}년 결산
+              </span>
+              으로, 본예산({planYear}년)과 1년 차이가 있어 직접 비교는 어렵습니다.
+              같은 해 비교를 보려면 상단 연도 선택에서{" "}
+              <span className="font-semibold text-slate-700">
+                {latestSettlementYear}년
+              </span>
+              을 선택하세요.
+            </p>
+          )}
+      </div>
     </div>
   );
 }
