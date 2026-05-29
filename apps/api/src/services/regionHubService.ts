@@ -411,12 +411,13 @@ export async function getRegionHub(
   const planUnitCode = settlement?.unitCode ?? null;
   if (planUnitCode) {
     // 우선순위:
-    //   1) "가장 최근에 끝난 회계연도" — 즉 오늘 연도 - 1 (예: 2026.5 기준 2025).
-    //      집행 완료 + 결산 미공시 구간이라 시민 평가에 가장 의미 있음.
-    //   2) 그게 없으면 가용한 가장 최신 본예산.
-    const lastFinishedFy = new Date().getUTCFullYear() - 1;
+    //   1) "올해 진행 중 회계연도" — 즉 오늘 연도 (예: 2026.5 기준 2026).
+    //      현 단체장이 약속한 올해 계획이 6.3 지선 시즌에 가장 정치적으로
+    //      중요해서 메인에 노출.
+    //   2) 없으면 가용한 가장 최신 본예산.
+    const currentFy = new Date().getUTCFullYear();
     const exactFy = await prisma.budgetPlan.findFirst({
-      where: { unitCode: planUnitCode, fiscalYear: lastFinishedFy },
+      where: { unitCode: planUnitCode, fiscalYear: currentFy },
       select: { fiscalYear: true },
     });
     let planFy: number | null = exactFy?.fiscalYear ?? null;

@@ -68,7 +68,8 @@ const budgetPlanRoutes: FastifyPluginAsync = async (fastify) => {
       if (requestedFy && Number.isFinite(requestedFy)) {
         fiscalYear = requestedFy;
       } else {
-        const preferred = new Date().getUTCFullYear() - 1;
+        // "올해 진행 중 회계연도" 우선 (현 단체장 약속 = 6.3 지선 시즌 핵심).
+        const preferred = new Date().getUTCFullYear();
         const exact = await prisma.budgetPlan.findFirst({
           where: { unitCode, fiscalYear: preferred },
           select: { fiscalYear: true },
