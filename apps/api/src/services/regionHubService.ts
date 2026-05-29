@@ -404,12 +404,21 @@ export async function getRegionHub(
   }
 
   // ── 6. 2026.6.3 지방선거 후보 ─────────────────────────────────────────
+  // listCandidates와 동일한 신선도 필터: REGISTERED + backgroundLastSyncedAt
+  // 3일 이내. 광역(GOVERNOR)은 광주·전남 통합 entry까지 포함.
   const ELECTION_ID = "20260603";
+  const freshSince = new Date(Date.now() - 3 * 86400_000);
+  const sidoInForGovernor =
+    sido === "광주광역시" || sido === "전라남도"
+      ? [sido, "전남광주통합특별시"]
+      : [sido];
   const [mayorRows, governorRows] = await Promise.all([
     prisma.candidate.findMany({
       where: {
         electionId: ELECTION_ID,
         positionType: "MAYOR",
+        status: "REGISTERED",
+        backgroundLastSyncedAt: { gte: freshSince },
         sido,
         wiwName,
       },
@@ -420,7 +429,9 @@ export async function getRegionHub(
       where: {
         electionId: ELECTION_ID,
         positionType: "GOVERNOR",
-        sido,
+        status: "REGISTERED",
+        backgroundLastSyncedAt: { gte: freshSince },
+        sido: { in: sidoInForGovernor },
       },
       select: CANDIDATE_SUMMARY_SELECT,
       orderBy: [{ party: "asc" }, { name: "asc" }],
