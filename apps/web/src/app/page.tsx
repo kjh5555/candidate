@@ -21,6 +21,8 @@ import {
   getBasicRegions,
   getRegionHub,
   getRegionNews,
+  REGION_NEWS_CATEGORIES,
+  type RegionNewsCategory,
   type RegionNewsItem,
 } from "@/lib/api";
 import { setMyRegion, getMyRegion } from "@/lib/myRegion";
@@ -859,12 +861,13 @@ function RegionNewsWidget({
 }) {
   const [items, setItems] = useState<RegionNewsItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [category, setCategory] = useState<RegionNewsCategory>("all");
 
   useEffect(() => {
     if (!sido) return;
     let cancelled = false;
     setLoading(true);
-    getRegionNews(sido, wiwName)
+    getRegionNews(sido, wiwName, { category })
       .then((res) => {
         if (!cancelled) setItems(res.items);
       })
@@ -877,7 +880,7 @@ function RegionNewsWidget({
     return () => {
       cancelled = true;
     };
-  }, [sido, wiwName]);
+  }, [sido, wiwName, category]);
 
   if (!sido) return null;
   return (
@@ -892,6 +895,29 @@ function RegionNewsWidget({
         <span className="text-[10px]" style={{ color: "#75777f" }}>
           Google News
         </span>
+      </div>
+      <div
+        className="flex gap-1.5 overflow-x-auto pb-2 mb-3 -mx-1 px-1"
+        style={{ scrollbarWidth: "none" }}
+      >
+        {REGION_NEWS_CATEGORIES.map((c) => {
+          const active = category === c.key;
+          return (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => setCategory(c.key)}
+              className="px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-colors"
+              style={{
+                backgroundColor: active ? PRIMARY : SURFACE_CONTAINER,
+                color: active ? "#fff" : ON_VARIANT,
+                border: `1px solid ${active ? PRIMARY : BORDER}`,
+              }}
+            >
+              {c.label}
+            </button>
+          );
+        })}
       </div>
       {loading ? (
         <div className="space-y-2">

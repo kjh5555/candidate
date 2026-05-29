@@ -18,7 +18,21 @@ interface NewsQuery {
   q?: string; // 자유 검색어 (예: 의원 이름+지역). 있으면 sido/wiwName보다 우선
   today?: string; // "true" 이면 오늘 날짜 뉴스만
   limit?: string;
+  category?: string; // 분야: politics|budget|education|welfare|transport|environment|culture|society
 }
+
+// Google News는 RSS에 category 메타가 없어 검색어 보강으로 분류.
+// 너무 좁은 단일 키워드 대신 OR로 묶어 해당 분야 기사 커버리지를 키움.
+const CATEGORY_QUERY: Record<string, string> = {
+  politics: "(정치 OR 의회 OR 선거 OR 시장 OR 시정 OR 시·도지사 OR 도지사)",
+  budget: "(예산 OR 재정 OR 세금 OR 결산 OR 추경)",
+  education: "(교육 OR 학교 OR 학생 OR 교육감 OR 학군)",
+  welfare: "(복지 OR 보건 OR 의료 OR 노인 OR 돌봄 OR 장애)",
+  transport: "(교통 OR 도로 OR 버스 OR 지하철 OR GTX OR 철도)",
+  environment: "(환경 OR 미세먼지 OR 폐기물 OR 재활용 OR 기후)",
+  culture: "(문화 OR 체육 OR 축제 OR 관광 OR 도서관)",
+  society: "(사건 OR 사고 OR 화재 OR 치안 OR 범죄 OR 안전)",
+};
 
 const regionRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Querystring: MatchQuery }>(
@@ -74,16 +88,20 @@ const regionRoutes: FastifyPluginAsync = async (fastify) => {
             q: { type: "string" },
             today: { type: "string" },
             limit: { type: "string" },
+            category: { type: "string" },
           },
         },
       },
     },
     async (request, reply) => {
-      const { sido, wiwName, q, today, limit } = request.query;
-      const query =
+      const { sido, wiwName, q, today, limit, category } = request.query;
+      const baseQuery =
         q?.trim() ||
         [sido, wiwName].filter(Boolean).join(" ").trim() ||
         "지방선거";
+      const catKey = category?.trim().toLowerCase();
+      const catExpr = catKey && CATEGORY_QUERY[catKey] ? CATEGORY_QUERY[catKey] : null;
+      const query = catExpr ? `${baseQuery} ${catExpr}` : baseQuery;
       const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
       const max = Math.min(Math.max(parseInt(limit ?? "8", 10) || 8, 1), 20);
       try {

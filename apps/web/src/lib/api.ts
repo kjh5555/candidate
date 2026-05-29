@@ -79,10 +79,38 @@ export interface RegionNewsResponse {
   query: string;
 }
 
+export type RegionNewsCategory =
+  | "all"
+  | "politics"
+  | "budget"
+  | "education"
+  | "welfare"
+  | "transport"
+  | "environment"
+  | "culture"
+  | "society";
+
+export const REGION_NEWS_CATEGORIES: { key: RegionNewsCategory; label: string }[] = [
+  { key: "all", label: "전체" },
+  { key: "politics", label: "정치·행정" },
+  { key: "budget", label: "예산·재정" },
+  { key: "education", label: "교육" },
+  { key: "welfare", label: "복지·보건" },
+  { key: "transport", label: "교통·도시" },
+  { key: "environment", label: "환경·안전" },
+  { key: "culture", label: "문화·체육" },
+  { key: "society", label: "사회" },
+];
+
 export function getRegionNews(
   sido: string | null,
   wiwName: string | null,
-  opts: { q?: string; today?: boolean; limit?: number } = {},
+  opts: {
+    q?: string;
+    today?: boolean;
+    limit?: number;
+    category?: RegionNewsCategory;
+  } = {},
 ): Promise<RegionNewsResponse> {
   const p = new URLSearchParams();
   if (sido) p.set("sido", sido);
@@ -90,6 +118,7 @@ export function getRegionNews(
   if (opts.q) p.set("q", opts.q);
   if (opts.today) p.set("today", "true");
   if (opts.limit) p.set("limit", String(opts.limit));
+  if (opts.category && opts.category !== "all") p.set("category", opts.category);
   return apiFetch<RegionNewsResponse>(`/api/region/news?${p.toString()}`);
 }
 
