@@ -539,6 +539,48 @@ export interface BudgetPlanUnitResponse {
   items: BudgetPlanItem[];
 }
 
+// ── 정당 정보 ─────────────────────────
+
+export interface PartySummaryDTO {
+  party: string;
+  totalCandidates: number;
+  candidatesByPosition: Record<string, number>;
+  totalLegislators: number;
+  legislatorsByLevel: Record<string, number>;
+}
+export interface PartyListResponse {
+  items: PartySummaryDTO[];
+}
+export interface PartyDetailCandidate {
+  id: string;
+  name: string;
+  positionType: string;
+  sido: string | null;
+  wiwName: string | null;
+  districtName: string | null;
+  photoUrl: string | null;
+}
+export interface PartyDetailLegislator {
+  id: string;
+  name: string;
+  level: string;
+  region: string | null;
+  councilName: string | null;
+  assemblyAge: number | null;
+}
+export interface PartyDetailResponse {
+  party: string;
+  candidates: PartyDetailCandidate[];
+  legislators: PartyDetailLegislator[];
+  counts: { candidates: number; legislators: number };
+}
+export function getParties(): Promise<PartyListResponse> {
+  return apiFetch<PartyListResponse>("/api/parties");
+}
+export function getPartyDetail(name: string): Promise<PartyDetailResponse> {
+  return apiFetch<PartyDetailResponse>(`/api/parties/${encodeURIComponent(name)}`);
+}
+
 export interface BudgetExpenseItem {
   detailBizCode: string;
   detailBizName: string;

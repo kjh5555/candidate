@@ -13,6 +13,7 @@ import clikRoutes from "./clik.js";
 import debateRoutes from "./debates.js";
 import budgetPlanRoutes from "./budgetPlan.js";
 import budgetExpenseRoutes from "./budgetExpense.js";
+import partyRoutes from "./parties.js";
 
 const apiRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(healthRoute);
@@ -32,6 +33,8 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(budgetPlanRoutes, { prefix: "/budget-plan" });
   // 세부사업별 세출현황 (LOFIN QWGJK)
   await fastify.register(budgetExpenseRoutes, { prefix: "/budget-expense" });
+  // 정당 정보 (후보·의원 집계)
+  await fastify.register(partyRoutes, { prefix: "/parties" });
   // 논란·해명 — /legislators/:id/controversies 형식이므로 prefix 없이 등록
   await fastify.register(controversyRoutes);
 };
