@@ -493,9 +493,9 @@ export default function HomePage() {
           </section>
 
           <aside className="lg:col-span-4 space-y-6">
-            {hub?.settlement && hub.settlement.items.length > 0 ? (
+            {hub?.budgetPlan && hub.budgetPlan.items.length > 0 ? (
               <Link
-                href={`/budget?tab=settlement&sido=${encodeURIComponent(myRegion.sido ?? "")}${hub.settlement.unitCode ? `&unitCode=${encodeURIComponent(hub.settlement.unitCode)}` : ""}`}
+                href={`/budget?tab=settlement&sido=${encodeURIComponent(myRegion.sido ?? "")}${hub.budgetPlan.unitCode ? `&unitCode=${encodeURIComponent(hub.budgetPlan.unitCode)}` : hub.settlement?.unitCode ? `&unitCode=${encodeURIComponent(hub.settlement.unitCode)}` : ""}`}
                 className="block bg-white rounded-2xl p-6 hover:shadow-md transition-all group"
                 style={{ border: `1px solid ${BORDER}` }}
               >
@@ -516,10 +516,7 @@ export default function HomePage() {
                     />
                   </div>
                 </div>
-                <BudgetWidget
-                  settlement={hub.settlement}
-                  budgetPlan={hub.budgetPlan}
-                />
+                <BudgetWidget budgetPlan={hub.budgetPlan} />
               </Link>
             ) : (
               <div
@@ -536,7 +533,7 @@ export default function HomePage() {
                   className="text-sm py-6 text-center"
                   style={{ color: ON_VARIANT }}
                 >
-                  결산 데이터가 아직 적재되지 않았습니다.
+                  본예산 데이터가 아직 적재되지 않았습니다.
                 </p>
               </div>
             )}
@@ -1331,15 +1328,13 @@ function MemberCard({ m }: { m: LegislatorSummaryDTO }) {
 }
 
 function BudgetWidget({
-  settlement,
   budgetPlan,
 }: {
-  settlement: RegionHubDTO["settlement"];
-  budgetPlan?: RegionHubDTO["budgetPlan"];
+  budgetPlan: RegionHubDTO["budgetPlan"];
 }) {
-  if (!settlement) return null;
-  const top = settlement.items.slice(0, 3);
-  const others = settlement.items.slice(3);
+  if (!budgetPlan || budgetPlan.items.length === 0) return null;
+  const top = budgetPlan.items.slice(0, 3);
+  const others = budgetPlan.items.slice(3);
   const otherSum = others.reduce((a, b) => a + b.percent, 0);
 
   const colors = [PRIMARY, SECONDARY, "#8bc3fe", "#c5c6cf"];
@@ -1371,13 +1366,19 @@ function BudgetWidget({
             className="text-[10px] font-semibold uppercase tracking-widest"
             style={{ color: ON_VARIANT }}
           >
-            총결산
+            본예산
           </p>
           <p className="text-lg font-extrabold" style={{ color: PRIMARY }}>
-            {settlement.fiscalYear}년
+            {budgetPlan.fiscalYear}년
           </p>
         </div>
       </div>
+      <p
+        className="text-xs text-center mb-3 tabular-nums font-semibold"
+        style={{ color: ON_VARIANT }}
+      >
+        총 {formatBudgetTotalEokwon(budgetPlan.totalAmount)}
+      </p>
       <ul className="space-y-2 text-sm">
         {allItems.map((item) => (
           <li key={item.field} className="flex items-center justify-between">
@@ -1399,45 +1400,6 @@ function BudgetWidget({
           </li>
         ))}
       </ul>
-      {budgetPlan && budgetPlan.items.length > 0 && (
-        <div
-          className="mt-5 pt-4 border-t"
-          style={{ borderColor: BORDER }}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <p
-              className="text-[10px] font-semibold uppercase tracking-widest"
-              style={{ color: ON_VARIANT }}
-            >
-              {budgetPlan.fiscalYear}년 본예산
-            </p>
-            <p
-              className="text-xs font-bold tabular-nums"
-              style={{ color: PRIMARY }}
-            >
-              {formatBudgetTotalEokwon(budgetPlan.totalAmount)}
-            </p>
-          </div>
-          <ul className="space-y-1.5 text-[12px]">
-            {budgetPlan.items.slice(0, 3).map((it) => (
-              <li
-                key={`plan-${it.field}`}
-                className="flex items-center justify-between"
-              >
-                <span className="truncate" style={{ color: ON_VARIANT }}>
-                  {it.field}
-                </span>
-                <span
-                  className="font-semibold tabular-nums"
-                  style={{ color: PRIMARY }}
-                >
-                  {it.percent.toFixed(1)}%
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </>
   );
 }
