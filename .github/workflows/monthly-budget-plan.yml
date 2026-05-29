@@ -1,0 +1,58 @@
+name: monthly-budget-plan
+
+# 매월 1일 KST 05:00 (= UTC 전날 20:00). LOFIN AIDFA로 광역+기초 본예산 refresh.
+# 본예산은 그해 1~3월 공시 후 거의 안 바뀌지만, 추경(추가경정예산)·정정이
+# 들어올 수 있어 월 1회 전량 재공시.
+on:
+  schedule:
+    - cron: "0 20 1 * *"
+  workflow_dispatch:
+    inputs:
+      fiscalYear:
+        description: "회계연도 (기본값 현재 해)"
+        required: false
+        default: ""
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm via corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.0.0 --activate
+          pnpm -v
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm exec prisma generate
+
+      - name: Resolve fiscal year
+        id: yr
+        run: |
+          if [ -n "${{ inputs.fiscalYear }}" ]; then
+            echo "year=${{ inputs.fiscalYear }}" >> $GITHUB_OUTPUT
+          else
+            echo "year=$(date -u +%Y)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Ingest 광역+기초 본예산 (LOFIN AIDFA)
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          FISCAL_API_KEY: ${{ secrets.FISCAL_API_KEY }}
+          LOFIN_API_KEY: ${{ secrets.LOFIN_API_KEY }}
+          NODE_ENV: production
+        run: pnpm exec tsx src/ingest/budgetPlan.ts ${{ steps.yr.outputs.year }}

@@ -403,6 +403,69 @@ export async function getRegionHub(
     }
   }
 
+  // ── 4b. 본예산 (BudgetPlan) — 결산의 본예산 짝 ────────────────────────
+  // 결산이 회계연도 종료 후 다음 해 8월 공시되는 반면, 본예산은 그해
+  // 1~3월에 LOFIN AIDFA로 공시. settlement unitCode가 있으면 같은 unit의
+  // 가장 최신 본예산을 분야별로 집계.
+  let budgetPlan: RegionHubDTO["budgetPlan"] = null;
+  const planUnitCode = settlement?.unitCode ?? null;
+  if (planUnitCode) {
+    const planYears = await prisma.budgetPlan.findMany({
+      where: { unitCode: planUnitCode },
+      select: { fiscalYear: true },
+      distinct: ["fiscalYear"],
+      orderBy: { fiscalYear: "desc" },
+      take: 1,
+    });
+    if (planYears.length > 0) {
+      const planFy = planYears[0]!.fiscalYear;
+      const planRows = await prisma.budgetPlan.findMany({
+        where: { unitCode: planUnitCode, fiscalYear: planFy },
+        select: {
+          field: true,
+          bizBdgTotalAmt: true,
+          finActTotalAmt: true,
+          admOperTotalAmt: true,
+          unitName: true,
+        },
+      });
+      if (planRows.length > 0) {
+        // 분야별로 정책사업+재무활동+행정운영 합산.
+        const byField = new Map<string, bigint>();
+        let totalSum = 0n;
+        for (const r of planRows) {
+          const amt =
+            r.bizBdgTotalAmt +
+            (r.finActTotalAmt ?? 0n) +
+            (r.admOperTotalAmt ?? 0n);
+          byField.set(r.field, (byField.get(r.field) ?? 0n) + amt);
+          totalSum += amt;
+        }
+        const planItems = Array.from(byField.entries())
+          .map(([field, amount]) => ({
+            field,
+            amount: amount.toString(),
+            percent:
+              totalSum === 0n
+                ? 0
+                : Math.round((Number((amount * 10000n) / totalSum) / 100) * 100) / 100,
+          }))
+          .sort((a, b) => {
+            const av = BigInt(a.amount);
+            const bv = BigInt(b.amount);
+            return av < bv ? 1 : av > bv ? -1 : 0;
+          });
+        budgetPlan = {
+          fiscalYear: planFy,
+          totalAmount: totalSum.toString(),
+          items: planItems,
+          unitCode: planUnitCode,
+          unitName: planRows[0]!.unitName,
+        };
+      }
+    }
+  }
+
   // ── 6. 2026.6.3 지방선거 후보 ─────────────────────────────────────────
   // listCandidates와 동일한 신선도 필터: REGISTERED + backgroundLastSyncedAt
   // 3일 이내. 광역(GOVERNOR)은 광주·전남 통합 entry까지 포함.
@@ -513,6 +576,7 @@ export async function getRegionHub(
       basic: basicRows.map((r) => rowToLegislatorSummary(r, null)),
     },
     settlement,
+    budgetPlan,
     candidates: {
       mayor: mayorRows.map((r) => rowToCandidateSummary(r)),
       governor: governorRows.map((r) => rowToCandidateSummary(r)),

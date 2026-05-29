@@ -516,7 +516,10 @@ export default function HomePage() {
                     />
                   </div>
                 </div>
-                <BudgetWidget settlement={hub.settlement} />
+                <BudgetWidget
+                  settlement={hub.settlement}
+                  budgetPlan={hub.budgetPlan}
+                />
               </Link>
             ) : (
               <div
@@ -1329,8 +1332,10 @@ function MemberCard({ m }: { m: LegislatorSummaryDTO }) {
 
 function BudgetWidget({
   settlement,
+  budgetPlan,
 }: {
   settlement: RegionHubDTO["settlement"];
+  budgetPlan?: RegionHubDTO["budgetPlan"];
 }) {
   if (!settlement) return null;
   const top = settlement.items.slice(0, 3);
@@ -1394,6 +1399,63 @@ function BudgetWidget({
           </li>
         ))}
       </ul>
+      {budgetPlan && budgetPlan.items.length > 0 && (
+        <div
+          className="mt-5 pt-4 border-t"
+          style={{ borderColor: BORDER }}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <p
+              className="text-[10px] font-semibold uppercase tracking-widest"
+              style={{ color: ON_VARIANT }}
+            >
+              {budgetPlan.fiscalYear}년 본예산
+            </p>
+            <p
+              className="text-xs font-bold tabular-nums"
+              style={{ color: PRIMARY }}
+            >
+              {formatBudgetTotalEokwon(budgetPlan.totalAmount)}
+            </p>
+          </div>
+          <ul className="space-y-1.5 text-[12px]">
+            {budgetPlan.items.slice(0, 3).map((it) => (
+              <li
+                key={`plan-${it.field}`}
+                className="flex items-center justify-between"
+              >
+                <span className="truncate" style={{ color: ON_VARIANT }}>
+                  {it.field}
+                </span>
+                <span
+                  className="font-semibold tabular-nums"
+                  style={{ color: PRIMARY }}
+                >
+                  {it.percent.toFixed(1)}%
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </>
   );
+}
+
+// 원 단위 BigInt 문자열을 "1,234억" 또는 "12조 3,456억" 형태로 압축.
+function formatBudgetTotalEokwon(amountWon: string): string {
+  try {
+    const n = BigInt(amountWon);
+    const EOK = 100_000_000n;
+    const JO = EOK * 10_000n;
+    if (n >= JO) {
+      const jo = n / JO;
+      const eok = (n - jo * JO) / EOK;
+      return `${jo.toString()}조 ${eok.toLocaleString()}억`;
+    }
+    const eok = n / EOK;
+    return `${eok.toLocaleString()}억`;
+  } catch {
+    return "—";
+  }
 }

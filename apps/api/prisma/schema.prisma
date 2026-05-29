@@ -66,6 +66,7 @@ enum CandidateStatus {
 enum BudgetLevel {
   NATIONAL // 중앙정부
   METROPOLITAN // 광역 (시·도)
+  BASIC // 기초 (시·군·구) — BudgetPlan에서 사용
 }
 
 enum SettlementLevel {
@@ -594,6 +595,37 @@ model ElectedOfficialPledge {
   @@unique([electionId, cnddtId])
   @@index([electionId, sido])
   @@index([electionId, sido, wiwName])
+}
+
+// 시·군·구 본예산 (LOFIN AIDFA endpoint).
+// 광역(시·도 본청)과 기초(시·군·구) 단위로 분야×부문×회계 본예산.
+// 결산(BudgetSettlement)의 본예산 짝. 6.3 지선 후보가 어떤 예산 구조를
+// 물려받는지 시민에게 보여주는 용도.
+model BudgetPlan {
+  id            String   @id @default(cuid())
+  fiscalYear    Int
+  level         BudgetLevel // METROPOLITAN | BASIC
+  sido          String
+  unitCode      String   // LOFIN 7자리 (예: 4138000=여주시, 1100000=서울본청)
+  unitName      String   // "경기여주시", "서울본청" 등
+  accountType   String?  // "일반회계", "특별회계" 등
+  field         String
+  fieldCode     String
+  sector        String?
+  sectorCode    String?
+  // biz_bdg_tott_amt — 정책사업 예산총계
+  bizBdgTotalAmt BigInt
+  // biz_bdg_prsm_amt — 정책사업 예산순계
+  bizBdgPrsmAmt BigInt?
+  finActTotalAmt BigInt?  // 재무활동
+  finActPrsmAmt  BigInt?
+  admOperTotalAmt BigInt? // 행정운영
+  admOperPrsmAmt  BigInt?
+  syncedAt      DateTime @default(now())
+
+  @@unique([fiscalYear, unitCode, fieldCode, sectorCode, accountType])
+  @@index([fiscalYear, level, sido])
+  @@index([fiscalYear, unitCode])
 }
 
 // 후보자 토론회 — YouTube 자막 + Gemini 요약 ingest 결과.

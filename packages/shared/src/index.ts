@@ -472,6 +472,15 @@ export interface RegionHubSettlementDTO {
   sidoAverageUnitCount?: number;
 }
 
+// 본예산 (BudgetPlan) — 결산의 본예산 짝. 그해 1~3월 LOFIN 공시.
+export interface RegionHubBudgetPlanDTO {
+  fiscalYear: number;
+  totalAmount: string;
+  items: RegionHubSettlementItemDTO[];
+  unitCode: string | null;
+  unitName: string | null;
+}
+
 export interface RegionHubCandidatesDTO {
   mayor: CandidateSummaryDTO[];
   governor: CandidateSummaryDTO[];
@@ -509,6 +518,7 @@ export interface RegionHubDTO {
   wiwName: string;
   legislators: RegionHubLegislatorsDTO;
   settlement: RegionHubSettlementDTO | null;
+  budgetPlan: RegionHubBudgetPlanDTO | null;
   candidates: RegionHubCandidatesDTO;
   externalLinks: RegionHubExternalLinksDTO;
   officialPledges?: RegionHubOfficialPledgesDTO;
