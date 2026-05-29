@@ -1,0 +1,61 @@
+name: monthly-settlement
+
+# 매월 1일 KST 06:00 (= UTC 전날 21:00). 직전 회계연도 결산을 LOFIN에서 시도.
+# 결산은 회계연도 종료 후 6개월 내 공시 의무 (보통 다음해 8월).
+# 데이터 없으면 INFO-200 반환되고 graceful skip. 8월 이후 자동으로 ingest 성공.
+on:
+  schedule:
+    - cron: "0 21 1 * *"
+  workflow_dispatch:
+    inputs:
+      fiscalYear:
+        description: "회계연도 (기본값: 오늘 연도 - 1)"
+        required: false
+        default: ""
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm via corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.0.0 --activate
+          pnpm -v
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm exec prisma generate
+
+      - name: Resolve fiscal year
+        id: yr
+        run: |
+          if [ -n "${{ inputs.fiscalYear }}" ]; then
+            echo "year=${{ inputs.fiscalYear }}" >> $GITHUB_OUTPUT
+          else
+            CY=$(date -u +%Y)
+            echo "year=$((CY - 1))" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Ingest 세출결산 + 결산서 PDF (LOFIN ABIFB + SETLK)
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          FISCAL_API_KEY: ${{ secrets.FISCAL_API_KEY }}
+          LOFIN_API_KEY: ${{ secrets.LOFIN_API_KEY }}
+          NODE_ENV: production
+        run: |
+          pnpm exec tsx src/ingest/index.ts settlement ${{ steps.yr.outputs.year }} || echo "settlement skipped (likely no data yet)"
+          pnpm exec tsx src/ingest/index.ts reports ${{ steps.yr.outputs.year }} || echo "reports skipped"
