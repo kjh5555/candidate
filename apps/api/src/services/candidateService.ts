@@ -77,10 +77,19 @@ export async function listCandidates(
   //   3) districtName에 wiwName 포함 (광역의원 지역구·국회보궐 — 선거구 명에
   //      "여주시"·"여주시·양평군" 등이 들어감)
   // 이로써 한 지역구 시민이 6월 지선에서 실제 투표할 모든 직위가 같이 보임.
+  // sidoIn은 광주광역시/전라남도일 때 통합 entry까지 같이 포함.
+  const sidoForWiwOr =
+    sido === "광주광역시" || sido === "전라남도"
+      ? [sido, "전남광주통합특별시"]
+      : sido
+        ? [sido]
+        : null;
   const wiwOr = wiwName
     ? [
         { wiwName },
-        ...(sido ? [{ AND: [{ wiwName: null }, { sido }] }] : []),
+        ...(sidoForWiwOr
+          ? [{ AND: [{ wiwName: null }, { sido: { in: sidoForWiwOr } }] }]
+          : []),
         { districtName: { contains: wiwName } },
       ]
     : null;
@@ -98,12 +107,22 @@ export async function listCandidates(
   // (status=REGISTERED 필터만으로는 NEC가 사퇴 상태로 기록 안 한 후보가 남음.)
   const freshSince = new Date(Date.now() - 3 * 86400_000);
 
+  // 광주광역시·전라남도는 NEC가 광역 단위 직위(시·도지사·교육감·광역비례)를
+  // "전남광주통합특별시" 단일 entry로 응답해서 우리 DB sido에 그대로 저장됨.
+  // 시민이 "광주광역시" 또는 "전라남도"로 검색하면 통합 entry 후보도 같이 잡히도록.
+  const sidoIn =
+    sido === "광주광역시" || sido === "전라남도"
+      ? [sido, "전남광주통합특별시"]
+      : sido
+        ? [sido]
+        : null;
+
   const where: Prisma.CandidateWhereInput = {
     electionId,
     status: "REGISTERED",
     backgroundLastSyncedAt: { gte: freshSince },
     ...(positionType !== "ALL" ? { positionType } : {}),
-    ...(sido ? { sido } : {}),
+    ...(sidoIn ? { sido: { in: sidoIn } } : {}),
     ...(trimmedName && trimmedName.length > 0
       ? { name: { contains: trimmedName, mode: "insensitive" } }
       : {}),
