@@ -108,7 +108,7 @@ function Header() {
             className="flex items-center gap-2 font-bold text-slate-900 hover:text-blue-700 transition-colors shrink-0"
           >
             <Landmark className="w-5 h-5 text-blue-700" />
-            <span className="text-base tracking-tight">열린의회</span>
+            <span className="text-base tracking-tight">손안에정치</span>
           </Link>
 
           {/* Desktop nav */}
@@ -180,7 +180,7 @@ export default function RootLayout({
         </main>
         <footer className="border-t border-slate-200 mt-16 py-8">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
-            <p className="font-medium text-slate-500">열린의회</p>
+            <p className="font-medium text-slate-500">손안에정치</p>
             <p>공공데이터 기반 시민 정보 서비스 · 비영리</p>
           </div>
         </footer>

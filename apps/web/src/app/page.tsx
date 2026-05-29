@@ -182,7 +182,7 @@ export default function HomePage() {
           className="text-xs font-bold tracking-widest uppercase mb-3"
           style={{ color: SECONDARY }}
         >
-          내 의원·내 예산 · 시민 거버넌스 허브
+          손안에정치 · 시민 거버넌스 허브
         </p>
         <h1
           className="text-3xl sm:text-5xl font-extrabold leading-tight tracking-tight mb-3"
