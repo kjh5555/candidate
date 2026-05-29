@@ -94,6 +94,20 @@ const regionRoutes: FastifyPluginAsync = async (fastify) => {
           source: it.creator ?? "",
           publishedAt: it.pubDate ?? null,
         }));
+        // KST 자정 기준 "오늘" 그룹을 위로, 그 안에선 최신 발행일 순.
+        const kstMidnight = (() => {
+          const now = new Date();
+          const k = new Date(now.getTime() + 9 * 3600_000);
+          return Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate()) - 9 * 3600_000;
+        })();
+        items.sort((a, b) => {
+          const ta = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+          const tb = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+          const aToday = ta >= kstMidnight ? 1 : 0;
+          const bToday = tb >= kstMidnight ? 1 : 0;
+          if (aToday !== bToday) return bToday - aToday;
+          return tb - ta;
+        });
         if (today === "true") {
           // KST 자정 기준 오늘 (UTC 15:00 전날)
           const now = new Date();
