@@ -287,7 +287,10 @@ function BudgetPageInner() {
   const [setSidoData, setSetSidoData] = useState<SettlementBreakdownDTO | null>(null);
   const [setBudgetCompareData, setSetBudgetCompareData] = useState<BudgetBreakdownDTO | null>(null);
   const [setUnitData, setSetUnitData] = useState<SettlementBreakdownDTO | null>(null);
+  // 메인 본예산 (= 진행 중 회계연도, 기본 올해)
   const [setUnitPlan, setSetUnitPlan] = useState<BudgetPlanUnitResponse | null>(null);
+  // 참고 결산과 같은 해 본예산 (= 그 해 계획 vs 실제 비교용)
+  const [setUnitPlanSameYear, setSetUnitPlanSameYear] = useState<BudgetPlanUnitResponse | null>(null);
   const [setLoading, setSetLoading] = useState(false);
 
   // ── Field drill-down state ─────────────────────────────────────────
@@ -402,6 +405,7 @@ function BudgetPageInner() {
       setSetBudgetCompareData(null);
       setSetUnitData(null);
       setSetUnitPlan(null);
+      setSetUnitPlanSameYear(null);
       try {
         if (unitCode === ALL_UNITS_KEY) {
           // 시·도 본청 결산 + (가능하면) 같은 시·도의 광역 예산편성 비교
@@ -414,14 +418,18 @@ function BudgetPageInner() {
         } else {
           // 자치단체(시·군·구 또는 본청) 결산 + 같은 unitCode의 본예산
           // 같은 해 본예산이 있으면 그 해, 없으면 가용 최신.
-          // 본예산은 "직전 완성 회계연도(=오늘-1)" 기준 — 결산 연도(setYear)와
-          // 무관하게 가장 의미 있는 최근 본예산을 항상 보여준다.
-          const [unitData, unitPlan] = await Promise.all([
+          // 1) unitData = 결산(setYear).
+          // 2) unitPlan = 메인 본예산 (서버 기본 = 진행 중 회계연도, 올해).
+          // 3) unitPlanSameYear = 결산 연도와 같은 해 본예산 — "그 해 계획 vs
+          //    실제 집행" 비교용.
+          const [unitData, unitPlan, unitPlanSameYear] = await Promise.all([
             getSettlementUnitDetail(unitCode, year).catch(() => null),
             getBudgetPlanUnit(unitCode).catch(() => null),
+            getBudgetPlanUnit(unitCode, year).catch(() => null),
           ]);
           setSetUnitData(unitData);
           setSetUnitPlan(unitPlan);
+          setSetUnitPlanSameYear(unitPlanSameYear);
         }
       } finally {
         setSetLoading(false);
@@ -1057,6 +1065,16 @@ function BudgetPageInner() {
                         )}
                       </div>
 
+                      {/* 같은 해 본예산 vs 결산 비교 (참고 결산 연도 기준) */}
+                      {setUnitData &&
+                        setUnitPlanSameYear &&
+                        setUnitData.fiscalYear === setUnitPlanSameYear.fiscalYear && (
+                          <UnitBudgetVsSettlementCompare
+                            plan={setUnitPlanSameYear}
+                            settle={setUnitData}
+                          />
+                        )}
+
                       {/* 부문별 drill-down */}
                       {selectedField && (
                         <div ref={fieldDetailRef} className="bg-white rounded-xl border border-blue-200 p-6 scroll-mt-24">
@@ -1179,16 +1197,16 @@ function BudgetSettlementExplainer({
           planYear !== null &&
           latestSettlementYear < planYear && (
             <p className="mt-1">
-              ⓘ 아래 "참고 · 가장 최근 공시 결산"은{" "}
+              ⓘ 아래 &quot;참고 · 가장 최근 공시 결산&quot;은{" "}
               <span className="font-semibold text-slate-700">
                 {latestSettlementYear}년 결산
               </span>
-              으로, 본예산({planYear}년)과 1년 차이가 있어 직접 비교는 어렵습니다.
-              같은 해 비교를 보려면 상단 연도 선택에서{" "}
+              입니다. 같은 해{" "}
               <span className="font-semibold text-slate-700">
-                {latestSettlementYear}년
+                {latestSettlementYear}년 본예산↔결산 비교 표
               </span>
-              을 선택하세요.
+              가 결산 섹션 안에 함께 노출되어 &quot;계획 대비 실제 집행률&quot;을
+              바로 확인할 수 있습니다.
             </p>
           )}
       </div>
