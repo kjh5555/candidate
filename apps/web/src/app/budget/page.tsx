@@ -17,6 +17,8 @@ import {
   getSettlementUnitFieldDetail,
   getSettlementSidoFieldDetail,
   getSettlementReport,
+  getBudgetPlanUnit,
+  type BudgetPlanUnitResponse,
 } from "@/lib/api";
 import type {
   BudgetBreakdownDTO,
@@ -285,6 +287,7 @@ function BudgetPageInner() {
   const [setSidoData, setSetSidoData] = useState<SettlementBreakdownDTO | null>(null);
   const [setBudgetCompareData, setSetBudgetCompareData] = useState<BudgetBreakdownDTO | null>(null);
   const [setUnitData, setSetUnitData] = useState<SettlementBreakdownDTO | null>(null);
+  const [setUnitPlan, setSetUnitPlan] = useState<BudgetPlanUnitResponse | null>(null);
   const [setLoading, setSetLoading] = useState(false);
 
   // ── Field drill-down state ─────────────────────────────────────────
@@ -398,6 +401,7 @@ function BudgetPageInner() {
       setSetSidoData(null);
       setSetBudgetCompareData(null);
       setSetUnitData(null);
+      setSetUnitPlan(null);
       try {
         if (unitCode === ALL_UNITS_KEY) {
           // 시·도 본청 결산 + (가능하면) 같은 시·도의 광역 예산편성 비교
@@ -408,11 +412,15 @@ function BudgetPageInner() {
           setSetSidoData(sidoData);
           setSetBudgetCompareData(budgetCompare);
         } else {
-          // 자치단체 (시·군·구 또는 본청) 단위 결산
-          const unitData = await getSettlementUnitDetail(unitCode, year).catch(
-            () => null,
-          );
+          // 자치단체(시·군·구 또는 본청) 결산 + 같은 unitCode의 본예산
+          // 같은 해 본예산이 있으면 그 해, 없으면 가용 최신.
+          const [unitData, unitPlan] = await Promise.all([
+            getSettlementUnitDetail(unitCode, year).catch(() => null),
+            getBudgetPlanUnit(unitCode, year)
+              .catch(() => getBudgetPlanUnit(unitCode).catch(() => null)),
+          ]);
           setSetUnitData(unitData);
+          setSetUnitPlan(unitPlan);
         }
       } finally {
         setSetLoading(false);
@@ -936,15 +944,40 @@ function BudgetPageInner() {
                   ) : (
                     // ── 시·군·구 결산 view ─────────────────────────
                     <>
-                      {setUnitData && (
-                        <div className="bg-amber-50 rounded-xl p-5 border border-amber-100">
-                          <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">
-                            {setYear}년 {selectedUnit?.unitName ?? "자치단체"} 총결산
-                          </p>
-                          <p className="text-3xl font-bold text-amber-800">
-                            <Amount amount={setUnitData.totalAmount} />
-                          </p>
-                        </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {setUnitPlan && (
+                          <div className="bg-blue-50 rounded-xl p-5 border border-blue-100">
+                            <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">
+                              {setUnitPlan.fiscalYear}년 {setUnitPlan.unitName ?? "자치단체"} 본예산
+                            </p>
+                            <p className="text-3xl font-bold text-blue-800">
+                              <Amount amount={setUnitPlan.totalAmount} />
+                            </p>
+                            <p className="text-[11px] text-blue-700/70 mt-1">
+                              그 해 1~3월 LOFIN 공시 (계획)
+                            </p>
+                          </div>
+                        )}
+                        {setUnitData && (
+                          <div className="bg-amber-50 rounded-xl p-5 border border-amber-100">
+                            <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">
+                              {setYear}년 {selectedUnit?.unitName ?? "자치단체"} 결산
+                            </p>
+                            <p className="text-3xl font-bold text-amber-800">
+                              <Amount amount={setUnitData.totalAmount} />
+                            </p>
+                            <p className="text-[11px] text-amber-700/70 mt-1">
+                              다음해 8월 LOFIN 공시 (실제)
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {setUnitData && setUnitPlan && (
+                        <UnitBudgetVsSettlementCompare
+                          plan={setUnitPlan}
+                          settle={setUnitData}
+                        />
                       )}
 
                       <div className="bg-white rounded-xl border border-slate-200 p-6">
@@ -1038,6 +1071,112 @@ function BudgetPageInner() {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+function UnitBudgetVsSettlementCompare({
+  plan,
+  settle,
+}: {
+  plan: BudgetPlanUnitResponse;
+  settle: SettlementBreakdownDTO;
+}) {
+  // plan.items: { field, amount, percent } / settle.items: { key, amount, percent }
+  const planMap = new Map<string, bigint>();
+  for (const it of plan.items) planMap.set(it.field, BigInt(it.amount));
+  const rows = settle.items
+    .map((s) => {
+      const planAmt = planMap.get(s.key) ?? null;
+      const settleAmt = BigInt(s.amount);
+      const exec =
+        planAmt && planAmt > 0n
+          ? Math.round((Number(settleAmt) * 1000) / Number(planAmt)) / 10
+          : null;
+      return { field: s.key, planAmt, settleAmt, exec };
+    })
+    .sort((a, b) => Number(b.settleAmt - a.settleAmt));
+
+  // settle에 없지만 plan에만 있는 분야도 표시
+  const settleKeys = new Set(settle.items.map((s) => s.key));
+  for (const p of plan.items) {
+    if (!settleKeys.has(p.field)) {
+      rows.push({
+        field: p.field,
+        planAmt: BigInt(p.amount),
+        settleAmt: 0n,
+        exec: null,
+      });
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-6">
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="text-lg font-semibold text-slate-900">
+          분야별 본예산 vs 결산
+        </h2>
+        <p className="text-[11px] text-slate-400">
+          본예산 {plan.fiscalYear}년 · 결산 {settle.fiscalYear}년
+        </p>
+      </div>
+      <p className="text-sm text-slate-400 mb-4">
+        계획(본예산) 대비 실제 집행률을 분야별로 확인하세요. 회계연도 차이가
+        있을 수 있어 정확한 같은 해 비교는 결산이 1년 늦게 공시되는 점 참고.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 text-slate-500">
+              <th className="text-left py-2 font-medium">분야</th>
+              <th className="text-right py-2 font-medium">본예산</th>
+              <th className="text-right py-2 font-medium">결산</th>
+              <th className="text-right py-2 font-medium">집행률</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr
+                key={r.field}
+                className="border-b border-slate-100 hover:bg-slate-50"
+              >
+                <td className="py-2 text-slate-700">{r.field}</td>
+                <td className="py-2 text-right tabular-nums text-blue-700">
+                  {r.planAmt !== null ? (
+                    <Amount amount={r.planAmt.toString()} />
+                  ) : (
+                    <span className="text-slate-300">—</span>
+                  )}
+                </td>
+                <td className="py-2 text-right tabular-nums text-amber-700">
+                  {r.settleAmt > 0n ? (
+                    <Amount amount={r.settleAmt.toString()} />
+                  ) : (
+                    <span className="text-slate-300">—</span>
+                  )}
+                </td>
+                <td className="py-2 text-right tabular-nums font-semibold">
+                  {r.exec !== null ? (
+                    <span
+                      className={
+                        r.exec >= 95
+                          ? "text-emerald-600"
+                          : r.exec >= 80
+                            ? "text-slate-700"
+                            : "text-rose-600"
+                      }
+                    >
+                      {r.exec.toFixed(1)}%
+                    </span>
+                  ) : (
+                    <span className="text-slate-300">—</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

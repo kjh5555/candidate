@@ -523,6 +523,34 @@ export interface DebateListResponse {
   items: DebateSummaryItem[];
 }
 
+// ── 본예산 (BudgetPlan) ───────────────────────
+
+export interface BudgetPlanItem {
+  field: string;
+  amount: string;
+  percent: number;
+}
+
+export interface BudgetPlanUnitResponse {
+  fiscalYear: number;
+  unitCode: string;
+  unitName: string;
+  totalAmount: string;
+  items: BudgetPlanItem[];
+}
+
+export function getBudgetPlanUnit(
+  unitCode: string,
+  fiscalYear?: number,
+): Promise<BudgetPlanUnitResponse> {
+  const p = new URLSearchParams();
+  if (fiscalYear) p.set("fiscalYear", String(fiscalYear));
+  const qs = p.toString();
+  return apiFetch<BudgetPlanUnitResponse>(
+    `/api/budget-plan/unit/${encodeURIComponent(unitCode)}${qs ? `?${qs}` : ""}`,
+  );
+}
+
 export function getDebates(opts: {
   sido?: string | null;
   positionType?: string | null;
