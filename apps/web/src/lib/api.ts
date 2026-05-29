@@ -82,10 +82,14 @@ export interface RegionNewsResponse {
 export function getRegionNews(
   sido: string | null,
   wiwName: string | null,
+  opts: { q?: string; today?: boolean; limit?: number } = {},
 ): Promise<RegionNewsResponse> {
   const p = new URLSearchParams();
   if (sido) p.set("sido", sido);
   if (wiwName) p.set("wiwName", wiwName);
+  if (opts.q) p.set("q", opts.q);
+  if (opts.today) p.set("today", "true");
+  if (opts.limit) p.set("limit", String(opts.limit));
   return apiFetch<RegionNewsResponse>(`/api/region/news?${p.toString()}`);
 }
 

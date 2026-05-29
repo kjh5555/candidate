@@ -15,6 +15,9 @@ interface MatchQuery {
 interface NewsQuery {
   sido?: string;
   wiwName?: string;
+  q?: string; // 자유 검색어 (예: 의원 이름+지역). 있으면 sido/wiwName보다 우선
+  today?: string; // "true" 이면 오늘 날짜 뉴스만
+  limit?: string;
 }
 
 const regionRoutes: FastifyPluginAsync = async (fastify) => {
@@ -68,22 +71,44 @@ const regionRoutes: FastifyPluginAsync = async (fastify) => {
           properties: {
             sido: { type: "string" },
             wiwName: { type: "string" },
+            q: { type: "string" },
+            today: { type: "string" },
+            limit: { type: "string" },
           },
         },
       },
     },
     async (request, reply) => {
-      const { sido, wiwName } = request.query;
-      const query = [sido, wiwName].filter(Boolean).join(" ").trim() || "지방선거";
+      const { sido, wiwName, q, today, limit } = request.query;
+      const query =
+        q?.trim() ||
+        [sido, wiwName].filter(Boolean).join(" ").trim() ||
+        "지방선거";
       const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
+      const max = Math.min(Math.max(parseInt(limit ?? "8", 10) || 8, 1), 20);
       try {
         const feed = await rssParser.parseURL(url);
-        const items = (feed.items ?? []).slice(0, 8).map((it) => ({
+        let items = (feed.items ?? []).map((it) => ({
           title: it.title ?? "",
           link: it.link ?? "",
           source: it.creator ?? "",
           publishedAt: it.pubDate ?? null,
         }));
+        if (today === "true") {
+          // KST 자정 기준 오늘 (UTC 15:00 전날)
+          const now = new Date();
+          const kstNow = new Date(now.getTime() + 9 * 3600_000);
+          const y = kstNow.getUTCFullYear();
+          const m = kstNow.getUTCMonth();
+          const d = kstNow.getUTCDate();
+          const kstMidnight = Date.UTC(y, m, d) - 9 * 3600_000;
+          items = items.filter((it) => {
+            if (!it.publishedAt) return false;
+            const t = new Date(it.publishedAt).getTime();
+            return Number.isFinite(t) && t >= kstMidnight;
+          });
+        }
+        items = items.slice(0, max);
         return reply.send({ items, query });
       } catch (err) {
         request.log.error({ err }, "region news fetch failed");

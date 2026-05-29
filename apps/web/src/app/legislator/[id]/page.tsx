@@ -11,7 +11,12 @@ import { VotesTab } from "./_components/VotesTab";
 import { ControversiesTab } from "./_components/ControversiesTab";
 import { CouncilBillsTab } from "./_components/CouncilBillsTab";
 import { CouncilMinutesTab } from "./_components/CouncilMinutesTab";
-import { getCouncilBills, getCouncilMinutes } from "@/lib/api";
+import {
+  getCouncilBills,
+  getCouncilMinutes,
+  getRegionNews,
+  type RegionNewsItem,
+} from "@/lib/api";
 import type { LegislatorDetailDTO } from "@repo/shared";
 import {
   ArrowLeft,
@@ -101,6 +106,7 @@ export default function LegislatorPage() {
     | "votes"
     | "council-bills"
     | "council-minutes"
+    | "today"
     | "controversies"
     | "issues";
   const [tab, setTab] = useState<TabValue>("bills");
@@ -222,6 +228,11 @@ export default function LegislatorPage() {
           icon: <VoteIcon className="w-3.5 h-3.5" />,
         },
         {
+          value: "today" as TabValue,
+          label: `오늘의 ${legislator.name}`,
+          icon: <Sparkles className="w-3.5 h-3.5" />,
+        },
+        {
           value: "controversies",
           label: "주요 뉴스",
           icon: <Newspaper className="w-3.5 h-3.5" />,
@@ -253,6 +264,11 @@ export default function LegislatorPage() {
               },
             ]
           : []),
+        {
+          value: "today" as TabValue,
+          label: `오늘의 ${legislator.name}`,
+          icon: <Sparkles className="w-3.5 h-3.5" />,
+        },
         {
           value: "controversies",
           label: "주요 뉴스",
@@ -736,6 +752,15 @@ export default function LegislatorPage() {
                   rasmblyNm={legislator.councilName}
                   legislatorName={legislator.name}
                 />
+              ) : tab === "today" ? (
+                <TodayNewsTab
+                  legislatorName={legislator.name}
+                  region={
+                    legislator.region ??
+                    legislator.electoralDistrictName ??
+                    null
+                  }
+                />
               ) : tab === "controversies" ? (
                 <ControversiesTab
                   legislatorId={id}
@@ -880,6 +905,109 @@ function DisclosurePill({
         </a>
       )}
     </li>
+  );
+}
+
+function TodayNewsTab({
+  legislatorName,
+  region,
+}: {
+  legislatorName: string;
+  region: string | null;
+}) {
+  const [items, setItems] = useState<RegionNewsItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    const q = region
+      ? `${region} ${legislatorName}`
+      : legislatorName;
+    getRegionNews(null, null, { q, today: true, limit: 4 })
+      .then((res) => {
+        if (!cancelled) setItems(res.items);
+      })
+      .catch((e) => {
+        if (!cancelled)
+          setError(e instanceof Error ? e.message : "뉴스를 불러오지 못했습니다.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [legislatorName, region]);
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs" style={{ color: ON_VARIANT }}>
+        Google News에서 <b>{region ? `${region} ${legislatorName}` : legislatorName}</b>를
+        오늘 자(KST) 기준으로 검색한 결과.
+      </p>
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-14 rounded animate-pulse"
+              style={{ backgroundColor: SURFACE_CONTAINER }}
+            />
+          ))}
+        </div>
+      ) : error ? (
+        <p
+          className="text-sm py-4 text-center"
+          style={{ color: "#dc2626" }}
+        >
+          {error}
+        </p>
+      ) : items.length === 0 ? (
+        <p
+          className="text-sm py-6 text-center"
+          style={{ color: ON_VARIANT }}
+        >
+          오늘 새로 보도된 기사가 없습니다.
+        </p>
+      ) : (
+        <ul className="space-y-3">
+          {items.map((it, i) => (
+            <li key={i}>
+              <a
+                href={it.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block group p-3 rounded-lg"
+                style={{ border: `1px solid ${BORDER}` }}
+              >
+                <p
+                  className="text-sm font-semibold leading-snug group-hover:underline"
+                  style={{ color: PRIMARY }}
+                >
+                  {it.title}
+                </p>
+                {it.publishedAt && (
+                  <p
+                    className="text-[10px] mt-1"
+                    style={{ color: "#75777f" }}
+                  >
+                    {new Date(it.publishedAt).toLocaleString("ko-KR", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                )}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
