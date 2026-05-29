@@ -62,11 +62,13 @@ const partyRoutes: FastifyPluginAsync = async (fastify) => {
         (b.legislatorsByLevel[r.level] ?? 0) + r._count._all;
     }
 
-    const items = Array.from(map.values()).sort(
-      (a, b) =>
-        b.totalCandidates + b.totalLegislators -
-        (a.totalCandidates + a.totalLegislators),
-    );
+    // 현직 의원 수 우선 → 다음 6.3 후보 수 (시민이 보는 정당 영향력 기준).
+    const items = Array.from(map.values()).sort((a, b) => {
+      if (b.totalLegislators !== a.totalLegislators) {
+        return b.totalLegislators - a.totalLegislators;
+      }
+      return b.totalCandidates - a.totalCandidates;
+    });
     return reply.send({ items });
   });
 

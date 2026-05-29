@@ -99,22 +99,6 @@ function PartyCard({ party }: { party: PartySummaryDTO }) {
       <div className="grid grid-cols-2 gap-3 text-xs">
         <div className="bg-slate-50 rounded-lg p-2.5">
           <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">
-            6.3 후보
-          </p>
-          <p className="text-lg font-bold text-slate-900">
-            {party.totalCandidates}
-            <span className="text-xs text-slate-500 font-medium ml-0.5">명</span>
-          </p>
-          <div className="text-[10px] text-slate-500 mt-1 leading-tight">
-            {topPositions.map(([k, v]) => (
-              <div key={k}>
-                {POSITION_LABEL[k] ?? k} {v}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="bg-slate-50 rounded-lg p-2.5">
-          <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">
             현직 의원
           </p>
           <p className="text-lg font-bold text-slate-900">
@@ -125,6 +109,22 @@ function PartyCard({ party }: { party: PartySummaryDTO }) {
             {topLevels.map(([k, v]) => (
               <div key={k}>
                 {LEVEL_LABEL[k] ?? k} {v}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="bg-slate-50 rounded-lg p-2.5">
+          <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">
+            6.3 후보
+          </p>
+          <p className="text-lg font-bold text-slate-900">
+            {party.totalCandidates}
+            <span className="text-xs text-slate-500 font-medium ml-0.5">명</span>
+          </p>
+          <div className="text-[10px] text-slate-500 mt-1 leading-tight">
+            {topPositions.map(([k, v]) => (
+              <div key={k}>
+                {POSITION_LABEL[k] ?? k} {v}
               </div>
             ))}
           </div>

@@ -95,8 +95,8 @@ export default function PartyDetailPage() {
           <h1 className="text-3xl font-bold text-slate-900">{partyName}</h1>
         </div>
         <p className="text-sm text-slate-500">
-          6.3 지방선거 후보 {data.counts.candidates}명 · 현직 의원{" "}
-          {data.counts.legislators}명
+          현직 의원 {data.counts.legislators}명 · 6.3 지방선거 후보{" "}
+          {data.counts.candidates}명
         </p>
         <a
           href={wikiUrl}
@@ -108,34 +108,6 @@ export default function PartyDetailPage() {
           <ExternalLink className="w-3 h-3" />
         </a>
       </header>
-
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold text-slate-900 mb-3">
-          6.3 지방선거 후보
-        </h2>
-        {data.candidates.length === 0 ? (
-          <p className="text-sm text-slate-400">등록 후보가 없습니다.</p>
-        ) : (
-          <div className="space-y-4">
-            {Object.entries(candidatesByPosition).map(([pos, list]) => (
-              <div
-                key={pos}
-                className="bg-white rounded-xl border border-slate-200 p-5"
-              >
-                <h3 className="font-semibold text-slate-700 text-sm mb-3">
-                  {POSITION_LABEL[pos] ?? pos}{" "}
-                  <span className="text-slate-400">({list.length}명)</span>
-                </h3>
-                <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {list.map((c) => (
-                    <CandidateMiniCard key={c.id} c={c} />
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
 
       <section className="mb-8">
         <h2 className="text-lg font-semibold text-slate-900 mb-3">
@@ -169,6 +141,34 @@ export default function PartyDetailPage() {
                         </span>
                       </Link>
                     </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-lg font-semibold text-slate-900 mb-3">
+          6.3 지방선거 후보
+        </h2>
+        {data.candidates.length === 0 ? (
+          <p className="text-sm text-slate-400">등록 후보가 없습니다.</p>
+        ) : (
+          <div className="space-y-4">
+            {Object.entries(candidatesByPosition).map(([pos, list]) => (
+              <div
+                key={pos}
+                className="bg-white rounded-xl border border-slate-200 p-5"
+              >
+                <h3 className="font-semibold text-slate-700 text-sm mb-3">
+                  {POSITION_LABEL[pos] ?? pos}{" "}
+                  <span className="text-slate-400">({list.length}명)</span>
+                </h3>
+                <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {list.map((c) => (
+                    <CandidateMiniCard key={c.id} c={c} />
                   ))}
                 </ul>
               </div>
