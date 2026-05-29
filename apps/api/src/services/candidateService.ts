@@ -38,6 +38,7 @@ const summarySelect = {
 
 function rowToSummary(
   row: Prisma.CandidateGetPayload<{ select: typeof summarySelect }>,
+  hasPledges = false,
 ): CandidateSummaryDTO {
   return {
     id: row.id,
@@ -51,6 +52,7 @@ function rowToSummary(
     occupation: row.occupation,
     status: row.status as CandidateStatus,
     photoUrl: row.photoUrl,
+    hasPledges,
   };
 }
 
@@ -114,7 +116,17 @@ export async function listCandidates(
     ],
   });
 
-  return rows.map(rowToSummary);
+  // 공약 보유 여부 — ElectedOfficialPledge에서 cnddtId in [...]로 한 번에 조회.
+  const ids = rows.map((r) => r.id);
+  const pledgeRows = ids.length > 0
+    ? await prisma.electedOfficialPledge.findMany({
+        where: { electionId, cnddtId: { in: ids } },
+        select: { cnddtId: true },
+      })
+    : [];
+  const withPledges = new Set(pledgeRows.map((p) => p.cnddtId));
+
+  return rows.map((r) => rowToSummary(r, withPledges.has(r.id)));
 }
 
 export async function getCandidateDetail(
@@ -171,6 +183,7 @@ export async function getCandidateDetail(
     occupation: row.occupation,
     status: row.status as CandidateStatus,
     photoUrl: row.photoUrl,
+    hasPledges: pledges.length > 0,
     hanjaName: row.hanjaName,
     gender: row.gender,
     birthDate: row.birthDate,

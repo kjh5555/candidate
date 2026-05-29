@@ -286,6 +286,7 @@ export interface CandidateSummaryDTO {
   occupation: string | null;
   status: CandidateStatus;
   photoUrl: string | null;
+  hasPledges: boolean; // NEC에 공약 등록 여부 (단체장에만 있음)
 }
 
 export interface CandidateDetailDTO extends CandidateSummaryDTO {

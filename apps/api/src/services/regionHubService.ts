@@ -148,7 +148,10 @@ type CandidateSummaryRow = Prisma.CandidateGetPayload<{
   select: typeof CANDIDATE_SUMMARY_SELECT;
 }>;
 
-function rowToCandidateSummary(row: CandidateSummaryRow): CandidateSummaryDTO {
+function rowToCandidateSummary(
+  row: CandidateSummaryRow,
+  hasPledges = false,
+): CandidateSummaryDTO {
   return {
     id: row.id,
     name: row.name,
@@ -161,6 +164,7 @@ function rowToCandidateSummary(row: CandidateSummaryRow): CandidateSummaryDTO {
     occupation: row.occupation,
     status: row.status as CandidateStatus,
     photoUrl: row.photoUrl,
+    hasPledges,
   };
 }
 
@@ -499,8 +503,8 @@ export async function getRegionHub(
     },
     settlement,
     candidates: {
-      mayor: mayorRows.map(rowToCandidateSummary),
-      governor: governorRows.map(rowToCandidateSummary),
+      mayor: mayorRows.map((r) => rowToCandidateSummary(r)),
+      governor: governorRows.map((r) => rowToCandidateSummary(r)),
     },
     externalLinks,
     officialPledges,

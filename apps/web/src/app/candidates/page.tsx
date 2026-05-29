@@ -96,6 +96,11 @@ function CandidateCard({ candidate }: { candidate: CandidateSummaryDTO }) {
               {candidate.districtName}
             </p>
           )}
+          {candidate.hasPledges && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-200 font-semibold inline-flex items-center gap-0.5">
+              ✦ 공약 등록
+            </span>
+          )}
           <span
             className={`text-[10px] px-2 py-0.5 rounded-full border ${statusBadgeClass(candidate.status)}`}
           >
