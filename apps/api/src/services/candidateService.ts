@@ -93,8 +93,15 @@ export async function listCandidates(
       ]
     : null;
 
+  // 활성 후보 신선도 — NEC가 매일 후보 명단을 재공시하므로 backgroundLastSyncedAt이
+  // 3일 이내인 후보만 노출. 사퇴/탈락한 옛 후보가 자동으로 빠짐.
+  // (status=REGISTERED 필터만으로는 NEC가 사퇴 상태로 기록 안 한 후보가 남음.)
+  const freshSince = new Date(Date.now() - 3 * 86400_000);
+
   const where: Prisma.CandidateWhereInput = {
     electionId,
+    status: "REGISTERED",
+    backgroundLastSyncedAt: { gte: freshSince },
     ...(positionType !== "ALL" ? { positionType } : {}),
     ...(sido ? { sido } : {}),
     ...(trimmedName && trimmedName.length > 0
