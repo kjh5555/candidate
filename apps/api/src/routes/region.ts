@@ -1,12 +1,20 @@
 import type { FastifyPluginAsync } from "fastify";
+import Parser from "rss-parser";
 import {
   AddressNotFoundError,
   KakaoApiError,
   matchRegion,
 } from "../services/regionMatcher.js";
 
+const rssParser = new Parser({});
+
 interface MatchQuery {
   address: string;
+}
+
+interface NewsQuery {
+  sido?: string;
+  wiwName?: string;
 }
 
 const regionRoutes: FastifyPluginAsync = async (fastify) => {
@@ -46,6 +54,42 @@ const regionRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(500).send({
           error: "INTERNAL_ERROR",
           message: "Failed to match region",
+        });
+      }
+    },
+  );
+
+  fastify.get<{ Querystring: NewsQuery }>(
+    "/news",
+    {
+      schema: {
+        querystring: {
+          type: "object",
+          properties: {
+            sido: { type: "string" },
+            wiwName: { type: "string" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { sido, wiwName } = request.query;
+      const query = [sido, wiwName].filter(Boolean).join(" ").trim() || "지방선거";
+      const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
+      try {
+        const feed = await rssParser.parseURL(url);
+        const items = (feed.items ?? []).slice(0, 8).map((it) => ({
+          title: it.title ?? "",
+          link: it.link ?? "",
+          source: it.creator ?? "",
+          publishedAt: it.pubDate ?? null,
+        }));
+        return reply.send({ items, query });
+      } catch (err) {
+        request.log.error({ err }, "region news fetch failed");
+        return reply.status(503).send({
+          error: "NEWS_FETCH_FAILED",
+          message: "뉴스를 불러오지 못했습니다.",
         });
       }
     },

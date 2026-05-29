@@ -67,6 +67,28 @@ export function getRegionMatch(address: string): Promise<RegionMatchResponseDTO>
   );
 }
 
+export interface RegionNewsItem {
+  title: string;
+  link: string;
+  source: string;
+  publishedAt: string | null;
+}
+
+export interface RegionNewsResponse {
+  items: RegionNewsItem[];
+  query: string;
+}
+
+export function getRegionNews(
+  sido: string | null,
+  wiwName: string | null,
+): Promise<RegionNewsResponse> {
+  const p = new URLSearchParams();
+  if (sido) p.set("sido", sido);
+  if (wiwName) p.set("wiwName", wiwName);
+  return apiFetch<RegionNewsResponse>(`/api/region/news?${p.toString()}`);
+}
+
 export function getBasicRegions(): Promise<BasicRegionsResponseDTO> {
   return apiFetch<BasicRegionsResponseDTO>("/api/legislators/basic-regions");
 }

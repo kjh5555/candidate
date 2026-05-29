@@ -17,7 +17,12 @@ import {
   TrendingUp,
   ChevronRight,
 } from "lucide-react";
-import { getBasicRegions, getRegionHub } from "@/lib/api";
+import {
+  getBasicRegions,
+  getRegionHub,
+  getRegionNews,
+  type RegionNewsItem,
+} from "@/lib/api";
 import { setMyRegion, getMyRegion } from "@/lib/myRegion";
 import { getPartyColor } from "@/lib/partyColors";
 import type {
@@ -614,6 +619,8 @@ export default function HomePage() {
                 </Link>
               </div>
             </div>
+
+            <RegionNewsWidget sido={myRegion.sido} wiwName={myRegion.wiwName} />
           </aside>
         </div>
 
@@ -838,6 +845,99 @@ export default function HomePage() {
             </p>
           </div>
         </section>
+      )}
+    </div>
+  );
+}
+
+function RegionNewsWidget({
+  sido,
+  wiwName,
+}: {
+  sido: string | null;
+  wiwName: string | null;
+}) {
+  const [items, setItems] = useState<RegionNewsItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!sido) return;
+    let cancelled = false;
+    setLoading(true);
+    getRegionNews(sido, wiwName)
+      .then((res) => {
+        if (!cancelled) setItems(res.items);
+      })
+      .catch(() => {
+        if (!cancelled) setItems([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sido, wiwName]);
+
+  if (!sido) return null;
+  return (
+    <div
+      className="bg-white rounded-2xl p-6"
+      style={{ border: `1px solid ${BORDER}` }}
+    >
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold" style={{ color: PRIMARY }}>
+          우리 지역 뉴스
+        </h3>
+        <span className="text-[10px]" style={{ color: "#75777f" }}>
+          Google News
+        </span>
+      </div>
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-10 rounded animate-pulse"
+              style={{ backgroundColor: SURFACE_CONTAINER }}
+            />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-sm py-4 text-center" style={{ color: ON_VARIANT }}>
+          관련 뉴스가 없습니다.
+        </p>
+      ) : (
+        <ul className="space-y-3">
+          {items.slice(0, 5).map((it, i) => (
+            <li key={i}>
+              <a
+                href={it.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block group"
+              >
+                <p
+                  className="text-sm font-semibold leading-snug line-clamp-2 group-hover:underline"
+                  style={{ color: PRIMARY }}
+                >
+                  {it.title}
+                </p>
+                {it.publishedAt && (
+                  <p
+                    className="text-[10px] mt-0.5"
+                    style={{ color: "#75777f" }}
+                  >
+                    {new Date(it.publishedAt).toLocaleDateString("ko-KR", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </p>
+                )}
+              </a>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
