@@ -16,8 +16,14 @@ import {
   Shield,
   Receipt,
   ExternalLink,
+  Mic,
+  PlayCircle,
 } from "lucide-react";
-import { getCandidateDetail } from "@/lib/api";
+import {
+  getCandidateDetail,
+  getDebates,
+  type DebateSummaryItem,
+} from "@/lib/api";
 import { PartyBadge } from "@/components/PartyBadge";
 import type {
   CandidateDetailDTO,
@@ -373,6 +379,88 @@ export default function CandidateDetailPage() {
           </ol>
         )}
       </div>
+
+      {(candidate.positionType === "GOVERNOR" ||
+        candidate.positionType === "SUPERINTENDENT") && (
+        <DebatesSection candidateId={candidate.id} />
+      )}
+    </div>
+  );
+}
+
+function DebatesSection({ candidateId }: { candidateId: string }) {
+  const [items, setItems] = useState<DebateSummaryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getDebates({ candidateId, limit: 10 })
+      .then((res) => {
+        if (!cancelled) setItems(res.items);
+      })
+      .catch(() => {
+        if (!cancelled) setItems([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [candidateId]);
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <Mic className="w-5 h-5 text-slate-700" />
+        <h2 className="text-xl font-semibold text-slate-900">토론회 요약</h2>
+        <span className="text-[10px] text-slate-400 ml-auto">
+          YouTube + Gemini AI 요약
+        </span>
+      </div>
+      {loading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="h-20 rounded bg-slate-50 animate-pulse" />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-slate-400">
+          아직 등록된 토론회 요약이 없습니다.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-5">
+          {items.map((d) => (
+            <li
+              key={d.id}
+              className="border-l-2 border-purple-200 pl-4 py-0.5"
+            >
+              <div className="flex items-baseline gap-2 mb-1 flex-wrap">
+                <a
+                  href={d.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-slate-900 hover:underline inline-flex items-center gap-1"
+                >
+                  <PlayCircle className="w-4 h-4 text-red-600" />
+                  {d.title}
+                </a>
+                {d.publishedAt && (
+                  <span className="text-xs text-slate-400">
+                    · {new Date(d.publishedAt).toLocaleDateString("ko-KR")}
+                  </span>
+                )}
+              </div>
+              {d.summary && (
+                <div className="text-sm text-slate-700 whitespace-pre-line leading-relaxed mt-2">
+                  {d.summary}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

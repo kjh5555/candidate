@@ -26,10 +26,12 @@
     "ingest:clik-bills": "tsx src/ingest/clikIngest.ts bills",
     "ingest:clik-photos": "tsx src/ingest/clikPhotos.ts",
     "ingest:clik-photos-basic": "tsx src/ingest/clikPhotos.ts basic",
-    "ingest:clik-photos-provincial": "tsx src/ingest/clikPhotos.ts provincial"
+    "ingest:clik-photos-provincial": "tsx src/ingest/clikPhotos.ts provincial",
+    "ingest:debates": "tsx src/ingest/debateYoutube.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.0",
+    "@google/genai": "^2.7.0",
     "@mozilla/readability": "^0.6.0",
     "@prisma/client": "^6.0.0",
     "@repo/shared": "workspace:*",
@@ -37,6 +39,7 @@
     "jsdom": "^29.1.1",
     "p-limit": "^7.3.0",
     "rss-parser": "^3.13.0",
+    "youtube-transcript": "^1.3.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {

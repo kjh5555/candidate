@@ -595,3 +595,27 @@ model ElectedOfficialPledge {
   @@index([electionId, sido])
   @@index([electionId, sido, wiwName])
 }
+
+// 후보자 토론회 — YouTube 자막 + Gemini 요약 ingest 결과.
+// 현재는 광역(시·도지사·교육감)만 처리. 향후 기초장 확장 시 wiwName 채움.
+model Debate {
+  id            String   @id @default(cuid())
+  electionId    String   // "20260603"
+  sido          String
+  wiwName       String?  // 광역은 null
+  positionType  String   // "GOVERNOR" | "SUPERINTENDENT"
+  videoId       String   // YouTube videoId
+  title         String
+  channelTitle  String?
+  publishedAt   DateTime?
+  sourceUrl     String   // https://www.youtube.com/watch?v=...
+  transcript    String?  @db.Text
+  summary       String?  @db.Text // Gemini 요약 — markdown
+  keyTopics     Json?    // [{ topic, statements: [{ candidate, point }] }]
+  candidateIds  Json?    // 자막에서 식별된 후보 ID 배열
+  syncedAt      DateTime @default(now())
+
+  @@unique([electionId, videoId])
+  @@index([electionId, sido, positionType])
+  @@index([electionId, publishedAt])
+}

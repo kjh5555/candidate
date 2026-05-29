@@ -502,3 +502,37 @@ export function generateCouncilBillSummary(
     { method: "POST" },
   );
 }
+
+// ── 후보자 토론회 (Debate) ─────────────────────────
+
+export interface DebateSummaryItem {
+  id: string;
+  sido: string;
+  positionType: string;
+  videoId: string;
+  title: string;
+  channelTitle: string | null;
+  publishedAt: string | null;
+  sourceUrl: string;
+  summary: string | null;
+  keyTopics: unknown;
+  candidateIds: string[];
+}
+
+export interface DebateListResponse {
+  items: DebateSummaryItem[];
+}
+
+export function getDebates(opts: {
+  sido?: string | null;
+  positionType?: string | null;
+  candidateId?: string | null;
+  limit?: number;
+} = {}): Promise<DebateListResponse> {
+  const p = new URLSearchParams();
+  if (opts.sido) p.set("sido", opts.sido);
+  if (opts.positionType) p.set("positionType", opts.positionType);
+  if (opts.candidateId) p.set("candidateId", opts.candidateId);
+  if (opts.limit) p.set("limit", String(opts.limit));
+  return apiFetch<DebateListResponse>(`/api/debates?${p.toString()}`);
+}
