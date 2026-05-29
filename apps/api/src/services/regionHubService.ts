@@ -410,15 +410,27 @@ export async function getRegionHub(
   let budgetPlan: RegionHubDTO["budgetPlan"] = null;
   const planUnitCode = settlement?.unitCode ?? null;
   if (planUnitCode) {
-    const planYears = await prisma.budgetPlan.findMany({
-      where: { unitCode: planUnitCode },
+    // 우선순위:
+    //   1) "가장 최근에 끝난 회계연도" — 즉 오늘 연도 - 1 (예: 2026.5 기준 2025).
+    //      집행 완료 + 결산 미공시 구간이라 시민 평가에 가장 의미 있음.
+    //   2) 그게 없으면 가용한 가장 최신 본예산.
+    const lastFinishedFy = new Date().getUTCFullYear() - 1;
+    const exactFy = await prisma.budgetPlan.findFirst({
+      where: { unitCode: planUnitCode, fiscalYear: lastFinishedFy },
       select: { fiscalYear: true },
-      distinct: ["fiscalYear"],
-      orderBy: { fiscalYear: "desc" },
-      take: 1,
     });
-    if (planYears.length > 0) {
-      const planFy = planYears[0]!.fiscalYear;
+    let planFy: number | null = exactFy?.fiscalYear ?? null;
+    if (planFy === null) {
+      const planYears = await prisma.budgetPlan.findMany({
+        where: { unitCode: planUnitCode },
+        select: { fiscalYear: true },
+        distinct: ["fiscalYear"],
+        orderBy: { fiscalYear: "desc" },
+        take: 1,
+      });
+      planFy = planYears[0]?.fiscalYear ?? null;
+    }
+    if (planFy !== null) {
       const planRows = await prisma.budgetPlan.findMany({
         where: { unitCode: planUnitCode, fiscalYear: planFy },
         select: {
