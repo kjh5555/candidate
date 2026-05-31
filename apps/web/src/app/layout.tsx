@@ -7,6 +7,8 @@ import { useState } from "react";
 import { Menu, X, Landmark } from "lucide-react";
 import { getMyRegion } from "@/lib/myRegion";
 import { MyRegionBanner } from "@/components/MyRegionBanner";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const notoSansKR = Noto_Sans_KR({
@@ -184,6 +186,8 @@ export default function RootLayout({
             <p>공공데이터 기반 시민 정보 서비스 · 비영리</p>
           </div>
         </footer>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
