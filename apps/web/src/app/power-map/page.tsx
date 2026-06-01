@@ -5,15 +5,18 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ResponsiveSankey } from "@nivo/sankey";
 import { ResponsiveLine } from "@nivo/line";
+import { ResponsiveNetwork } from "@nivo/network";
 import { ArrowRight, Info, MapPin, Network } from "lucide-react";
 import {
   getPowerMap,
   getPowerMapTimeline,
   getPowerMapBills,
+  getPowerMapNetwork,
   getRegionHub,
   type PowerMapResponse,
   type PowerMapTimelineResponse,
   type PowerMapBillsResponse,
+  type PowerMapNetworkResponse,
 } from "@/lib/api";
 import { getMyRegion } from "@/lib/myRegion";
 import { Amount } from "@/components/budget/AmountFormatter";
@@ -277,6 +280,154 @@ function PowerMapView({ data }: { data: PowerMapResponse }) {
 
       {/* C3: 의원 입법 활동 — 의회 조례 발의 */}
       <BillsSection unitCode={data.unitCode} />
+
+      {/* C5: 인물 네트워크 — 단체장 + 의원 + 후보 정당별 클러스터 */}
+      <NetworkSection unitCode={data.unitCode} />
+    </div>
+  );
+}
+
+function NetworkSection({ unitCode }: { unitCode: string }) {
+  const [data, setData] = useState<PowerMapNetworkResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getPowerMapNetwork(unitCode)
+      .then((res) => {
+        if (!cancelled) setData(res);
+      })
+      .catch(() => {
+        if (!cancelled) setData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [unitCode]);
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="h-80 bg-slate-50 rounded animate-pulse" />
+      </div>
+    );
+  }
+  if (!data || data.nodes.length === 0) return null;
+
+  // 정당별 색상 매핑.
+  const partyColorMap = new Map<string, string>();
+  for (const n of data.nodes) {
+    if (n.party) partyColorMap.set(n.party, getPartyColor(n.party).hex);
+  }
+
+  // nivo Network는 distance 사용 — 정당 노드는 가까이, 인물은 거리 더 멀게.
+  const links = data.links.map((l) => ({
+    source: l.source,
+    target: l.target,
+    distance: 50,
+  }));
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <h2 className="text-sm font-semibold text-slate-700 mb-1">
+        인물 네트워크 — 정당별 클러스터
+      </h2>
+      <p className="text-xs text-slate-400 mb-3">
+        단체장(가장 큰 원) · 의원 · 6.3 후보가 소속 정당 노드(중앙)에 연결.
+        같은 정당끼리 모이는 모양으로 지역 정당 영향력 분포 시각화.
+      </p>
+      <div className="grid grid-cols-3 gap-3 text-xs mb-3">
+        <Stat label="정당" value={data.counts.parties} color="#206298" />
+        <Stat label="의원" value={data.counts.legislators} color="#031635" />
+        <Stat
+          label="6.3 후보"
+          value={data.counts.candidates}
+          color="#0ea5e9"
+        />
+      </div>
+      <div style={{ height: 480 }}>
+        <ResponsiveNetwork
+          data={{ nodes: data.nodes, links }}
+          margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+          linkDistance={(l) =>
+            (l as unknown as { distance: number }).distance
+          }
+          centeringStrength={0.3}
+          repulsivity={50}
+          nodeSize={(n) =>
+            (n as unknown as { size: number }).size
+          }
+          activeNodeSize={(n) =>
+            (n as unknown as { size: number }).size * 1.5
+          }
+          inactiveNodeSize={(n) =>
+            (n as unknown as { size: number }).size
+          }
+          nodeColor={(n) => {
+            const node = n as unknown as PowerMapNetworkNode;
+            return node.party ? partyColorMap.get(node.party) ?? "#94a3b8" : "#94a3b8";
+          }}
+          nodeBorderWidth={1}
+          nodeBorderColor={{ from: "color", modifiers: [["darker", 0.8]] }}
+          linkThickness={1}
+          linkColor={{ from: "source.color", modifiers: [["opacity", 0.3]] }}
+          nodeTooltip={({ node }) => {
+            const n = node as unknown as PowerMapNetworkNode;
+            const kindLabel =
+              n.kind === "party"
+                ? "정당"
+                : n.kind === "head"
+                  ? (n.positionLabel ?? "단체장")
+                  : n.kind === "legislator"
+                    ? n.level === "NATIONAL"
+                      ? "국회의원"
+                      : n.level === "PROVINCIAL"
+                        ? "광역의원"
+                        : "기초의원"
+                    : "6.3 후보";
+            return (
+              <div className="bg-white shadow-lg rounded px-3 py-2 text-xs border border-slate-200">
+                <div className="font-semibold text-slate-800">{n.label}</div>
+                <div className="text-slate-500 mt-0.5">
+                  {kindLabel}
+                  {n.party && n.kind !== "party" ? ` · ${n.party}` : ""}
+                </div>
+              </div>
+            );
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: number;
+  color: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 p-2.5 rounded-lg bg-slate-50">
+      <span
+        className="w-3 h-3 rounded-full shrink-0"
+        style={{ background: color }}
+      />
+      <div className="min-w-0">
+        <div className="text-[10px] text-slate-500 uppercase tracking-wide">
+          {label}
+        </div>
+        <div className="text-base font-bold text-slate-900 tabular-nums">
+          {value}
+        </div>
+      </div>
     </div>
   );
 }

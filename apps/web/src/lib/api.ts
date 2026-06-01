@@ -595,6 +595,33 @@ export interface PowerMapTimelineResponse {
   series: PowerMapTimelineSeries[];
   availableYears: number[];
 }
+export interface PowerMapNetworkNode {
+  id: string;
+  label: string;
+  kind: "party" | "head" | "legislator" | "candidate";
+  party: string | null;
+  size: number;
+  level?: string;
+  positionType?: string;
+  positionLabel?: string;
+}
+export interface PowerMapNetworkResponse {
+  unitCode: string;
+  sido: string;
+  wiwName: string | null;
+  head: { name: string; party: string | null; positionLabel: string } | null;
+  counts: { parties: number; legislators: number; candidates: number };
+  nodes: PowerMapNetworkNode[];
+  links: { source: string; target: string }[];
+}
+export function getPowerMapNetwork(
+  unitCode: string,
+): Promise<PowerMapNetworkResponse> {
+  return apiFetch<PowerMapNetworkResponse>(
+    `/api/power-map/unit/${encodeURIComponent(unitCode)}/network`,
+  );
+}
+
 export interface PowerMapBillsResponse {
   unitCode: string;
   unitName: string;

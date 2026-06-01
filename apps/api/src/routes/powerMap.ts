@@ -257,6 +257,166 @@ const powerMapRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
+  // GET /api/power-map/unit/:unitCode/network — 인물 네트워크
+  // 단체장 + 의원 + 6.3 후보를 정당별로 클러스터링.
+  fastify.get<{ Params: UnitParams }>(
+    "/unit/:unitCode/network",
+    async (request, reply) => {
+      const { unitCode } = request.params;
+      const first = await prisma.budgetExpense.findFirst({
+        where: { unitCode },
+        select: { unitName: true, sido: true },
+      });
+      if (!first) return reply.status(404).send({ error: "NO_DATA" });
+      const sido = first.sido;
+      const isMetro = unitCode.endsWith("00000");
+      const wiwName = isMetro
+        ? null
+        : first.unitName.startsWith(sido.slice(0, 2))
+          ? first.unitName.slice(2)
+          : first.unitName;
+
+      // 단체장(2022)
+      const head = await prisma.electedOfficialPledge.findFirst({
+        where: {
+          electionId: "20220601",
+          sgTypecode: isMetro ? "3" : "4",
+          sido,
+          ...(wiwName ? { wiwName: { contains: wiwName } } : {}),
+        },
+        select: { name: true, party: true, positionLabel: true },
+      });
+
+      // 의원
+      const legislators = await prisma.legislator.findMany({
+        where: wiwName
+          ? {
+              OR: [
+                { level: "BASIC", region: { contains: wiwName } },
+                { level: "PROVINCIAL", region: { contains: sido } },
+                {
+                  level: "NATIONAL",
+                  region: { contains: wiwName, mode: "insensitive" },
+                },
+              ],
+            }
+          : {
+              OR: [
+                { level: "PROVINCIAL", region: { contains: sido } },
+                { level: "NATIONAL", region: { contains: sido } },
+              ],
+            },
+        select: { id: true, name: true, party: true, level: true },
+        take: 200,
+      });
+
+      // 6.3 후보
+      const freshSince = new Date(Date.now() - 3 * 86400_000);
+      const candidates = await prisma.candidate.findMany({
+        where: {
+          electionId: "20260603",
+          status: "REGISTERED",
+          backgroundLastSyncedAt: { gte: freshSince },
+          sido:
+            sido === "광주광역시" || sido === "전라남도"
+              ? { in: [sido, "전남광주통합특별시"] }
+              : sido,
+          ...(wiwName
+            ? {
+                OR: [
+                  { wiwName },
+                  { wiwName: null },
+                  { districtName: { contains: wiwName } },
+                ],
+              }
+            : {}),
+          party: { not: null },
+        },
+        select: {
+          id: true,
+          name: true,
+          party: true,
+          positionType: true,
+        },
+        take: 300,
+      });
+
+      // 정당 집합.
+      const parties = new Set<string>();
+      if (head?.party) parties.add(head.party);
+      for (const l of legislators) if (l.party) parties.add(l.party);
+      for (const c of candidates) if (c.party) parties.add(c.party);
+
+      const nodes = [
+        ...Array.from(parties).map((p) => ({
+          id: `party:${p}`,
+          label: p,
+          kind: "party" as const,
+          party: p,
+          size: 24,
+        })),
+        ...(head
+          ? [
+              {
+                id: `head:${head.name}`,
+                label: head.name,
+                kind: "head" as const,
+                party: head.party,
+                positionLabel: head.positionLabel,
+                size: 18,
+              },
+            ]
+          : []),
+        ...legislators.map((l) => ({
+          id: `leg:${l.id}`,
+          label: l.name,
+          kind: "legislator" as const,
+          party: l.party,
+          level: l.level,
+          size: l.level === "NATIONAL" ? 14 : l.level === "PROVINCIAL" ? 11 : 8,
+        })),
+        ...candidates.map((c) => ({
+          id: `cand:${c.id}`,
+          label: c.name,
+          kind: "candidate" as const,
+          party: c.party,
+          positionType: c.positionType,
+          size: 8,
+        })),
+      ];
+
+      const links: { source: string; target: string }[] = [];
+      // 인물 → 그 정당 노드로 연결.
+      if (head?.party) {
+        links.push({ source: `head:${head.name}`, target: `party:${head.party}` });
+      }
+      for (const l of legislators) {
+        if (l.party) {
+          links.push({ source: `leg:${l.id}`, target: `party:${l.party}` });
+        }
+      }
+      for (const c of candidates) {
+        if (c.party) {
+          links.push({ source: `cand:${c.id}`, target: `party:${c.party}` });
+        }
+      }
+
+      return reply.send({
+        unitCode,
+        sido,
+        wiwName,
+        head: head ?? null,
+        counts: {
+          parties: parties.size,
+          legislators: legislators.length,
+          candidates: candidates.length,
+        },
+        nodes,
+        links,
+      });
+    },
+  );
+
   // GET /api/power-map/unit/:unitCode/bills — 해당 자치단체 의회의 조례 활동
   // (발의자 top + 최근 조례 + 분야 키워드별 매칭).
   fastify.get<{ Params: UnitParams; Querystring: { keyword?: string } }>(
