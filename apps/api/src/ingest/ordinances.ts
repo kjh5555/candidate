@@ -60,12 +60,17 @@ type LnkOrdRow = {
   기관코드?: string;
 };
 
-type LnkLsOrdRow = {
+type LnkOrgRow = {
   자치법규ID?: string;
+  자치법규일련번호?: string;
   자치법규명?: string;
-  시행일자?: string;
   법령ID?: string;
   법령명한글?: string;
+  공포일자?: string;
+  공포번호?: string;
+  시행일자?: string;
+  제개정구분명?: string;
+  자치법규종류?: string;
 };
 
 async function fetchPage<T>(
@@ -135,7 +140,7 @@ export async function ingestOrdinances(): Promise<void> {
   let scanned = 0;
   let inserted = 0;
 
-  while (scanned < total && page <= 500) {
+  while (scanned < total && page <= 800) {
     let result;
     try {
       result = await fetchPage<LnkOrdRow>("lnkOrd", page);
@@ -192,17 +197,29 @@ export async function ingestOrdinanceLawLinks(): Promise<void> {
     console.error("[ord-links] LAW_OC not set — abort.");
     return;
   }
-  console.log("[ord-links] 조례-법령 매핑 ingest 시작…");
+  console.log("[ord-links] 조례↔법령 매핑 ingest 시작 (lnkOrg)…");
+
+  // ordId → Ordinance.id 매핑을 미리 메모리에 캐싱 (DB lookup 비용 제거).
+  console.log("[ord-links] Ordinance 캐시 로딩…");
+  const allOrds = await prisma.ordinance.findMany({
+    select: { id: true, ordId: true },
+  });
+  const ordIdMap = new Map<string, string>();
+  for (const o of allOrds) {
+    if (o.ordId) ordIdMap.set(o.ordId, o.id);
+  }
+  console.log(`[ord-links] 캐시 ${ordIdMap.size} ordinances 로드 완료.`);
 
   let page = 1;
   let total = Infinity;
   let scanned = 0;
   let linked = 0;
+  let missing = 0;
 
-  while (scanned < total && page <= 500) {
+  while (scanned < total && page <= 1500) {
     let result;
     try {
-      result = await fetchPage<LnkLsOrdRow>("lnkLsOrd", page);
+      result = await fetchPage<LnkOrgRow>("lnkOrg", page);
     } catch (err) {
       console.error(`[ord-links] page ${page} fetch failed:`, (err as Error).message);
       await sleep(2000);
@@ -212,37 +229,40 @@ export async function ingestOrdinanceLawLinks(): Promise<void> {
     if (result.rows.length === 0) break;
     scanned += result.rows.length;
 
+    // chunk insert를 위해 batch 구성.
+    const batch: { ordinanceId: string; lawId: string; lawName: string }[] = [];
     for (const r of result.rows) {
       const ordId = r.자치법규ID;
       const lawId = r.법령ID;
       const lawName = r.법령명한글;
       if (!ordId || !lawId || !lawName) continue;
-
-      // ordId → Ordinance 룩업.
-      const ord = await prisma.ordinance.findFirst({
-        where: { ordId },
-        select: { id: true },
-      });
-      if (!ord) continue;
-
-      try {
-        await prisma.ordinanceLawLink.upsert({
-          where: { ordinanceId_lawId: { ordinanceId: ord.id, lawId } },
-          create: { ordinanceId: ord.id, lawId, lawName },
-          update: { lawName },
-        });
-        linked++;
-      } catch {
-        // skip.
+      const internalId = ordIdMap.get(ordId);
+      if (!internalId) {
+        missing++;
+        continue;
       }
+      batch.push({ ordinanceId: internalId, lawId, lawName });
     }
-    if (page % 10 === 0) {
-      console.log(`[ord-links] page ${page} → ${scanned}/${total} (linked=${linked})`);
+
+    if (batch.length > 0) {
+      const r = await prisma.ordinanceLawLink.createMany({
+        data: batch as Prisma.OrdinanceLawLinkUncheckedCreateInput[],
+        skipDuplicates: true,
+      });
+      linked += r.count;
+    }
+
+    if (page % 10 === 0 || page <= 5) {
+      console.log(
+        `[ord-links] page ${page} → ${scanned}/${total} (linked=${linked} missing=${missing})`,
+      );
     }
     page++;
     await sleep(PAGE_DELAY_MS);
   }
-  console.log(`[ord-links] done — scanned=${scanned} linked=${linked}`);
+  console.log(
+    `[ord-links] done — scanned=${scanned} linked=${linked} missing=${missing}`,
+  );
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
