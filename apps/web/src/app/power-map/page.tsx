@@ -12,12 +12,14 @@ import {
   getPowerMapTimeline,
   getPowerMapBills,
   getPowerMapNetwork,
+  getPowerMapLaws,
   getRegionHub,
   type PowerMapResponse,
   type PowerMapTimelineResponse,
   type PowerMapBillsResponse,
   type PowerMapNetworkResponse,
   type PowerMapNetworkNode,
+  type PowerMapLawsResponse,
 } from "@/lib/api";
 import { getMyRegion } from "@/lib/myRegion";
 import { Amount } from "@/components/budget/AmountFormatter";
@@ -284,8 +286,126 @@ function PowerMapView({ data }: { data: PowerMapResponse }) {
 
       {/* C5: 인물 네트워크 — 단체장 + 의원 + 후보 정당별 클러스터 */}
       <NetworkSection unitCode={data.unitCode} />
+
+      {/* C4: 법령 → 조례 흐름 (open.law.go.kr ingest 후 가용) */}
+      <LawsSection unitCode={data.unitCode} />
     </div>
   );
+}
+
+function LawsSection({ unitCode }: { unitCode: string }) {
+  const [data, setData] = useState<PowerMapLawsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getPowerMapLaws(unitCode)
+      .then((res) => {
+        if (!cancelled) setData(res);
+      })
+      .catch(() => {
+        if (!cancelled) setData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [unitCode]);
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="h-40 bg-slate-50 rounded animate-pulse" />
+      </div>
+    );
+  }
+  if (!data || data.totalOrdinances === 0) {
+    // 조례 ingest 전이면 안내 카드만.
+    return (
+      <div className="bg-slate-50 rounded-xl border border-dashed border-slate-300 p-5 text-center">
+        <p className="text-sm text-slate-500">
+          ⓘ 법령 → 조례 흐름은{" "}
+          <span className="font-semibold">국가법령정보센터 OPEN API</span>{" "}
+          활용신청 + ingest 완료 후 자동으로 채워집니다.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <h2 className="text-sm font-semibold text-slate-700 mb-1">
+        {data.keyword} 자치법규 ↔ 상위 법령
+      </h2>
+      <p className="text-xs text-slate-400 mb-4">
+        총 {data.totalOrdinances.toLocaleString()}건 자치법규 · 어떤 국가
+        법령이 이 지역 조례·규칙의 근거가 되나 확인. 출처: 국가법령정보센터.
+      </p>
+
+      {data.topLaws.length > 0 && (
+        <div className="mb-5">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+            가장 많이 인용된 상위 법령
+          </p>
+          <ul className="space-y-1.5 text-sm">
+            {data.topLaws.map((l) => (
+              <li
+                key={l.lawId}
+                className="flex items-center justify-between gap-3 py-1.5 border-b border-slate-100"
+              >
+                <a
+                  href={`https://www.law.go.kr/LSW/lsInfoP.do?lsiSeq=${encodeURIComponent(l.lawId)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-800 hover:text-blue-700 hover:underline truncate"
+                >
+                  {l.name}
+                </a>
+                <span className="text-xs text-slate-500 shrink-0 tabular-nums">
+                  {l.count}건 인용
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div>
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+          최근 자치법규 (상위 30건)
+        </p>
+        <ul className="space-y-1.5 text-sm">
+          {data.ordinances.map((o) => (
+            <li
+              key={o.id}
+              className="flex items-start gap-3 py-1.5 border-b border-slate-100"
+            >
+              <span className="text-[11px] text-slate-400 tabular-nums shrink-0 mt-0.5 w-20">
+                {formatPromlg(o.promlgDate)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-slate-800">{o.ordName}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  {o.ordKind ?? "—"}
+                  {o.revisionKind ? ` · ${o.revisionKind}` : ""}
+                  {o.linkedLaws.length > 0
+                    ? ` · 근거 법령 ${o.linkedLaws.length}건`
+                    : ""}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function formatPromlg(d: string | null): string {
+  if (!d || d.length < 8) return "—";
+  return `${d.slice(0, 4)}.${d.slice(4, 6)}.${d.slice(6, 8)}`;
 }
 
 function NetworkSection({ unitCode }: { unitCode: string }) {

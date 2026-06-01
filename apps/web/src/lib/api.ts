@@ -595,6 +595,31 @@ export interface PowerMapTimelineResponse {
   series: PowerMapTimelineSeries[];
   availableYears: number[];
 }
+export interface PowerMapLawsResponse {
+  unitCode: string;
+  unitName: string;
+  keyword: string;
+  totalOrdinances: number;
+  ordinances: {
+    id: string;
+    ordName: string;
+    ordKind: string | null;
+    orgName: string | null;
+    promlgDate: string | null;
+    enforceDate: string | null;
+    revisionKind: string | null;
+    linkedLaws: { lawId: string; lawName: string }[];
+  }[];
+  topLaws: { lawId: string; name: string; count: number }[];
+}
+export function getPowerMapLaws(
+  unitCode: string,
+): Promise<PowerMapLawsResponse> {
+  return apiFetch<PowerMapLawsResponse>(
+    `/api/power-map/unit/${encodeURIComponent(unitCode)}/laws`,
+  );
+}
+
 export interface PowerMapNetworkNode {
   id: string;
   label: string;

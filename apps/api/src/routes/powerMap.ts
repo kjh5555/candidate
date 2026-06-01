@@ -417,6 +417,70 @@ const powerMapRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
+  // GET /api/power-map/unit/:unitCode/laws — 자치법규(조례) ↔ 상위 국가 법령 흐름
+  fastify.get<{ Params: UnitParams }>(
+    "/unit/:unitCode/laws",
+    async (request, reply) => {
+      const { unitCode } = request.params;
+      const first = await prisma.budgetExpense.findFirst({
+        where: { unitCode },
+        select: { unitName: true, sido: true },
+      });
+      if (!first) return reply.status(404).send({ error: "NO_DATA" });
+      const keyword = deriveCouncilKeyword(first.unitName, first.sido).replace(
+        /의회$/,
+        "",
+      );
+
+      // 자치법규 매칭 — orgName에 키워드 contains.
+      const ordinances = await prisma.ordinance.findMany({
+        where: { orgName: { contains: keyword } },
+        take: 30,
+        orderBy: { promlgDate: "desc" },
+        select: {
+          id: true,
+          ordName: true,
+          ordKind: true,
+          orgName: true,
+          promlgDate: true,
+          enforceDate: true,
+          revisionKind: true,
+          linkedLaws: {
+            select: { lawId: true, lawName: true },
+            take: 5,
+          },
+        },
+      });
+
+      // 가장 자주 등장하는 상위 법령 (이 지자체 조례가 어떤 법령을 따르나).
+      const lawCountMap = new Map<string, { name: string; count: number }>();
+      for (const o of ordinances) {
+        for (const link of o.linkedLaws) {
+          const cur = lawCountMap.get(link.lawId);
+          if (cur) cur.count++;
+          else lawCountMap.set(link.lawId, { name: link.lawName, count: 1 });
+        }
+      }
+      const topLaws = Array.from(lawCountMap.entries())
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 10)
+        .map(([lawId, v]) => ({ lawId, name: v.name, count: v.count }));
+
+      const totalCount = await prisma.ordinance.count({
+        where: { orgName: { contains: keyword } },
+      });
+
+      return reply.send({
+        unitCode,
+        unitName: first.unitName,
+        keyword,
+        totalOrdinances: totalCount,
+        ordinances,
+        topLaws,
+      });
+    },
+  );
+
   // GET /api/power-map/unit/:unitCode/bills — 해당 자치단체 의회의 조례 활동
   // (발의자 top + 최근 조례 + 분야 키워드별 매칭).
   fastify.get<{ Params: UnitParams; Querystring: { keyword?: string } }>(
