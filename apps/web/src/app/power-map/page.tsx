@@ -12,6 +12,7 @@ import {
 } from "@/lib/api";
 import { getMyRegion } from "@/lib/myRegion";
 import { Amount } from "@/components/budget/AmountFormatter";
+import { getPartyColor } from "@/lib/partyColors";
 
 function PowerMapInner() {
   const router = useRouter();
@@ -118,16 +119,20 @@ function PowerMapInner() {
 }
 
 function PowerMapView({ data }: { data: PowerMapResponse }) {
+  // 현 단체장 정당 색상 — Sankey unit 노드에 적용.
+  const headPartyColor = data.currentHead?.party
+    ? getPartyColor(data.currentHead.party).hex
+    : "#031635";
+
   // nivo Sankey expects: { nodes: [{ id }], links: [{ source, target, value }] }
   const nivoData = {
     nodes: data.nodes.map((n) => ({
       id: n.id,
-      // 카테고리별 색상 — 재원 출처는 푸른 계열, 단체는 진한 군청, 분야는 회녹.
       nodeColor:
         n.category === "source"
           ? "#206298"
           : n.category === "unit"
-            ? "#031635"
+            ? headPartyColor // 단체장 정당 색
             : "#5b8e7d",
     })),
     links: data.links,
@@ -147,14 +152,40 @@ function PowerMapView({ data }: { data: PowerMapResponse }) {
     <div className="space-y-4">
       {/* 헤드라인 카드 */}
       <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-6 border border-blue-200">
-        <div className="flex items-baseline justify-between flex-wrap gap-2 mb-1">
-          <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
-            {data.fiscalYear}년 {data.unitName} 총 세출 (집행+계획)
-          </p>
+        <div className="flex items-start justify-between gap-4 flex-wrap mb-1">
+          <div>
+            <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
+              {data.fiscalYear}년 {data.unitName} 총 세출
+            </p>
+            <p className="text-4xl font-bold text-blue-900 mt-1">
+              <Amount amount={data.totalAmount} />
+            </p>
+          </div>
+          {data.currentHead && (
+            <div
+              className="text-right"
+              style={{ minWidth: 160 }}
+            >
+              <p className="text-[10px] text-slate-500 uppercase tracking-wide">
+                현 {data.currentHead.label}
+              </p>
+              <div className="inline-flex items-center gap-2 mt-1">
+                <span
+                  className="w-3 h-3 rounded-full"
+                  style={{ background: headPartyColor }}
+                />
+                <p className="text-base font-bold text-slate-900">
+                  {data.currentHead.name}
+                </p>
+              </div>
+              {data.currentHead.party && (
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {data.currentHead.party}
+                </p>
+              )}
+            </div>
+          )}
         </div>
-        <p className="text-4xl font-bold text-blue-900">
-          <Amount amount={data.totalAmount} />
-        </p>
       </div>
 
       {/* 재원 출처 막대 */}

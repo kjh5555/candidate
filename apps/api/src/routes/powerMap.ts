@@ -36,6 +36,23 @@ const powerMapRoutes: FastifyPluginAsync = async (fastify) => {
       });
       if (!first) return reply.status(404).send({ error: "NO_DATA" });
 
+      // 현 단체장 정보 — ElectedOfficialPledge에서 2022 지선 당선자 매칭.
+      // sgTypecode: 3=시·도지사(unitCode 끝 6자리 0), 4=시·군·구청장.
+      // unitCode 패턴: NN00000(광역 본청), NNXX000(시·군·구).
+      const isMetroOnly = unitCode.endsWith("00000");
+      const head = await prisma.electedOfficialPledge.findFirst({
+        where: {
+          electionId: "20220601",
+          sgTypecode: isMetroOnly ? "3" : "4",
+          sido: first.sido,
+          // 광역은 wiwName 무관, 기초는 unitName으로 매칭.
+          ...(isMetroOnly
+            ? {}
+            : { wiwName: { contains: first.unitName.replace(/^[가-힣]{2}/, "") } }),
+        },
+        select: { name: true, party: true, positionLabel: true },
+      });
+
       // 분야별 재원 출처 합계 — groupBy field.
       const rows = await prisma.budgetExpense.groupBy({
         by: ["field"],
@@ -133,6 +150,9 @@ const powerMapRoutes: FastifyPluginAsync = async (fastify) => {
         unitCode,
         unitName: UNIT,
         sido: first.sido,
+        currentHead: head
+          ? { name: head.name, party: head.party, label: head.positionLabel }
+          : null,
         totalAmount: totalAll.toString(),
         sourceBreakdown: {
           natl: totalNatl.toString(),

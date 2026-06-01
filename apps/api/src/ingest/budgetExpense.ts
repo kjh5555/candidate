@@ -111,7 +111,18 @@ export async function ingestBudgetExpense(fiscalYear: number): Promise<void> {
     console.error("[budget-expense] LOFIN_API_KEY/FISCAL_API_KEY not set");
     return;
   }
-  const exeYmd = `${fiscalYear}1231`;
+  // 회계연도가 과거면 연말(YYYY1231), 현재 진행 중이면 어제 날짜로
+  // 누적 집행 현황을 받음.
+  const today = new Date();
+  const todayYear = today.getUTCFullYear();
+  let exeYmd: string;
+  if (fiscalYear < todayYear) {
+    exeYmd = `${fiscalYear}1231`;
+  } else {
+    // 어제 (KST 영업일 안정성).
+    const y = new Date(today.getTime() - 86400_000);
+    exeYmd = `${y.getUTCFullYear()}${String(y.getUTCMonth() + 1).padStart(2, "0")}${String(y.getUTCDate()).padStart(2, "0")}`;
+  }
   console.log(`[budget-expense] starting fyr=${fiscalYear} exe_ymd=${exeYmd}`);
 
   // 기존 데이터 삭제 후 재삽입 (LOFIN 마지막 영업일 누적 데이터).

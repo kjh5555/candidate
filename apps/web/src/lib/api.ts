@@ -555,6 +555,7 @@ export interface PowerMapResponse {
   unitCode: string;
   unitName: string;
   sido: string;
+  currentHead: { name: string; party: string | null; label: string } | null;
   totalAmount: string;
   sourceBreakdown: {
     natl: string;
