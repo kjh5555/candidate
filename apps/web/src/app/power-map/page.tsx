@@ -17,6 +17,7 @@ import {
   type PowerMapTimelineResponse,
   type PowerMapBillsResponse,
   type PowerMapNetworkResponse,
+  type PowerMapNetworkNode,
 } from "@/lib/api";
 import { getMyRegion } from "@/lib/myRegion";
 import { Amount } from "@/components/budget/AmountFormatter";
