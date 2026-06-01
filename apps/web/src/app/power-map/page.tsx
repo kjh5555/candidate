@@ -5,7 +5,14 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ResponsiveSankey } from "@nivo/sankey";
 import { ResponsiveLine } from "@nivo/line";
-import { ResponsiveNetwork } from "@nivo/network";
+import dynamic from "next/dynamic";
+
+// @nivo/network는 d3-force 기반이라 SSR/CSR 경계에서 빈 화면이 되는 경우가 있어
+// 클라이언트에서만 로드.
+const ResponsiveNetwork = dynamic(
+  () => import("@nivo/network").then((m) => m.ResponsiveNetwork),
+  { ssr: false },
+);
 import { ArrowRight, Info, MapPin, Network } from "lucide-react";
 import {
   getPowerMap,

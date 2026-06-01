@@ -89,10 +89,16 @@ async function fetchPage<T>(
     ...extra,
   });
   const url = `${BASE}?${params}`;
-  // open.law.go.kr는 등록된 서비스 도메인 검증을 Referer로 함.
-  // www.handspolitics.co.kr 등록 시 동일 도메인의 Referer 헤더 필요.
   const referer = process.env.LAW_REFERER ?? "https://www.handspolitics.co.kr/";
-  const res = await fetch(url, { headers: { Referer: referer } });
+  // 30초 timeout — 네트워크 끊김 시 hang 방지.
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 30_000);
+  let res;
+  try {
+    res = await fetch(url, { headers: { Referer: referer }, signal: ctrl.signal });
+  } finally {
+    clearTimeout(t);
+  }
   const text = await res.text();
   let data: unknown;
   try {
