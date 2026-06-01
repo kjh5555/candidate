@@ -539,6 +539,44 @@ export interface BudgetPlanUnitResponse {
   items: BudgetPlanItem[];
 }
 
+// ── 우리 동네 권력 지도 (Sankey) ─────────────────────────
+
+export interface PowerMapNode {
+  id: string;
+  category: "source" | "unit" | "field";
+}
+export interface PowerMapLink {
+  source: string;
+  target: string;
+  value: number;
+}
+export interface PowerMapResponse {
+  fiscalYear: number;
+  unitCode: string;
+  unitName: string;
+  sido: string;
+  totalAmount: string;
+  sourceBreakdown: {
+    natl: string;
+    sido: string;
+    sgg: string;
+    etc: string;
+  };
+  nodes: PowerMapNode[];
+  links: PowerMapLink[];
+}
+export function getPowerMap(
+  unitCode: string,
+  fiscalYear?: number,
+): Promise<PowerMapResponse> {
+  const p = new URLSearchParams();
+  if (fiscalYear) p.set("fiscalYear", String(fiscalYear));
+  const qs = p.toString();
+  return apiFetch<PowerMapResponse>(
+    `/api/power-map/unit/${encodeURIComponent(unitCode)}${qs ? `?${qs}` : ""}`,
+  );
+}
+
 // ── 정당 정보 ─────────────────────────
 
 export interface PartySummaryDTO {

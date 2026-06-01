@@ -329,11 +329,11 @@ export default function AboutPage() {
               </div>
             </div>
             <Link
-              href="/"
-              className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-colors"
-              style={{ border: `1px solid ${PRIMARY}`, color: PRIMARY }}
+              href="/power-map"
+              className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-colors hover:opacity-80"
+              style={{ background: PRIMARY, color: "#fff" }}
             >
-              <MapPin className="w-4 h-4" /> 내 지역구 설정하기
+              <MapPin className="w-4 h-4" /> 권력 지도 보기
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -351,10 +351,10 @@ export default function AboutPage() {
             >
               <MapPin className="w-6 h-6 mb-2" style={{ color: PRIMARY }} />
               <p className="text-sm font-bold" style={{ color: PRIMARY }}>
-                준비 중인 기능
+                Sankey 흐름도 공개
               </p>
               <p className="text-xs mt-1" style={{ color: ON_VARIANT }}>
-                내 지역구 권력 지도
+                국비·도비·시비 → 분야별 집행
               </p>
             </div>
           </div>
