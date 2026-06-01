@@ -9,9 +9,11 @@ import { ArrowRight, Info, MapPin, Network } from "lucide-react";
 import {
   getPowerMap,
   getPowerMapTimeline,
+  getPowerMapBills,
   getRegionHub,
   type PowerMapResponse,
   type PowerMapTimelineResponse,
+  type PowerMapBillsResponse,
 } from "@/lib/api";
 import { getMyRegion } from "@/lib/myRegion";
 import { Amount } from "@/components/budget/AmountFormatter";
@@ -272,8 +274,116 @@ function PowerMapView({ data }: { data: PowerMapResponse }) {
 
       {/* C2: 시간 축 — 단체장 임기 분야별 변화 */}
       <TimelineSection unitCode={data.unitCode} />
+
+      {/* C3: 의원 입법 활동 — 의회 조례 발의 */}
+      <BillsSection unitCode={data.unitCode} />
     </div>
   );
+}
+
+function BillsSection({ unitCode }: { unitCode: string }) {
+  const [data, setData] = useState<PowerMapBillsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getPowerMapBills(unitCode)
+      .then((res) => {
+        if (!cancelled) setData(res);
+      })
+      .catch(() => {
+        if (!cancelled) setData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [unitCode]);
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="h-32 bg-slate-50 rounded animate-pulse" />
+      </div>
+    );
+  }
+  if (!data || data.totalBills === 0) return null;
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <h2 className="text-sm font-semibold text-slate-700 mb-1">
+        {data.councilKeyword} 입법 활동
+      </h2>
+      <p className="text-xs text-slate-400 mb-4">
+        총 {data.totalBills.toLocaleString()}건 발의 · 의원이 만든 조례·규칙이
+        예산 사업의 법적 근거가 됩니다.
+      </p>
+
+      {data.topProposers.length > 0 && (
+        <div className="mb-5">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+            발의자 top {data.topProposers.length}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {data.topProposers.map((p) => (
+              <span
+                key={p.name}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-xs"
+              >
+                <span className="font-semibold text-slate-800">{p.name}</span>
+                <span className="text-slate-500">·</span>
+                <span className="text-slate-600 tabular-nums">{p.count}건</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+          최근 발의 조례·규칙
+        </p>
+        <ul className="space-y-1.5 text-sm">
+          {data.recentBills.map((b) => (
+            <li
+              key={b.docId}
+              className="flex items-start gap-3 py-1.5 border-b border-slate-100"
+            >
+              <span className="text-[11px] text-slate-400 tabular-nums shrink-0 mt-0.5">
+                {formatItncDe(b.itncDe)}
+              </span>
+              <div className="min-w-0 flex-1">
+                {b.viewUrl ? (
+                  <a
+                    href={b.viewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-slate-800 hover:text-blue-700 hover:underline"
+                  >
+                    {b.biSj}
+                  </a>
+                ) : (
+                  <span className="text-slate-800">{b.biSj}</span>
+                )}
+                {b.propsr && (
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    발의: {b.propsr}
+                  </p>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function formatItncDe(d: string | null): string {
+  if (!d || d.length < 8) return "—";
+  return `${d.slice(0, 4)}.${d.slice(4, 6)}.${d.slice(6, 8)}`;
 }
 
 function TimelineSection({ unitCode }: { unitCode: string }) {

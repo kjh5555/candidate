@@ -595,6 +595,33 @@ export interface PowerMapTimelineResponse {
   series: PowerMapTimelineSeries[];
   availableYears: number[];
 }
+export interface PowerMapBillsResponse {
+  unitCode: string;
+  unitName: string;
+  councilKeyword: string;
+  totalBills: number;
+  topProposers: { name: string; count: number }[];
+  recentBills: {
+    docId: string;
+    biSj: string;
+    propsr: string | null;
+    itncDe: string | null;
+    rasmblyNm: string;
+    viewUrl: string | null;
+  }[];
+}
+export function getPowerMapBills(
+  unitCode: string,
+  opts: { keyword?: string } = {},
+): Promise<PowerMapBillsResponse> {
+  const p = new URLSearchParams();
+  if (opts.keyword) p.set("keyword", opts.keyword);
+  const qs = p.toString();
+  return apiFetch<PowerMapBillsResponse>(
+    `/api/power-map/unit/${encodeURIComponent(unitCode)}/bills${qs ? `?${qs}` : ""}`,
+  );
+}
+
 export function getPowerMapTimeline(
   unitCode: string,
   opts: { from?: number; to?: number; topN?: number } = {},

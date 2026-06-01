@@ -10,6 +10,19 @@ interface YearQuery { fiscalYear?: string }
  * 시민 관점: "여주시 예산이 국비/도비/시비에서 얼마씩 들어와서 분야별로
  * 어떻게 분배되나" 흐름 시각화.
  */
+// CouncilBill ↔ 자치단체 매칭용 — unitName에서 의회 이름 키워드 추출.
+// 광역 본청(예: "서울본청") → "서울특별시의회"
+// 기초 (예: "경기여주시") → "여주시의회"
+function deriveCouncilKeyword(unitName: string, sido: string): string {
+  const stripped = unitName.startsWith(sido.slice(0, 2))
+    ? unitName.slice(2)
+    : unitName;
+  if (stripped === "본청") {
+    return `${sido}의회`;
+  }
+  return `${stripped}의회`;
+}
+
 interface TimelineQuery {
   from?: string;
   to?: string;
@@ -240,6 +253,69 @@ const powerMapRoutes: FastifyPluginAsync = async (fastify) => {
         },
         nodes: filteredNodes,
         links,
+      });
+    },
+  );
+
+  // GET /api/power-map/unit/:unitCode/bills — 해당 자치단체 의회의 조례 활동
+  // (발의자 top + 최근 조례 + 분야 키워드별 매칭).
+  fastify.get<{ Params: UnitParams; Querystring: { keyword?: string } }>(
+    "/unit/:unitCode/bills",
+    async (request, reply) => {
+      const { unitCode } = request.params;
+      const { keyword } = request.query;
+
+      // unit → 의회 키워드.
+      const first = await prisma.budgetExpense.findFirst({
+        where: { unitCode },
+        select: { unitName: true, sido: true },
+      });
+      if (!first) return reply.status(404).send({ error: "NO_DATA" });
+      const councilKeyword = deriveCouncilKeyword(first.unitName, first.sido);
+
+      // 발의자 top 8.
+      const proposerRows = await prisma.$queryRawUnsafe<{
+        propsr: string;
+        c: bigint;
+      }[]>(
+        `SELECT propsr, COUNT(*)::bigint AS c FROM "CouncilBill"
+         WHERE "rasmblyNm" LIKE $1 AND propsr IS NOT NULL AND propsr <> ''
+         GROUP BY propsr ORDER BY c DESC LIMIT 8`,
+        `%${councilKeyword}%`,
+      );
+
+      // 최근 조례 top 10.
+      const recentBills = await prisma.councilBill.findMany({
+        where: {
+          rasmblyNm: { contains: councilKeyword },
+          ...(keyword ? { biSj: { contains: keyword } } : {}),
+        },
+        orderBy: { itncDe: "desc" },
+        take: 10,
+        select: {
+          docId: true,
+          biSj: true,
+          propsr: true,
+          itncDe: true,
+          rasmblyNm: true,
+          viewUrl: true,
+        },
+      });
+
+      const totalCount = await prisma.councilBill.count({
+        where: { rasmblyNm: { contains: councilKeyword } },
+      });
+
+      return reply.send({
+        unitCode,
+        unitName: first.unitName,
+        councilKeyword,
+        totalBills: totalCount,
+        topProposers: proposerRows.map((p) => ({
+          name: p.propsr,
+          count: Number(p.c),
+        })),
+        recentBills,
       });
     },
   );
