@@ -169,19 +169,16 @@ export async function ingestOrdinances(): Promise<void> {
       })
       .filter((d) => d.ordSeq && d.ordName);
 
-    for (const d of data) {
-      try {
-        await prisma.ordinance.upsert({
-          where: { ordSeq: d.ordSeq },
-          create: d as Prisma.OrdinanceUncheckedCreateInput,
-          update: d as Prisma.OrdinanceUncheckedUpdateInput,
-        });
-        inserted++;
-      } catch {
-        // skip conflicts.
-      }
+    // chunk createMany — 직렬 upsert 대비 100배 빠름. 첫 풀스캔 가정.
+    // 재실행 시엔 ordSeq unique 충돌 → skipDuplicates로 무시.
+    if (data.length > 0) {
+      const r = await prisma.ordinance.createMany({
+        data: data as Prisma.OrdinanceUncheckedCreateInput[],
+        skipDuplicates: true,
+      });
+      inserted += r.count;
     }
-    if (page % 10 === 0) {
+    if (page % 10 === 0 || page <= 5) {
       console.log(`[ordinances] page ${page} → ${scanned}/${total} (inserted=${inserted})`);
     }
     page++;
