@@ -74,9 +74,9 @@ export const metadata: Metadata = {
     },
   },
   verification: {
-    // 등록 후 추가:
-    //   google: "GOOGLE_VERIFY_TOKEN",
-    //   other: { "naver-site-verification": "NAVER_VERIFY_TOKEN" },
+    google: "xmfej-fVmfZ4XV8-0tOmYiO5hLKxSTgRQrA_dRT61Wk",
+    // 네이버 토큰 받으면 아래 추가:
+    // other: { "naver-site-verification": "NAVER_VERIFY_TOKEN" },
   },
 };
 
