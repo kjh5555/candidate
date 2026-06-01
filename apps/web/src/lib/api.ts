@@ -578,6 +578,37 @@ export function getPowerMap(
   );
 }
 
+export interface PowerMapTimelinePoint {
+  x: string; // fiscalYear (string)
+  y: number; // spend amount in won
+  budget: string;
+  spend: string;
+}
+export interface PowerMapTimelineSeries {
+  id: string; // field
+  data: PowerMapTimelinePoint[];
+}
+export interface PowerMapTimelineResponse {
+  unitCode: string;
+  from: number;
+  to: number;
+  series: PowerMapTimelineSeries[];
+  availableYears: number[];
+}
+export function getPowerMapTimeline(
+  unitCode: string,
+  opts: { from?: number; to?: number; topN?: number } = {},
+): Promise<PowerMapTimelineResponse> {
+  const p = new URLSearchParams();
+  if (opts.from) p.set("from", String(opts.from));
+  if (opts.to) p.set("to", String(opts.to));
+  if (opts.topN) p.set("topN", String(opts.topN));
+  const qs = p.toString();
+  return apiFetch<PowerMapTimelineResponse>(
+    `/api/power-map/unit/${encodeURIComponent(unitCode)}/timeline${qs ? `?${qs}` : ""}`,
+  );
+}
+
 // ── 정당 정보 ─────────────────────────
 
 export interface PartySummaryDTO {

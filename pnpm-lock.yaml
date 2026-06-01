@@ -78,6 +78,9 @@ importers:
       '@nivo/core':
         specifier: ^0.99.0
         version: 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@nivo/line':
+        specifier: ^0.99.0
+        version: 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@nivo/sankey':
         specifier: ^0.99.0
         version: 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -754,6 +757,16 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@nivo/annotations@0.99.0':
+    resolution: {integrity: sha512-jCuuXPbvpaqaz4xF7k5dv0OT2ubn5Nt0gWryuTe/8oVsC/9bzSuK8bM9vBty60m9tfO+X8vUYliuaCDwGksC2g==}
+    peerDependencies:
+      react: ^16.14 || ^17.0 || ^18.0 || ^19.0
+
+  '@nivo/axes@0.99.0':
+    resolution: {integrity: sha512-3KschnmEL0acRoa7INSSOSEFwJLm54aZwSev7/r8XxXlkgRBriu6ReZy/FG0wfN+ljZ4GMvx+XyIIf6kxzvrZg==}
+    peerDependencies:
+      react: ^16.14 || ^17.0 || ^18.0 || ^19.0
+
   '@nivo/colors@0.99.0':
     resolution: {integrity: sha512-hyYt4lEFIfXOUmQ6k3HXm3KwhcgoJpocmoGzLUqzk7DzuhQYJo+4d5jIGGU0N/a70+9XbHIdpKNSblHAIASD3w==}
     peerDependencies:
@@ -769,10 +782,18 @@ packages:
     peerDependencies:
       react: ^16.14 || ^17.0 || ^18.0 || ^19.0
 
+  '@nivo/line@0.99.0':
+    resolution: {integrity: sha512-bAqTXSjpnpcGMs341qWFUi7hJTqQiNoSeJHsYPuPS3icuXPcp3WETQH+zRZACeEF79ZigeOWCW+dzODgne1y9w==}
+    peerDependencies:
+      react: ^16.14 || ^17.0 || ^18.0 || ^19.0
+
   '@nivo/sankey@0.99.0':
     resolution: {integrity: sha512-u5hySywsachjo9cHdUxCR9qwD6gfRVPEAcpuIUKiA0WClDjdGbl3vkrQcQcFexJUBThqSSbwGCDWR+2INXSbTw==}
     peerDependencies:
       react: ^16.14 || ^17.0 || ^18.0 || ^19.0
+
+  '@nivo/scales@0.99.0':
+    resolution: {integrity: sha512-g/2K4L6L8si6E2BWAHtFVGahtDKbUcO6xHJtlIZMwdzaJc7yB16EpWLK8AfI/A42KadLhJSJqBK3mty+c7YZ+w==}
 
   '@nivo/text@0.99.0':
     resolution: {integrity: sha512-ho3oZpAZApsJNjsIL5WJSAdg/wjzTBcwo1KiHBlRGUmD+yUWO8qp7V+mnYRhJchwygtRVALlPgZ/rlcW2Xr/MQ==}
@@ -786,6 +807,11 @@ packages:
 
   '@nivo/tooltip@0.99.0':
     resolution: {integrity: sha512-weoEGR3xAetV4k2P6k96cdamGzKQ5F2Pq+uyDaHr1P3HYArM879Pl+x+TkU0aWjP6wgUZPx/GOBiV1Hb1JxIqg==}
+    peerDependencies:
+      react: ^16.14 || ^17.0 || ^18.0 || ^19.0
+
+  '@nivo/voronoi@0.99.0':
+    resolution: {integrity: sha512-KfmMdidbYzhiUCki1FG4X4nHEFT4loK8G5bMBnmCl9U+S78W+gvkfrgD2Aoqp/Q9yKQvr3Y8UcZKSFZnn3HgjQ==}
     peerDependencies:
       react: ^16.14 || ^17.0 || ^18.0 || ^19.0
 
@@ -1023,8 +1049,14 @@ packages:
   '@types/d3-color@3.1.3':
     resolution: {integrity: sha512-iO90scth9WAbmgv7ogoq57O9YpKmFBbmoEoCHDB2xMBY0+/KVrqAaCDyCE16dUspeOvIxFFRI+0sEtqDqy2b4A==}
 
+  '@types/d3-delaunay@6.0.4':
+    resolution: {integrity: sha512-ZMaSKu4THYCU6sV64Lhg6qjf1orxBthaC161plr5KuPHo3CNm8DTHiLw/5Eq2b6TsNP0W0iJrUOFscY6Q450Hw==}
+
   '@types/d3-ease@3.0.2':
     resolution: {integrity: sha512-NcV1JjO5oDzoK26oMzbILE6HW7uVXOHLQvHshBUW4UMdZGfiY6v5BeQwh9a9tCzv+CeefZQHJt5SRgK154RtiA==}
+
+  '@types/d3-format@1.4.5':
+    resolution: {integrity: sha512-mLxrC1MSWupOSncXN/HOlWUAAIffAEBaI4+PKy2uMPsKe4FNZlk7qrbTjmzJXITQQqBHivaks4Td18azgqnotA==}
 
   '@types/d3-interpolate@3.0.4':
     resolution: {integrity: sha512-mgLPETlrpVV1YRJIglr4Ez47g7Yxjl1lj7YKsiMCb27VJH9W8NVM6Bb9d8kkpG/uAQS5AmbA48q2IAolKKo1MA==}
@@ -1049,6 +1081,15 @@ packages:
 
   '@types/d3-shape@3.1.8':
     resolution: {integrity: sha512-lae0iWfcDeR7qt7rA88BNiqdvPS5pFVPpo5OfjElwNaT2yyekbM0C9vK+yqBqEmHr6lDkRnYNoTBYlAgJa7a4w==}
+
+  '@types/d3-time-format@2.3.4':
+    resolution: {integrity: sha512-xdDXbpVO74EvadI3UDxjxTdR6QIxm1FKzEA/+F8tL4GWWUg/hgvBqf6chql64U5A9ZUGWo7pEu4eNlyLwbKdhg==}
+
+  '@types/d3-time-format@3.0.4':
+    resolution: {integrity: sha512-or9DiDnYI1h38J9hxKEsw513+KVuFbEVhl7qdxcaudoiqWWepapUen+2vAriFGexr6W5+P4l9+HJrB39GG+oRg==}
+
+  '@types/d3-time@1.1.4':
+    resolution: {integrity: sha512-JIvy2HjRInE+TXOmIGN5LCmeO0hkFZx5f9FZ7kiN+D+YTcc8pptsiLiuHsvwxwC7VVKmJ2ExHUgNlAiV7vQM9g==}
 
   '@types/d3-time@3.0.4':
     resolution: {integrity: sha512-yuzZug1nkAAaBlBBikKZTgzCeA+k1uy4ZFwWANOfKw5z5LRhV0gNA7gNkKm7HoK+HRN0wX3EkxGk0fpbWhmB7g==}
@@ -1228,6 +1269,10 @@ packages:
     resolution: {integrity: sha512-zg/chbXyeBtMQ1LbD/WSoW2DpC3I0mpmPdW+ynRTj/x2DAWYrIY7qeZIHidozwV24m4iavr15lNwIwLxRmOxhA==}
     engines: {node: '>=12'}
 
+  d3-delaunay@6.0.4:
+    resolution: {integrity: sha512-mdjtIZ1XLAM8bm/hx3WwjfHt6Sggek7qH043O8KEjDXN40xi3vx/6pYSVTwLjEgiXQTbvaouWKynLBiUZ6SK6A==}
+    engines: {node: '>=12'}
+
   d3-ease@3.0.1:
     resolution: {integrity: sha512-wR/XK3D3XcLIZwpbvQwQ5fK+8Ykds1ip7A2Txe0yxncXSdq1L9skcG7blcedkOX+ZcgxGAmLX1FrRGbADwzi0w==}
     engines: {node: '>=12'}
@@ -1275,6 +1320,9 @@ packages:
     resolution: {integrity: sha512-dJxPBlzC7NugB2PDLwo9Q8JiTR3M3e4/XANkreKSUxF8vvXKqm1Yfq4Q5dl8budlunRVlUUaDUgFt7eA8D6NLg==}
     engines: {node: '>=12'}
 
+  d3-time@1.1.0:
+    resolution: {integrity: sha512-Xh0isrZ5rPYYdqhAVk8VLnMEidhz5aP7htAADH6MfzgmmicPkTo8LhkLxci61/lCB7n7UmE3bN0leRt+qvkLxA==}
+
   d3-time@2.1.1:
     resolution: {integrity: sha512-/eIQe/eR4kCQwq7yxi7z4c6qEXf2IYGcjoWB5OOQy4Tq9Uv39/947qlDcN2TLkiTzQWzvnsuYPB9TrWaNfipKQ==}
 
@@ -1315,6 +1363,9 @@ packages:
 
   defu@6.1.7:
     resolution: {integrity: sha512-7z22QmUWiQ/2d0KkdYmANbRUVABpZ9SNYyH5vx6PZ+nE5bcC0l7uFvEfHlyld/HcGBFTL536ClDt3DEcSlEJAQ==}
+
+  delaunator@5.1.0:
+    resolution: {integrity: sha512-AGrQ4QSgssa1NGmWmLPqN5NY2KajF5MqxetNEO+o0n3ZwZZeTmt7bBnvzHWrmkZFxGgr4HdyFgelzgi06otLuQ==}
 
   dequal@2.0.3:
     resolution: {integrity: sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA==}
@@ -1809,6 +1860,9 @@ packages:
 
   rfdc@1.4.1:
     resolution: {integrity: sha512-q1b3N5QkRUWUl7iyylaaj3kOpIT0N2i9MqIEQXP73GVsN9cw3fdx8X63cEmWhJGi2PPCF23Ijp7ktmd39rawIA==}
+
+  robust-predicates@3.0.3:
+    resolution: {integrity: sha512-NS3levdsRIUOmiJ8FZWCP7LG3QpJyrs/TE0Zpf1yvZu8cAJJ6QMW92H1c7kWpdIHo8RvmLxN/o2JXTKHp74lUA==}
 
   rss-parser@3.13.0:
     resolution: {integrity: sha512-7jWUBV5yGN3rqMMj7CZufl/291QAhvrrGpDNE4k/02ZchL0npisiYYqULF71jCEKoIiHvK/Q2e6IkDwPziT7+w==}
@@ -2414,6 +2468,32 @@ snapshots:
   '@next/swc-win32-x64-msvc@15.5.18':
     optional: true
 
+  '@nivo/annotations@0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+    dependencies:
+      '@nivo/colors': 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@nivo/core': 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@nivo/theming': 0.99.0(react@19.0.0)
+      '@react-spring/web': 10.1.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      lodash: 4.18.1
+      react: 19.0.0
+    transitivePeerDependencies:
+      - react-dom
+
+  '@nivo/axes@0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+    dependencies:
+      '@nivo/core': 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@nivo/scales': 0.99.0
+      '@nivo/text': 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@nivo/theming': 0.99.0(react@19.0.0)
+      '@react-spring/web': 10.1.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@types/d3-format': 1.4.5
+      '@types/d3-time-format': 2.3.4
+      d3-format: 1.4.5
+      d3-time-format: 3.0.0
+      react: 19.0.0
+    transitivePeerDependencies:
+      - react-dom
+
   '@nivo/colors@0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
       '@nivo/core': 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -2461,6 +2541,24 @@ snapshots:
     transitivePeerDependencies:
       - react-dom
 
+  '@nivo/line@0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+    dependencies:
+      '@nivo/annotations': 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@nivo/axes': 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@nivo/colors': 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@nivo/core': 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@nivo/legends': 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@nivo/scales': 0.99.0
+      '@nivo/theming': 0.99.0(react@19.0.0)
+      '@nivo/tooltip': 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@nivo/voronoi': 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@react-spring/web': 10.1.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@types/d3-shape': 3.1.8
+      d3-shape: 3.2.0
+      react: 19.0.0
+    transitivePeerDependencies:
+      - react-dom
+
   '@nivo/sankey@0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
       '@nivo/colors': 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -2478,6 +2576,18 @@ snapshots:
       react: 19.0.0
     transitivePeerDependencies:
       - react-dom
+
+  '@nivo/scales@0.99.0':
+    dependencies:
+      '@types/d3-interpolate': 3.0.4
+      '@types/d3-scale': 4.0.9
+      '@types/d3-time': 1.1.4
+      '@types/d3-time-format': 3.0.4
+      d3-interpolate: 3.0.1
+      d3-scale: 4.0.2
+      d3-time: 1.1.0
+      d3-time-format: 3.0.0
+      lodash: 4.18.1
 
   '@nivo/text@0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
@@ -2498,6 +2608,19 @@ snapshots:
       '@nivo/core': 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@nivo/theming': 0.99.0(react@19.0.0)
       '@react-spring/web': 10.1.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      react: 19.0.0
+    transitivePeerDependencies:
+      - react-dom
+
+  '@nivo/voronoi@0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+    dependencies:
+      '@nivo/core': 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@nivo/theming': 0.99.0(react@19.0.0)
+      '@nivo/tooltip': 0.99.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@types/d3-delaunay': 6.0.4
+      '@types/d3-scale': 4.0.9
+      d3-delaunay: 6.0.4
+      d3-scale: 4.0.2
       react: 19.0.0
     transitivePeerDependencies:
       - react-dom
@@ -2705,7 +2828,11 @@ snapshots:
 
   '@types/d3-color@3.1.3': {}
 
+  '@types/d3-delaunay@6.0.4': {}
+
   '@types/d3-ease@3.0.2': {}
+
+  '@types/d3-format@1.4.5': {}
 
   '@types/d3-interpolate@3.0.4':
     dependencies:
@@ -2732,6 +2859,12 @@ snapshots:
   '@types/d3-shape@3.1.8':
     dependencies:
       '@types/d3-path': 3.1.1
+
+  '@types/d3-time-format@2.3.4': {}
+
+  '@types/d3-time-format@3.0.4': {}
+
+  '@types/d3-time@1.1.4': {}
 
   '@types/d3-time@3.0.4': {}
 
@@ -2858,6 +2991,10 @@ snapshots:
 
   d3-color@3.1.0: {}
 
+  d3-delaunay@6.0.4:
+    dependencies:
+      delaunator: 5.1.0
+
   d3-ease@3.0.1: {}
 
   d3-format@1.4.5: {}
@@ -2906,6 +3043,8 @@ snapshots:
     dependencies:
       d3-time: 3.1.0
 
+  d3-time@1.1.0: {}
+
   d3-time@2.1.1:
     dependencies:
       d3-array: 2.12.1
@@ -2936,6 +3075,10 @@ snapshots:
   deepmerge-ts@7.1.5: {}
 
   defu@6.1.7: {}
+
+  delaunator@5.1.0:
+    dependencies:
+      robust-predicates: 3.0.3
 
   dequal@2.0.3: {}
 
@@ -3502,6 +3645,8 @@ snapshots:
   reusify@1.1.0: {}
 
   rfdc@1.4.1: {}
+
+  robust-predicates@3.0.3: {}
 
   rss-parser@3.13.0:
     dependencies:

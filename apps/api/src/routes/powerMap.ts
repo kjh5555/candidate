@@ -10,7 +10,85 @@ interface YearQuery { fiscalYear?: string }
  * 시민 관점: "여주시 예산이 국비/도비/시비에서 얼마씩 들어와서 분야별로
  * 어떻게 분배되나" 흐름 시각화.
  */
+interface TimelineQuery {
+  from?: string;
+  to?: string;
+  topN?: string;
+}
+
 const powerMapRoutes: FastifyPluginAsync = async (fastify) => {
+  // GET /api/power-map/unit/:unitCode/timeline?from=2022&to=2026&topN=6
+  // 분야별 연도별 집행 합계 — 4년 단체장 임기 변화 추이 시각화.
+  fastify.get<{ Params: UnitParams; Querystring: TimelineQuery }>(
+    "/unit/:unitCode/timeline",
+    async (request, reply) => {
+      const { unitCode } = request.params;
+      const from = request.query.from
+        ? parseInt(request.query.from, 10)
+        : new Date().getUTCFullYear() - 4;
+      const to = request.query.to
+        ? parseInt(request.query.to, 10)
+        : new Date().getUTCFullYear();
+      const topN = Math.min(
+        Math.max(parseInt(request.query.topN ?? "6", 10) || 6, 1),
+        12,
+      );
+
+      const rows = await prisma.budgetExpense.groupBy({
+        by: ["fiscalYear", "field"],
+        where: {
+          unitCode,
+          fiscalYear: { gte: from, lte: to },
+        },
+        _sum: { spendAmount: true, budgetAmount: true },
+      });
+
+      // 상위 N개 분야 식별 (전체 기간 합계 기준).
+      const fieldTotals = new Map<string, bigint>();
+      for (const r of rows) {
+        const cur = fieldTotals.get(r.field) ?? 0n;
+        fieldTotals.set(r.field, cur + (r._sum.spendAmount ?? 0n));
+      }
+      const topFields = Array.from(fieldTotals.entries())
+        .sort((a, b) => (b[1] > a[1] ? 1 : b[1] < a[1] ? -1 : 0))
+        .slice(0, topN)
+        .map((e) => e[0]);
+
+      // 연도별 시리즈 생성.
+      const yearList: number[] = [];
+      for (let y = from; y <= to; y++) yearList.push(y);
+      const byKey = new Map<string, { spend: bigint; budget: bigint }>();
+      for (const r of rows) {
+        byKey.set(`${r.fiscalYear}|${r.field}`, {
+          spend: r._sum.spendAmount ?? 0n,
+          budget: r._sum.budgetAmount ?? 0n,
+        });
+      }
+      const series = topFields.map((field) => ({
+        id: field,
+        data: yearList.map((y) => {
+          const v = byKey.get(`${y}|${field}`);
+          return {
+            x: String(y),
+            y: v ? Number(v.spend) : 0,
+            budget: v ? v.budget.toString() : "0",
+            spend: v ? v.spend.toString() : "0",
+          };
+        }),
+      }));
+
+      return reply.send({
+        unitCode,
+        from,
+        to,
+        series,
+        availableYears: Array.from(
+          new Set(rows.map((r) => r.fiscalYear)),
+        ).sort(),
+      });
+    },
+  );
+
   fastify.get<{ Params: UnitParams; Querystring: YearQuery }>(
     "/unit/:unitCode",
     async (request, reply) => {

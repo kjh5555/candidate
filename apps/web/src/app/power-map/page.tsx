@@ -4,11 +4,14 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ResponsiveSankey } from "@nivo/sankey";
+import { ResponsiveLine } from "@nivo/line";
 import { ArrowRight, Info, MapPin, Network } from "lucide-react";
 import {
   getPowerMap,
+  getPowerMapTimeline,
   getRegionHub,
   type PowerMapResponse,
+  type PowerMapTimelineResponse,
 } from "@/lib/api";
 import { getMyRegion } from "@/lib/myRegion";
 import { Amount } from "@/components/budget/AmountFormatter";
@@ -266,6 +269,99 @@ function PowerMapView({ data }: { data: PowerMapResponse }) {
       <p className="text-xs text-slate-400 text-center">
         출처: 지방재정365 LOFIN QWGJK (세부사업별 세출현황). {data.fiscalYear}회계연도 누적.
       </p>
+
+      {/* C2: 시간 축 — 단체장 임기 분야별 변화 */}
+      <TimelineSection unitCode={data.unitCode} />
+    </div>
+  );
+}
+
+function TimelineSection({ unitCode }: { unitCode: string }) {
+  const [data, setData] = useState<PowerMapTimelineResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getPowerMapTimeline(unitCode, { topN: 6 })
+      .then((res) => {
+        if (!cancelled) setData(res);
+      })
+      .catch(() => {
+        if (!cancelled) setData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [unitCode]);
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="h-64 bg-slate-50 rounded animate-pulse" />
+      </div>
+    );
+  }
+  if (!data || data.series.length === 0 || data.availableYears.length < 2) {
+    return null;
+  }
+
+  // 원 → 억 단위 변환 (그래프 가독성).
+  const lineData = data.series.map((s) => ({
+    id: s.id,
+    data: s.data.map((p) => ({ x: p.x, y: Math.round(p.y / 1e8) })),
+  }));
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <h2 className="text-sm font-semibold text-slate-700 mb-1">
+        분야별 세출 추이 ({data.from}~{data.to})
+      </h2>
+      <p className="text-xs text-slate-400 mb-3">
+        단위: 억원. 상위 6개 분야의 회계연도별 실집행액 추이 — 단체장 임기
+        동안 정책 방향 변화 확인 가능.
+      </p>
+      {data.availableYears.length < (data.to - data.from + 1) && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
+          ⓘ 가용 회계연도: {data.availableYears.join(", ")} (다른 연도는 ingest
+          후 자동 채워짐)
+        </p>
+      )}
+      <div style={{ height: 320 }}>
+        <ResponsiveLine
+          data={lineData}
+          margin={{ top: 16, right: 140, bottom: 40, left: 60 }}
+          xScale={{ type: "point" }}
+          yScale={{ type: "linear", min: 0, max: "auto", stacked: false }}
+          curve="monotoneX"
+          axisBottom={{ tickSize: 5, tickPadding: 6, legend: "회계연도", legendOffset: 32, legendPosition: "middle" }}
+          axisLeft={{ tickSize: 5, tickPadding: 6, legend: "억원", legendOffset: -48, legendPosition: "middle" }}
+          colors={{ scheme: "category10" }}
+          pointSize={6}
+          pointBorderWidth={2}
+          pointBorderColor={{ from: "serieColor" }}
+          useMesh={true}
+          enableArea={false}
+          legends={[
+            {
+              anchor: "right",
+              direction: "column",
+              translateX: 130,
+              itemWidth: 120,
+              itemHeight: 18,
+              itemTextColor: "#475569",
+              symbolSize: 10,
+              symbolShape: "circle",
+            },
+          ]}
+          theme={{
+            axis: { ticks: { text: { fontSize: 11 } }, legend: { text: { fontSize: 11 } } },
+            legends: { text: { fontSize: 11 } },
+          }}
+        />
+      </div>
     </div>
   );
 }
