@@ -352,6 +352,22 @@ export default function CandidateDetailPage() {
             pdfUrl={candidate.taxRecordPdfUrl}
           />
         </div>
+
+        {/* NEC 공식 후보자 정보 사이트 링크 — 재산 등 원본 스캔본은 NEC 사이트에서 직접 조회 */}
+        <div className="mt-4 pt-4 border-t border-slate-100">
+          <a
+            href="http://info.nec.go.kr/main/showDocument.xhtml?electionId=0020260603&topMenuId=CP&secondMenuId=CPRI03"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:underline"
+          >
+            중앙선관위 공식 후보자 정보 시스템에서 원본 스캔본 보기
+            <ExternalLink className="w-3 h-3" />
+          </a>
+          <p className="mt-1 text-[11px] text-slate-400">
+            재산신고서·전과기록 등은 TIF 스캔본으로만 제공되므로 본 사이트에 라인아이템으로 적재되어 있지 않을 수 있습니다. NEC 검색페이지에서 본 후보자 이름·지역구를 선택해 원본을 확인하세요.
+          </p>
+        </div>
       </div>
 
       {/* 공약 */}
