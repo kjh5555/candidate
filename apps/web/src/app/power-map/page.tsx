@@ -5,14 +5,6 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ResponsiveSankey } from "@nivo/sankey";
 import { ResponsiveLine } from "@nivo/line";
-import dynamic from "next/dynamic";
-
-// @nivo/network는 d3-force 기반이라 SSR/CSR 경계에서 빈 화면이 되는 경우가 있어
-// 클라이언트에서만 로드.
-const ResponsiveNetwork = dynamic(
-  () => import("@nivo/network").then((m) => m.ResponsiveNetwork),
-  { ssr: false },
-);
 import { ArrowRight, Info, MapPin, Network } from "lucide-react";
 import {
   getPowerMap,
@@ -440,24 +432,46 @@ function NetworkSection({ unitCode }: { unitCode: string }) {
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <div className="h-80 bg-slate-50 rounded animate-pulse" />
+        <div className="h-40 bg-slate-50 rounded animate-pulse" />
       </div>
     );
   }
   if (!data || data.nodes.length === 0) return null;
 
-  // 정당별 색상 매핑.
-  const partyColorMap = new Map<string, string>();
+  // 정당별로 인물 grouping.
+  const partyMap = new Map<
+    string,
+    {
+      party: string;
+      color: string;
+      head: PowerMapNetworkNode | null;
+      legislators: PowerMapNetworkNode[];
+      candidates: PowerMapNetworkNode[];
+    }
+  >();
   for (const n of data.nodes) {
-    if (n.party) partyColorMap.set(n.party, getPartyColor(n.party).hex);
+    if (n.kind === "party" || !n.party) continue;
+    if (!partyMap.has(n.party)) {
+      partyMap.set(n.party, {
+        party: n.party,
+        color: getPartyColor(n.party).hex,
+        head: null,
+        legislators: [],
+        candidates: [],
+      });
+    }
+    const b = partyMap.get(n.party)!;
+    if (n.kind === "head") b.head = n;
+    else if (n.kind === "legislator") b.legislators.push(n);
+    else if (n.kind === "candidate") b.candidates.push(n);
   }
-
-  // nivo Network는 distance 사용 — 정당 노드는 가까이, 인물은 거리 더 멀게.
-  const links = data.links.map((l) => ({
-    source: l.source,
-    target: l.target,
-    distance: 50,
-  }));
+  const partyCards = Array.from(partyMap.values()).sort((a, b) => {
+    const aw =
+      (a.head ? 100 : 0) + a.legislators.length * 3 + a.candidates.length;
+    const bw =
+      (b.head ? 100 : 0) + b.legislators.length * 3 + b.candidates.length;
+    return bw - aw;
+  });
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-5">
@@ -465,10 +479,10 @@ function NetworkSection({ unitCode }: { unitCode: string }) {
         인물 네트워크 — 정당별 클러스터
       </h2>
       <p className="text-xs text-slate-400 mb-3">
-        단체장(가장 큰 원) · 의원 · 6.3 후보가 소속 정당 노드(중앙)에 연결.
-        같은 정당끼리 모이는 모양으로 지역 정당 영향력 분포 시각화.
+        단체장·의원·6.3 후보를 정당별로 묶어 표시. 영향력 순(단체장 → 의원
+        수 → 후보 수)으로 정렬.
       </p>
-      <div className="grid grid-cols-3 gap-3 text-xs mb-3">
+      <div className="grid grid-cols-3 gap-3 text-xs mb-4">
         <Stat label="정당" value={data.counts.parties} color="#206298" />
         <Stat label="의원" value={data.counts.legislators} color="#031635" />
         <Stat
@@ -477,57 +491,88 @@ function NetworkSection({ unitCode }: { unitCode: string }) {
           color="#0ea5e9"
         />
       </div>
-      <div style={{ height: 480 }}>
-        <ResponsiveNetwork
-          data={{ nodes: data.nodes, links }}
-          margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-          linkDistance={(l) =>
-            (l as unknown as { distance: number }).distance
-          }
-          centeringStrength={0.3}
-          repulsivity={50}
-          nodeSize={(n) =>
-            (n as unknown as { size: number }).size
-          }
-          activeNodeSize={(n) =>
-            (n as unknown as { size: number }).size * 1.5
-          }
-          inactiveNodeSize={(n) =>
-            (n as unknown as { size: number }).size
-          }
-          nodeColor={(n) => {
-            const node = n as unknown as PowerMapNetworkNode;
-            return node.party ? partyColorMap.get(node.party) ?? "#94a3b8" : "#94a3b8";
-          }}
-          nodeBorderWidth={1}
-          nodeBorderColor={{ from: "color", modifiers: [["darker", 0.8]] }}
-          linkThickness={1}
-          linkColor={{ from: "source.color", modifiers: [["opacity", 0.3]] }}
-          nodeTooltip={({ node }) => {
-            const n = node as unknown as PowerMapNetworkNode;
-            const kindLabel =
-              n.kind === "party"
-                ? "정당"
-                : n.kind === "head"
-                  ? (n.positionLabel ?? "단체장")
-                  : n.kind === "legislator"
-                    ? n.level === "NATIONAL"
-                      ? "국회의원"
-                      : n.level === "PROVINCIAL"
-                        ? "광역의원"
-                        : "기초의원"
-                    : "6.3 후보";
-            return (
-              <div className="bg-white shadow-lg rounded px-3 py-2 text-xs border border-slate-200">
-                <div className="font-semibold text-slate-800">{n.label}</div>
-                <div className="text-slate-500 mt-0.5">
-                  {kindLabel}
-                  {n.party && n.kind !== "party" ? ` · ${n.party}` : ""}
+      <div className="space-y-3">
+        {partyCards.map((p) => (
+          <div
+            key={p.party}
+            className="rounded-lg border p-3"
+            style={{
+              borderColor: p.color,
+              borderLeftWidth: 4,
+              background: `${p.color}08`,
+            }}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span
+                className="w-3 h-3 rounded-full"
+                style={{ background: p.color }}
+              />
+              <p className="font-bold text-slate-900">{p.party}</p>
+              <span className="text-[11px] text-slate-500 ml-auto">
+                {(p.head ? 1 : 0) + p.legislators.length + p.candidates.length}명
+              </span>
+            </div>
+            {p.head && (
+              <div className="mb-2 text-xs">
+                <span
+                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full font-semibold"
+                  style={{ background: p.color, color: "#fff" }}
+                >
+                  ★ {p.head.positionLabel ?? "단체장"} {p.head.label}
+                </span>
+              </div>
+            )}
+            {p.legislators.length > 0 && (
+              <div className="mb-1.5">
+                <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+                  의원 {p.legislators.length}
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {p.legislators.slice(0, 12).map((l) => (
+                    <span
+                      key={l.id}
+                      className="text-[11px] px-2 py-0.5 rounded-full bg-white border border-slate-200"
+                    >
+                      {l.label}
+                      {l.level === "NATIONAL"
+                        ? " · 국"
+                        : l.level === "PROVINCIAL"
+                          ? " · 광역"
+                          : " · 기초"}
+                    </span>
+                  ))}
+                  {p.legislators.length > 12 && (
+                    <span className="text-[11px] text-slate-400 self-center">
+                      +{p.legislators.length - 12}
+                    </span>
+                  )}
                 </div>
               </div>
-            );
-          }}
-        />
+            )}
+            {p.candidates.length > 0 && (
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+                  6.3 후보 {p.candidates.length}
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {p.candidates.slice(0, 10).map((c) => (
+                    <span
+                      key={c.id}
+                      className="text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100"
+                    >
+                      {c.label}
+                    </span>
+                  ))}
+                  {p.candidates.length > 10 && (
+                    <span className="text-[11px] text-slate-400 self-center">
+                      +{p.candidates.length - 10}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
