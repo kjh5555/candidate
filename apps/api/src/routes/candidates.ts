@@ -147,7 +147,18 @@ const candidateRoutes: FastifyPluginAsync = async (fastify) => {
       if (!cand) {
         return reply.status(404).send({ error: "CANDIDATE_NOT_FOUND" });
       }
-      const reportYm = request.query.reportYm ?? "202603";
+
+      // reportYm 미지정 시 — 이 이름의 가장 최근 reportYm 자동 선택.
+      // 후보자가 현직 광역/기초의원이면 202503-basic, 현직 국회의원이면 202603 등이 자동 선택됨.
+      let reportYm = request.query.reportYm;
+      if (!reportYm) {
+        const latest = await prisma.legislatorAsset.findFirst({
+          where: { legislatorName: cand.name },
+          orderBy: { reportYm: "desc" },
+          select: { reportYm: true },
+        });
+        reportYm = latest?.reportYm ?? "202603";
+      }
       const rows = await prisma.legislatorAsset.findMany({
         where: { reportYm, legislatorName: cand.name },
         orderBy: { rowNumber: "asc" },
