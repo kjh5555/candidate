@@ -184,6 +184,47 @@ export function getLegislatorVotes(
   return apiFetch<VotesResponseDTO>(`/api/legislators/${id}/votes?${query.toString()}`);
 }
 
+// ── 재산공개 라인아이템 ─────────────────────────────────────
+export interface LegislatorAssetItem {
+  id: string;
+  reportYm: string;
+  rowNumber: number | null;
+  monaCode: string | null;
+  legislatorName: string;
+  category: string | null;
+  affiliation: string | null;
+  position: string | null;
+  assetKind: string;
+  relation: string;
+  itemType: string | null;
+  description: string | null;
+  prevValue: string | null;
+  increaseValue: string | null;
+  increaseRealPrice: string | null;
+  decreaseValue: string | null;
+  decreaseRealPrice: string | null;
+  currentValue: string | null;
+  changeReason: string | null;
+}
+
+export interface LegislatorAssetsResponseDTO {
+  reportYm: string;
+  legislator: { id: string; name: string };
+  count: number;
+  totalsByRelation: Record<string, string>;
+  items: LegislatorAssetItem[];
+}
+
+export function getLegislatorAssets(
+  id: string,
+  reportYm?: string
+): Promise<LegislatorAssetsResponseDTO> {
+  const q = reportYm ? `?reportYm=${encodeURIComponent(reportYm)}` : "";
+  return apiFetch<LegislatorAssetsResponseDTO>(
+    `/api/legislators/${id}/assets${q}`
+  );
+}
+
 export function getBillDetail(billId: string): Promise<BillDetailDTO> {
   return apiFetch<BillDetailDTO>(`/api/bills/${billId}`);
 }

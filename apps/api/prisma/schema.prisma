@@ -208,6 +208,44 @@ model Legislator {
   @@index([huboid])
 }
 
+// ─── LegislatorAsset (공직자 재산공개 — 라인아이템) ────────────────
+//
+// 공직자윤리위원회/인사혁신처 정기공개 재산변동신고. 의원별 자산
+// 라인아이템(부동산·예금·증권 등). 가액은 단위 천원(원본 신고서 단위).
+// 매년 3월 공개되며, 같은 의원이 여러 해에 걸쳐 복수의 신고를 가짐.
+
+model LegislatorAsset {
+  id           String  @id @default(cuid())
+  reportYm     String  // 신고 연월 (e.g. "202603")
+  monaCode     String? // 국회 monaCode (e.g. "XBT9550Q") — Legislator.id와 별개로 보관
+  legislatorName String // 의원 이름 (매칭용)
+  category     String? // "국회의원"
+  affiliation  String? // "국회"
+  position     String? // "국회의장" 등
+
+  assetKind    String  // 재산구분 (토지/건물/예금/증권/채무/...)
+  relation     String  // 본인과의관계 (본인/배우자/모/장남/...)
+  itemType     String? // 재산의종류 (임야/대지/아파트/...)
+  description  String? // 소재지·면적·권리의명세
+
+  prevValue    BigInt? // 종전가액 (천원)
+  increaseValue BigInt? // 증가액 (천원)
+  increaseRealPrice BigInt? // 증가액 실거래가격
+  decreaseValue BigInt? // 감소액 (천원)
+  decreaseRealPrice BigInt? // 감소액 실거래가격
+  currentValue BigInt? // 현재가액 (천원)
+  changeReason String? // 변동사유
+
+  rowNumber    Int?    // 원본 NO
+  createdAt    DateTime @default(now())
+
+  @@unique([reportYm, monaCode, rowNumber])
+  @@index([reportYm])
+  @@index([monaCode])
+  @@index([legislatorName])
+  @@index([assetKind])
+}
+
 // ─── Controversy / News (논란·해명) ────────────────────────────
 //
 // 의원별 자동수집된 뉴스 기사 + 토픽 클러스터. 큐레이션 X. 사용자 투표 X.

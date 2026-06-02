@@ -8,6 +8,7 @@ import {
   listLegislatorsByCouncilName,
   type ListLevel,
 } from "../services/legislatorService.js";
+import { prisma } from "../db.js";
 import type { BillResult, ProposerRole, VoteResult } from "@repo/shared";
 
 interface ListQuery {
@@ -241,6 +242,69 @@ const legislatorRoutes: FastifyPluginAsync = async (fastify) => {
         offset,
       });
       return reply.send(data);
+    },
+  );
+
+  // GET /legislators/:id/assets — 공직자 재산공개 라인아이템.
+  // 의원 이름 (or monaCode) 기반으로 LegislatorAsset 테이블에서 조회.
+  fastify.get<{ Params: IdParams; Querystring: { reportYm?: string } }>(
+    "/:id/assets",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", minLength: 1 } },
+        },
+        querystring: {
+          type: "object",
+          properties: { reportYm: { type: "string" } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const leg = await prisma.legislator.findUnique({
+        where: { id: request.params.id },
+        select: { id: true, name: true },
+      });
+      if (!leg) {
+        return reply.status(404).send({ error: "LEGISLATOR_NOT_FOUND" });
+      }
+      const reportYm = request.query.reportYm ?? "202603";
+      const rows = await prisma.legislatorAsset.findMany({
+        where: { reportYm, legislatorName: leg.name },
+        orderBy: { rowNumber: "asc" },
+      });
+
+      // BigInt → string serialise (Fastify JSON encoder는 BigInt 미지원).
+      const serialised = rows.map((r) => ({
+        ...r,
+        prevValue: r.prevValue?.toString() ?? null,
+        increaseValue: r.increaseValue?.toString() ?? null,
+        increaseRealPrice: r.increaseRealPrice?.toString() ?? null,
+        decreaseValue: r.decreaseValue?.toString() ?? null,
+        decreaseRealPrice: r.decreaseRealPrice?.toString() ?? null,
+        currentValue: r.currentValue?.toString() ?? null,
+      }));
+
+      // 관계별 합계 (현재가액 기준, 채무는 음수 처리).
+      const totals: Record<string, bigint> = {};
+      for (const r of rows) {
+        const v = r.currentValue ?? 0n;
+        const signed = r.assetKind?.includes("채무") ? -v : v;
+        totals[r.relation] = (totals[r.relation] ?? 0n) + signed;
+      }
+      const totalsByRelation = Object.fromEntries(
+        Object.entries(totals).map(([k, v]) => [k, v.toString()]),
+      );
+
+      return reply.send({
+        reportYm,
+        legislator: { id: leg.id, name: leg.name },
+        count: rows.length,
+        totalsByRelation,
+        items: serialised,
+      });
     },
   );
 };

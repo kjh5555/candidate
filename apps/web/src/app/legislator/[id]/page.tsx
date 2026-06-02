@@ -11,6 +11,7 @@ import { VotesTab } from "./_components/VotesTab";
 import { ControversiesTab } from "./_components/ControversiesTab";
 import { CouncilBillsTab } from "./_components/CouncilBillsTab";
 import { CouncilMinutesTab } from "./_components/CouncilMinutesTab";
+import AssetDetailSection from "./_components/AssetDetailSection";
 import {
   getCouncilBills,
   getCouncilMinutes,
@@ -671,6 +672,11 @@ export default function LegislatorPage() {
                 )}
               </div>
             </div>
+          )}
+
+          {/* 재산 상세 내역 (라인아이템) — NATIONAL 의원만 데이터 보유 */}
+          {isNational && (
+            <AssetDetailSection legislatorId={legislator.id} />
           )}
 
           {/* Tabs */}
