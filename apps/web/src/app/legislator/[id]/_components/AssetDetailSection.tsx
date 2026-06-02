@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   getLegislatorAssets,
+  getCandidateAssets,
   type LegislatorAssetsResponseDTO,
   type LegislatorAssetItem,
 } from "@/lib/api";
@@ -80,11 +81,12 @@ function bucket(kind: string): string {
 }
 
 interface Props {
-  legislatorId: string;
+  subjectKind: "legislator" | "candidate";
+  subjectId: string;
   reportYm?: string;
 }
 
-export default function AssetDetailSection({ legislatorId, reportYm }: Props) {
+export default function AssetDetailSection({ subjectKind, subjectId, reportYm }: Props) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<LegislatorAssetsResponseDTO | null>(null);
   const [loading, setLoading] = useState(false);
@@ -97,7 +99,10 @@ export default function AssetDetailSection({ legislatorId, reportYm }: Props) {
       setLoading(true);
       setError(null);
       try {
-        const r = await getLegislatorAssets(legislatorId, reportYm);
+        const r =
+          subjectKind === "candidate"
+            ? await getCandidateAssets(subjectId, reportYm)
+            : await getLegislatorAssets(subjectId, reportYm);
         setData(r);
       } catch (e) {
         setError((e as Error).message || "재산 상세 정보를 불러오지 못했습니다.");
@@ -142,7 +147,9 @@ export default function AssetDetailSection({ legislatorId, reportYm }: Props) {
           )}
           {!loading && !error && data && data.count === 0 && (
             <div className="text-sm" style={{ color: ON_VARIANT }}>
-              이 의원의 2026년 3월 정기공개 재산내역이 아직 적재되지 않았습니다.
+              {subjectKind === "candidate"
+                ? "이 후보자의 정기공개 재산 라인아이템이 아직 적재되지 않았습니다. 후보자 등록 시 제출한 PDF는 상단 '재산' 칸에서 확인하세요."
+                : "이 의원의 2026년 3월 정기공개 재산내역이 아직 적재되지 않았습니다. (NATIONAL 의원은 적재 완료, 광역/기초의원은 OpenWatch 지방의회 데이터 보유 시 적재 예정)"}
             </div>
           )}
           {!loading && !error && data && data.count > 0 && (

@@ -674,10 +674,9 @@ export default function LegislatorPage() {
             </div>
           )}
 
-          {/* 재산 상세 내역 (라인아이템) — NATIONAL 의원만 데이터 보유 */}
-          {isNational && (
-            <AssetDetailSection legislatorId={legislator.id} />
-          )}
+          {/* 재산 상세 내역 (라인아이템) — 데이터 있는 의원만 자동 표시 */}
+          <AssetDetailSection subjectKind="legislator" subjectId={legislator.id} />
+
 
           {/* Tabs */}
           <div

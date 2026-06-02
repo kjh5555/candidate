@@ -225,6 +225,17 @@ export function getLegislatorAssets(
   );
 }
 
+// 후보자(국회·광역·기초 모든 단계)의 재산 라인아이템 — 같은 LegislatorAsset 테이블에서 이름으로 매칭.
+export function getCandidateAssets(
+  id: string,
+  reportYm?: string
+): Promise<LegislatorAssetsResponseDTO> {
+  const q = reportYm ? `?reportYm=${encodeURIComponent(reportYm)}` : "";
+  return apiFetch<LegislatorAssetsResponseDTO>(
+    `/api/candidates/${encodeURIComponent(id)}/assets${q}`
+  );
+}
+
 export function getBillDetail(billId: string): Promise<BillDetailDTO> {
   return apiFetch<BillDetailDTO>(`/api/bills/${billId}`);
 }

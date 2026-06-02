@@ -25,6 +25,7 @@ import {
   type DebateSummaryItem,
 } from "@/lib/api";
 import { PartyBadge } from "@/components/PartyBadge";
+import AssetDetailSection from "@/app/legislator/[id]/_components/AssetDetailSection";
 import type {
   CandidateDetailDTO,
   CandidatePositionType,
@@ -379,6 +380,9 @@ export default function CandidateDetailPage() {
           </ol>
         )}
       </div>
+
+      {/* 재산 상세 (라인아이템) — 후보자 이름이 LegislatorAsset에 있을 때만 데이터 표시 */}
+      <AssetDetailSection subjectKind="candidate" subjectId={candidate.id} />
 
       {(candidate.positionType === "GOVERNOR" ||
         candidate.positionType === "SUPERINTENDENT") && (
