@@ -248,8 +248,33 @@ function AssetGroups({ data }: { data: LegislatorAssetsResponseDTO }) {
         );
       })}
 
-      <div className="text-xs pt-2" style={{ color: ON_VARIANT, borderTop: `1px solid ${BORDER}` }}>
-        출처: 공직자윤리위원회 / 국회공보 ({data.reportYm.slice(0, 4)}년 {data.reportYm.slice(4)}월 정기공개)
+      <div className="text-xs pt-2 leading-relaxed" style={{ color: ON_VARIANT, borderTop: `1px solid ${BORDER}` }}>
+        <div>
+          원자료: 공직자윤리위원회 / 국회공보 ({data.reportYm.slice(0, 4)}년 {data.reportYm.slice(4)}월 정기공개)
+        </div>
+        <div>
+          정제·구조화:{" "}
+          <a
+            href="https://www.openwatch.kr/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+            style={{ color: SECONDARY }}
+          >
+            OpenWatch
+          </a>
+          {" "}—{" "}
+          <a
+            href="https://creativecommons.org/licenses/by-sa/4.0/deed.ko"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+            style={{ color: SECONDARY }}
+          >
+            CC BY-SA 4.0
+          </a>
+          . 본 가공본도 동일 라이선스로 재배포됩니다.
+        </div>
       </div>
     </div>
   );
