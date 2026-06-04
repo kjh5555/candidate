@@ -33,6 +33,15 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: pnpm exec prisma generate
 
+      - name: Ingest 광역의원 사진
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CLIK_API_KEY: ${{ secrets.CLIK_API_KEY }}
+          NODE_ENV: production
+        # CLIK 한도(900회) 도달 시 process.exit(0)이라 다음 step도 정상 실행됨
+        run: pnpm exec tsx src/ingest/clikPhotos.ts provincial
+
       - name: Ingest 기초의원 사진
         working-directory: apps/api
         env:
