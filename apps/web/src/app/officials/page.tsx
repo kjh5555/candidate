@@ -231,9 +231,9 @@ function OfficialsPageInner() {
     <div className="flex flex-col gap-8">
       {/* Page hero */}
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">9대 지방의원</h1>
+        <h1 className="text-3xl font-bold text-slate-900">6.3 지방선거</h1>
         <p className="text-slate-500 text-sm mt-2">
-          2026.6.3 제9회 전국동시지방선거 당선인. 임기 2026.7.1 ~ 2030.6.30.
+          제9회 전국동시지방선거 당선인. 임기 2026.7.1 ~ 2030.6.30.
         </p>
         {!loading && !error && total > 0 && (
           <p className="text-slate-500 text-sm mt-1">

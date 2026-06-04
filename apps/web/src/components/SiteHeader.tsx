@@ -17,8 +17,7 @@ interface NavLinkConfig {
 const NAV_LINKS: NavLinkConfig[] = [
   { href: "/", label: "내 지역" },
   { href: "/legislators", label: "의원", matcher: /^\/(legislators|region|legislator|provincial|basic)/ },
-  { href: "/candidates", label: "6.3 지방선거 후보", matcher: /^\/(candidates|candidate)/ },
-  { href: "/officials", label: "당선인", matcher: /^\/officials/ },
+  { href: "/officials", label: "6.3 지방선거", matcher: /^\/(officials|candidates|candidate)/ },
   { href: "/parties", label: "정당", matcher: /^\/parties/ },
   { href: "/about", label: "제도 알아보기" },
 ];
