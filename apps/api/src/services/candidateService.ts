@@ -234,6 +234,9 @@ export async function getCandidateDetail(
     militaryStatus: row.militaryStatus,
     taxPaidManwon: bigintToString(row.taxPaidManwon),
     taxOutstandingManwon: bigintToString(row.taxOutstandingManwon),
+    voteCount: row.voteCount,
+    voteRate: row.voteRate,
+    rank: row.rank,
   };
 }
 

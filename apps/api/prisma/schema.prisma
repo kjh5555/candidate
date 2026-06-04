@@ -60,6 +60,8 @@ enum CandidateStatus {
   REGISTERED // 등록
   WITHDRAWN // 사퇴
   CANCELLED // 무효/취소
+  ELECTED // 당선 (선거 결과 확정 후)
+  DEFEATED // 낙선 (선거 결과 확정 후)
   UNKNOWN
 }
 
@@ -405,6 +407,12 @@ model Candidate {
 
   backgroundLastSyncedAt DateTime?
 
+  // ── 선거 결과 (NEC WinnerInfoInqireService2, 선거 후 확정) ──
+  voteCount     Int?    // 득표수
+  voteRate      Float?  // 득표율 (% e.g. 52.3)
+  rank          Int?    // 선거구 내 순위 (1 = 당선)
+  resultSyncedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -414,6 +422,7 @@ model Candidate {
   @@index([sido])
   @@index([wiwName])
   @@index([party])
+  @@index([status])
 }
 
 model CandidatePledge {

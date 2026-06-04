@@ -46,11 +46,17 @@ const STATUS_LABEL: Record<CandidateStatus, string> = {
   REGISTERED: "등록",
   WITHDRAWN: "사퇴",
   CANCELLED: "무효",
+  ELECTED: "당선",
+  DEFEATED: "낙선",
   UNKNOWN: "—",
 };
 
 function statusBadgeClass(status: CandidateStatus): string {
   switch (status) {
+    case "ELECTED":
+      return "bg-blue-50 text-blue-700 border-blue-300 font-bold";
+    case "DEFEATED":
+      return "bg-slate-100 text-slate-500 border-slate-200";
     case "REGISTERED":
       return "bg-green-50 text-green-700 border-green-200";
     case "WITHDRAWN":
@@ -217,6 +223,12 @@ export default function CandidateDetailPage() {
               <span className={`text-xs px-2.5 py-0.5 rounded-full border font-medium ${statusBadgeClass(candidate.status)}`}>
                 {STATUS_LABEL[candidate.status]}
               </span>
+              {(candidate.status === "ELECTED" || candidate.status === "DEFEATED") && candidate.voteCount != null && (
+                <span className="text-xs text-slate-600">
+                  득표 {candidate.voteCount.toLocaleString()}표
+                  {candidate.voteRate != null && ` (${candidate.voteRate.toFixed(1)}%)`}
+                </span>
+              )}
             </div>
             {regionLabel && (
               <p className="text-slate-500 text-sm">{regionLabel}</p>

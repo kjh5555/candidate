@@ -265,6 +265,8 @@ export type CandidateStatus =
   | "REGISTERED"
   | "WITHDRAWN"
   | "CANCELLED"
+  | "ELECTED"
+  | "DEFEATED"
   | "UNKNOWN";
 
 export interface CandidatePledgeDTO {
@@ -314,6 +316,11 @@ export interface CandidateDetailDTO extends CandidateSummaryDTO {
   militaryStatus: string | null;
   taxPaidManwon: string | null; // BigInt serialized as string
   taxOutstandingManwon: string | null; // BigInt serialized as string
+
+  // ── 선거 결과 (선거 후 확정 시) ──
+  voteCount: number | null;
+  voteRate: number | null;
+  rank: number | null;
 }
 
 export interface CandidatesResponseDTO {

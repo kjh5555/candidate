@@ -42,6 +42,8 @@ const STATUS_LABEL: Record<CandidateStatus, string> = {
   REGISTERED: "등록",
   WITHDRAWN: "사퇴",
   CANCELLED: "무효",
+  ELECTED: "당선",
+  DEFEATED: "낙선",
   UNKNOWN: "—",
 };
 

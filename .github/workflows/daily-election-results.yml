@@ -1,0 +1,48 @@
+name: daily-election-results
+
+# 9회 지선(20260603) 결과 ingest. 매일 KST 04시(= UTC 전날 19시) 자동 실행.
+# NEC가 당선자 결과를 점진적으로 공개하므로, 매일 돌면서 새로 들어온 당선자만 추가 반영.
+# 당선자 0명이면 DEFEATED 마킹 건너뜀(스크립트 내부 안전장치).
+on:
+  schedule:
+    - cron: "0 19 * * *"
+  workflow_dispatch:
+    inputs:
+      sgId:
+        description: "선거 ID (기본 20260603)"
+        required: false
+        default: "20260603"
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm via corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.0.0 --activate
+          pnpm -v
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm exec prisma generate
+
+      - name: Ingest 9회 지선 당선/낙선 결과
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NEC_API_KEY: ${{ secrets.NEC_API_KEY }}
+          NODE_ENV: production
+        run: pnpm exec tsx src/ingest/electionResults.ts ${{ inputs.sgId || '20260603' }}
