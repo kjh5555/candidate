@@ -20,6 +20,8 @@ export interface ListCandidatesParams {
   name?: string;
   /** 지역구 이름 contains (insensitive). districtName 컬럼 또는 wiwName 컬럼 OR 매칭. */
   districtName?: string;
+  /** 후보 상태 필터. 기본값 REGISTERED. ELECTED/DEFEATED는 freshness 게이트 우회. */
+  status?: CandidateStatus;
 }
 
 const summarySelect = {
@@ -34,6 +36,9 @@ const summarySelect = {
   occupation: true,
   status: true,
   photoUrl: true,
+  voteCount: true,
+  voteRate: true,
+  rank: true,
 } satisfies Prisma.CandidateSelect;
 
 function rowToSummary(
@@ -53,6 +58,9 @@ function rowToSummary(
     status: row.status as CandidateStatus,
     photoUrl: row.photoUrl,
     hasPledges,
+    voteCount: row.voteCount,
+    voteRate: row.voteRate,
+    rank: row.rank,
   };
 }
 
@@ -66,6 +74,7 @@ export async function listCandidates(
     wiwName,
     name,
     districtName,
+    status = "REGISTERED",
   } = params;
 
   const trimmedName = name?.trim();
@@ -105,7 +114,9 @@ export async function listCandidates(
   // 활성 후보 신선도 — NEC가 매일 후보 명단을 재공시하므로 backgroundLastSyncedAt이
   // 3일 이내인 후보만 노출. 사퇴/탈락한 옛 후보가 자동으로 빠짐.
   // (status=REGISTERED 필터만으로는 NEC가 사퇴 상태로 기록 안 한 후보가 남음.)
+  // ELECTED/DEFEATED는 선거 후 NEC가 재공시하지 않으므로 freshness 게이트를 적용하지 않음.
   const freshSince = new Date(Date.now() - 3 * 86400_000);
+  const bypassFreshness = status === "ELECTED" || status === "DEFEATED";
 
   // 광주광역시·전라남도는 NEC가 광역 단위 직위(시·도지사·교육감·광역비례)를
   // "전남광주통합특별시" 단일 entry로 응답해서 우리 DB sido에 그대로 저장됨.
@@ -119,8 +130,8 @@ export async function listCandidates(
 
   const where: Prisma.CandidateWhereInput = {
     electionId,
-    status: "REGISTERED",
-    backgroundLastSyncedAt: { gte: freshSince },
+    status,
+    ...(!bypassFreshness ? { backgroundLastSyncedAt: { gte: freshSince } } : {}),
     ...(positionType !== "ALL" ? { positionType } : {}),
     ...(sidoIn ? { sido: { in: sidoIn } } : {}),
     ...(trimmedName && trimmedName.length > 0

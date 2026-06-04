@@ -289,6 +289,10 @@ export interface CandidateSummaryDTO {
   status: CandidateStatus;
   photoUrl: string | null;
   hasPledges: boolean; // NEC에 공약 등록 여부 (단체장에만 있음)
+  // 선거 결과 (status=ELECTED/DEFEATED일 때 채워짐)
+  voteCount?: number | null;
+  voteRate?: number | null;
+  rank?: number | null;
 }
 
 export interface CandidateDetailDTO extends CandidateSummaryDTO {

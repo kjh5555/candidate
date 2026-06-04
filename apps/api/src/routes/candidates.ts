@@ -5,6 +5,7 @@ import {
   listCandidateRegions,
   type ListPositionType,
 } from "../services/candidateService.js";
+import type { CandidateStatus } from "@repo/shared";
 import { prisma } from "../db.js";
 
 interface ListQuery {
@@ -14,6 +15,7 @@ interface ListQuery {
   wiwName?: string;
   name?: string;
   districtName?: string;
+  status?: CandidateStatus;
 }
 
 interface RegionsQuery {
@@ -53,6 +55,10 @@ const candidateRoutes: FastifyPluginAsync = async (fastify) => {
             wiwName: { type: "string" },
             name: { type: "string" },
             districtName: { type: "string" },
+            status: {
+              type: "string",
+              enum: ["REGISTERED", "WITHDRAWN", "CANCELLED", "ELECTED", "DEFEATED", "UNKNOWN"],
+            },
           },
         },
       },
@@ -65,6 +71,7 @@ const candidateRoutes: FastifyPluginAsync = async (fastify) => {
         wiwName,
         name,
         districtName,
+        status,
       } = request.query;
       const candidates = await listCandidates({
         electionId,
@@ -73,6 +80,7 @@ const candidateRoutes: FastifyPluginAsync = async (fastify) => {
         wiwName,
         name,
         districtName,
+        status,
       });
       return reply.send({ candidates, total: candidates.length });
     },

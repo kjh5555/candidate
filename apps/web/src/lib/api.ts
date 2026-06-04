@@ -11,6 +11,7 @@ import type {
   CandidateDetailDTO,
   CandidateRegionsResponseDTO,
   CandidatePositionType,
+  CandidateStatus,
   BudgetLevel,
   BudgetBreakdownDTO,
   BudgetYearsResponseDTO,
@@ -282,6 +283,7 @@ export function getCandidates(params: {
   wiwName?: string;
   name?: string;
   districtName?: string;
+  status?: CandidateStatus;
 }): Promise<CandidatesResponseDTO> {
   const query = new URLSearchParams();
   query.set("electionId", params.electionId ?? "20260603");
@@ -290,6 +292,7 @@ export function getCandidates(params: {
   if (params.wiwName) query.set("wiwName", params.wiwName);
   if (params.name) query.set("name", params.name);
   if (params.districtName) query.set("districtName", params.districtName);
+  if (params.status) query.set("status", params.status);
   return apiFetch<CandidatesResponseDTO>(
     `/api/candidates?${query.toString()}`
   );
