@@ -45,10 +45,13 @@ interface WinnerRow {
   wiwName?: string;
   sggName?: string;
   // 득표수·득표율 필드 (NEC 응답 키 후보)
-  vtescnt?: string;       // 득표수
+  // 확인된 키 (8회 지선 20220601 시도지사 응답): dugsu / dugyul
+  dugsu?: string;         // 득표수 (예: "2608277")
+  dugyul?: string;        // 득표율 % (예: "59.05")
+  vtescnt?: string;
   votegetCnt?: string;
   vtTcnt?: string;
-  vtRate?: string;        // 득표율
+  vtRate?: string;
   votegetRate?: string;
   voteRate?: string;
   [key: string]: unknown;
@@ -118,8 +121,8 @@ export async function ingestElectionResults(sgId: string): Promise<void> {
       if (!huboid) continue;
       electedHuboids.add(huboid);
 
-      const voteCount = toInt(pick(w, ["vtescnt", "votegetCnt", "vtTcnt", "voteCount"]));
-      const voteRate = toFloat(pick(w, ["vtRate", "votegetRate", "voteRate", "vtRatio"]));
+      const voteCount = toInt(pick(w, ["dugsu", "vtescnt", "votegetCnt", "vtTcnt", "voteCount"]));
+      const voteRate = toFloat(pick(w, ["dugyul", "vtRate", "votegetRate", "voteRate", "vtRatio"]));
 
       const updated = await prisma.candidate.updateMany({
         where: { id: huboid, electionId },
