@@ -145,14 +145,16 @@ function OfficialsPageInner() {
   const electionId = "20260603";
   const tab = (params.get("tab") as PositionTab | null) ?? "ALL";
   const sido = params.get("sido") ?? "";
+  const wiwName = params.get("wiwName") ?? "";
 
   const [candidates, setCandidates] = useState<CandidateSummaryDTO[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sidoOptions, setSidoOptions] = useState<string[]>([]);
+  const [wiwNameOptions, setWiwNameOptions] = useState<string[]>([]);
 
-  // sido 목록 초기 로드
+  // sido 목록 초기 로드 및 sido 변경 시 wiwName 옵션 업데이트
   useEffect(() => {
     getCandidateRegions(electionId)
       .then((data) => {
@@ -160,11 +162,25 @@ function OfficialsPageInner() {
           new Set(data.regions.map((r) => r.sido).filter(Boolean) as string[])
         ).sort();
         setSidoOptions(sidos);
+
+        // sido가 선택된 경우, 해당 sido의 wiwName 옵션만 필터링
+        if (sido) {
+          const wiwNames = Array.from(
+            new Set(
+              data.regions
+                .filter((r) => r.sido === sido && r.wiwName)
+                .map((r) => r.wiwName) as string[]
+            )
+          ).sort();
+          setWiwNameOptions(wiwNames);
+        } else {
+          setWiwNameOptions([]);
+        }
       })
       .catch(() => {
-        // sido 목록 실패는 무시 — 드롭다운 없이 계속 작동
+        // 목록 로드 실패는 무시 — 드롭다운 없이 계속 작동
       });
-  }, []);
+  }, [electionId, sido]);
 
   function updateParams(updates: Record<string, string>) {
     const next = new URLSearchParams(params.toString());
@@ -191,6 +207,7 @@ function OfficialsPageInner() {
         electionId,
         positionType: pt,
         sido: sido || undefined,
+        wiwName: wiwName || undefined,
         status: "ELECTED",
       })
     );
@@ -222,7 +239,7 @@ function OfficialsPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [tab, sido]);
+  }, [tab, sido, wiwName]);
 
   const currentTabLabel =
     POSITION_TABS.find((t) => t.value === tab)?.label ?? "전체";
@@ -267,19 +284,39 @@ function OfficialsPageInner() {
 
         {/* 시·도 드롭다운 */}
         {sidoOptions.length > 0 && (
-          <div>
-            <select
-              value={sido}
-              onChange={(e) => updateParams({ sido: e.target.value })}
-              className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">전체 시·도</option>
-              {sidoOptions.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+          <div className="flex flex-col gap-3">
+            <div>
+              <select
+                value={sido}
+                onChange={(e) => updateParams({ sido: e.target.value, wiwName: "" })}
+                className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">전체 시·도</option>
+                {sidoOptions.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 시·군·구 드롭다운 (sido 선택 시에만 표시) */}
+            {sido && wiwNameOptions.length > 0 && (
+              <div>
+                <select
+                  value={wiwName}
+                  onChange={(e) => updateParams({ wiwName: e.target.value })}
+                  className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">전체 시·군·구</option>
+                  {wiwNameOptions.map((w) => (
+                    <option key={w} value={w}>
+                      {w}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         )}
       </div>
