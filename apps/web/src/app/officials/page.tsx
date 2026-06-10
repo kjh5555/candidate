@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { User } from "lucide-react";
 import { getCandidates, getCandidateRegions } from "@/lib/api";
+import { getMyRegion } from "@/lib/myRegion";
 import { PartyBadge } from "@/components/PartyBadge";
 import { EmptyState } from "@/components/EmptyState";
 import type {
@@ -153,6 +154,23 @@ function OfficialsPageInner() {
   const [error, setError] = useState<string | null>(null);
   const [sidoOptions, setSidoOptions] = useState<string[]>([]);
   const [wiwNameOptions, setWiwNameOptions] = useState<string[]>([]);
+
+  // myRegion 자동 적용 (마운트 시 1회만 실행)
+  // URL에 sido, wiwName이 둘 다 없을 때만 localStorage.myRegion 적용
+  useEffect(() => {
+    const hasSido = params.has("sido");
+    const hasWiw = params.has("wiwName");
+    if (hasSido || hasWiw) return;
+
+    const my = getMyRegion();
+    if (!my.sido) return;
+
+    const next = new URLSearchParams(params.toString());
+    next.set("sido", my.sido);
+    if (my.wiwName) next.set("wiwName", my.wiwName);
+    router.replace(`/officials?${next.toString()}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // sido 목록 초기 로드 및 sido 변경 시 wiwName 옵션 업데이트
   useEffect(() => {
